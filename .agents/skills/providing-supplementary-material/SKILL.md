@@ -71,3 +71,7 @@ Label: extends beyond the course — the course does not teach this; the
 - `mapping-course-syllabus` — the gap source
 - `explaining-concepts` — the teaching a supplement supports
 - `creating-practice-exercises` — when the fill is practice, not prose
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

@@ -91,7 +91,7 @@ botai/
 ├── Makefile                   # интерфейс: setup, new-course, progress, lab
 ├── opencode.json              # настройки opencode (агент, скиллы, MCP)
 ├── LICENSE                    # GNU GPL v3
-├── .agents/skills/            # 10 скиллов (реальные файлы)
+├── .agents/skills/            # 11 скиллов (реальные файлы)
 │   ├── README.md
 │   ├── <skill>/SKILL.md       # один каталог на скилл
 │   ├── maintaining-course-progress/templates/progress-file.md
@@ -253,7 +253,7 @@ make help
 ### 7.2 Что такое скиллы
 
 Скиллы лежат в `.agents/skills/`, каждый — в своём каталоге с файлом
-`SKILL.md`. Десять скиллов:
+`SKILL.md`. Одиннадцать скиллов:
 
 | Скилл | Назначение |
 | --- | --- |
@@ -266,6 +266,7 @@ make help
 | `giving-feedback` | ревью попытки: что верно, что исправить, как |
 | `providing-supplementary-material` | найти пробел курса и заполнить его с источником |
 | `creating-practice-exercises` | сгенерировать дополнительные упражнения |
+| `vetting-educational-material` | проверить сторонние материалы и скиллы перед использованием |
 | `reporting-learning-progress` | отчёты о прогрессе для студента или преподавателя |
 
 ---

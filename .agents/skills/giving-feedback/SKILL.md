@@ -76,3 +76,7 @@ for comparison.
   task restructured
 - `assessing-understanding` — checks to confirm the fix landed
 - `maintaining-course-progress` — record the review and the demonstrated level
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

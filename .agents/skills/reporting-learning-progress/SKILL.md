@@ -63,3 +63,7 @@ Open questions: <from the record>
 - `maintaining-course-progress` — the source this report reads
 - `planning-study-sessions` — the "recommended next steps" come from the plan
 - `giving-feedback` — per-submission detail, separate from this overview
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

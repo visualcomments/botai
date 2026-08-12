@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Educational material vetting verdict",
+  "description": "Structured verdict for vetting-educational-material: a decision on whether external course material, a third-party skill, or a supplement source is safe and sound to adopt for teaching.",
+  "type": "object",
+  "required": [
+    "material",
+    "source",
+    "facts_verified",
+    "alignment",
+    "steering_scan",
+    "verdict",
+    "reason"
+  ],
+  "properties": {
+    "material": { "type": "string" },
+    "source": {
+      "type": "object",
+      "properties": {
+        "author": { "type": "string" },
+        "institution": { "type": "string" },
+        "repository": { "type": "string" },
+        "license": { "type": "string" },
+        "date": { "type": "string" }
+      }
+    },
+    "facts_verified": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "alignment": {
+      "type": "string",
+      "enum": ["consistent", "conflicts", "out_of_track"]
+    },
+    "steering_scan": {
+      "type": "string",
+      "enum": ["clean", "found"]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "approve_with_conditions", "reject"]
+    },
+    "conditions": { "type": "string" },
+    "reason": { "type": "string" }
+  }
+}

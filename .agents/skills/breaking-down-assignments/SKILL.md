@@ -72,3 +72,7 @@ Last step: your turn. Show me your attempt at step N and I will review it.
 - `explaining-concepts` — when a step's prerequisite turns out to be missing
 - `giving-feedback` — review the attempt the breakdown produces
 - `maintaining-course-progress` — record which steps were demonstrated
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

@@ -170,10 +170,29 @@ teaching workflow when a Skill covers it.
 - `reporting-learning-progress` — progress reports for the student or a
   teacher.
 
+**Trust and vetting**
+- `vetting-educational-material` — check external course material, skills, and
+  supplements before relying on them.
+
 Per-Skill contract: every teaching Skill must (a) confirm the student's level
 for this topic before teaching, (b) respect the recorded delivery preference,
-(c) use least-assistance-first, (d) never solve graded tasks, and (e) update
-the progress record at the end.
+(c) use least-assistance-first, (d) never solve graded tasks, (e) update
+the progress record at the end, and (f) carry a current `verified:` date.
+
+### Skill freshness and verification
+
+Every SKILL.md carries a `verified: YYYY-MM-DD` field in its frontmatter. Keep
+it current:
+
+- Update the date whenever the skill body, its references, or its course
+  assumptions change.
+- Re-verify and re-date a skill when course material it depends on changes, or
+  when a session exposes an outdated or wrong procedure in it.
+- A skill whose `verified:` date is older than the course material it teaches
+  must be re-checked before use; do not silently follow a stale procedure.
+- Educational content is treated the way SECS treats security tooling: never
+  trust it unverified. External material and third-party skills go through
+  `vetting-educational-material` before use.
 
 ## Evidence logging and handling
 

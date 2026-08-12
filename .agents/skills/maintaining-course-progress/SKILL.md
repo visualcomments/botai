@@ -175,3 +175,9 @@ student's request to review before Friday). If the receiving agent has to ask
   deliverable
 - `assessing-understanding` — how to verify a level before it is recorded
 - `planning-study-sessions` — what to schedule once the record is current
+- `schemas/progress-entry.json` — structured shape of a session entry
+
+## Last Validated
+
+2026-08-12. Procedure and six-records structure current as of this date;
+re-verify when the progress template or consent-gate rules change.

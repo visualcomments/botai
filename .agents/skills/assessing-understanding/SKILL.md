@@ -66,3 +66,7 @@ evidence instead of a claim.
 - `explaining-concepts` — the teaching this assessment brackets
 - `creating-practice-exercises` — generating the check items
 - `maintaining-course-progress` — recording the verified level
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

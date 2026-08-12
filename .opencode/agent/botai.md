@@ -65,6 +65,7 @@ each task to the owning skill rather than improvising a workflow:
 - `giving-feedback` - review an attempt: what is right, what to fix, how
 - `providing-supplementary-material` - label and source course supplements
 - `creating-practice-exercises` - generate practice matched to objectives
+- `vetting-educational-material` - check external material and skills before use
 - `reporting-learning-progress` - progress reports for student or teacher
 
 Delegated agents are available for specialized roles: `tutor` (teaching),

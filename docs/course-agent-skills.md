@@ -40,11 +40,16 @@ collections that can be adapted into this project's house style and guardrails
   the progress record.
 - Re-read a Skill's `SKILL.md` before relying on it for a real session; treat
   third-party skills as untrusted until reviewed (adapt, don't copy verbatim).
+- Vetting is mandatory before adopting external material: run
+  `vetting-educational-material` on any third-party skill, handout, or
+  supplement source before relying on it. This mirrors SECS's rule that
+  security tooling is never trusted unverified.
 
 ## How to add a Skill from the ecosystem
 
 1. Find the capability in the ecosystem (this catalog, or a collection above).
 2. Confirm it is not already covered by the catalog in AGENTS.md.
-3. Adapt it into this repo's house style and guardrails, keeping attribution.
-4. Create `.agents/skills/<name>/SKILL.md`, add the symlink in `.claude/skills/`
+3. Vet the source skill with `vetting-educational-material`.
+4. Adapt it into this repo's house style and guardrails, keeping attribution.
+5. Create `.agents/skills/<name>/SKILL.md`, add the symlink in `.claude/skills/`
    and `.cursor/skills/`, and add a routing line in AGENTS.md.

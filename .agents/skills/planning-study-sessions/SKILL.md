@@ -68,3 +68,7 @@ Before:  confirm consent gate + level for this session (progress record)
 - `mapping-course-syllabus` — the track this plans from
 - `maintaining-course-progress` — the level and preferences this plans around
 - `assessing-understanding` — the check that opens and closes each step
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

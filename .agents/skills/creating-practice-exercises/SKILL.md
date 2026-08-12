@@ -69,3 +69,7 @@ Answer note (agent-only): 1. <correct answer + why>
 - `assessing-understanding` — the type ladder and check usage
 - `giving-feedback` — reviewing the completed set
 - `maintaining-course-progress` — the level that sets difficulty
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

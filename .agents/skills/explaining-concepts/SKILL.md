@@ -76,3 +76,7 @@ Check-in: <one question to confirm the idea landed>
 - `assessing-understanding` — the level check that opens and the check that closes
 - `providing-supplementary-material` — when the course is unclear or thin
 - `maintaining-course-progress` — record what was explained and demonstrated
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.

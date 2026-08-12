@@ -59,3 +59,7 @@ must be taught — without inventing anything the course does not contain.
 - `maintaining-course-progress` — the track feeds the durable record
 - `planning-study-sessions` — consumes the track to schedule work
 - `providing-supplementary-material` — fills the gaps this skill flags
+
+## Last Validated
+
+2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.
