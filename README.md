@@ -55,7 +55,7 @@ running any session.
 | [.cursor/skills/](.cursor/skills/) | The same relative symlinks for Cursor, which scans `.cursor/skills/`. |
 | [Makefile](Makefile) | The cross-platform interface: scaffold courses, read progress, run the practice lab. Run `make help`. |
 | [opencode.json](opencode.json) | opencode top-level settings: default agent `botai`, skills paths, docs reference, permissions. |
-| [.opencode/](.opencode/) | opencode wiring: the `botai` primary agent + teaching subagents, slash commands, and skill symlinks. |
+| [.opencode/](.opencode/) | opencode wiring: the `botai` primary agent + teaching subagents, slash commands, an in-repo MCP server, and skill symlinks. |
 | [docs/](docs/) | Reference docs: the teaching-method catalog, the skill ecosystem, and the practice-lab guide. |
 | [dist/](dist/) | Temporary files. Git-ignored except its `.gitignore`; nothing here is committed. |
 
@@ -76,6 +76,7 @@ botai/
 ├── .opencode/                 # opencode wiring
 │   ├── agent/                 # botai primary agent + tutor/mapper/reviewer/supplementer subagents
 │   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup
+│   ├── mcp/                   # in-repo MCP server (course-lab content tools)
 │   └── skills/                # symlinks -> ../../.agents/skills/<skill>
 ├── courses/                   # course materials (created by make setup / make new-course)
 ├── progress/                  # durable progress records (created by make setup)
@@ -110,7 +111,11 @@ opencode reads `AGENTS.md` natively and loads project skills from
 - `.opencode/agent/` — the primary agent `botai` plus the teaching subagents
   `tutor`, `mapper`, `reviewer`, and `supplementer`, all bound by AGENTS.md;
 - `.opencode/command/` — slash commands `/session`, `/new-course`, `/progress`,
-  `/review`, `/supplement`, `/lab`, `/setup`.
+  `/review`, `/supplement`, `/lab`, `/setup`;
+- `.opencode/mcp/course-lab-mcp.py` — an in-repo MCP server (registered as
+  `mcp.course-lab`) exposing the course-lab practice course as tools. It does
+  not expose `course-lab/solutions/` (graded answer keys). Enable with
+  `python3 -m pip install -r .opencode/mcp/requirements.txt`, then restart.
 
 Run opencode from the repo root. Config and `.opencode/` files load once at
 startup: after editing them, restart opencode for the changes to take effect.

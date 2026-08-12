@@ -261,7 +261,15 @@ opencode also loads from this repo:
   subagents `tutor`, `mapper`, `reviewer`, `supplementer` for the specialized
   teaching roles;
 - `.opencode/command/*.md` — slash commands `/session`, `/new-course`,
-  `/progress`, `/review`, `/supplement`, `/lab`, `/setup`.
+  `/progress`, `/review`, `/supplement`, `/lab`, `/setup`;
+- `.opencode/mcp/course-lab-mcp.py` — an in-repo MCP server registered in
+  `opencode.json` under `mcp.course-lab`. It exposes the course-lab practice
+  course (lessons and assignments) as tools. It deliberately does NOT expose
+  `course-lab/solutions/` — the answer keys are graded material; the practice
+  track gate still applies and the agent must not seek the solutions through
+  other means before a student has attempted a task. Enable it with
+  `python3 -m pip install -r .opencode/mcp/requirements.txt` and restart
+  opencode.
 
 Run opencode from the repo root so the policy, skills, agents, and commands are
 in scope. Config and `.opencode/` files are loaded once at startup: after

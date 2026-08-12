@@ -15,6 +15,8 @@ at startup — restart opencode after editing any of these files.
 | `agent/reviewer.md` | Subagent: reviews a student's attempt and gives actionable feedback. Edit-deny. |
 | `agent/supplementer.md` | Subagent: fills course gaps with labeled, sourced supplements. |
 | `command/*.md` | Slash commands: `/session`, `/new-course`, `/progress`, `/review`, `/supplement`, `/lab`, `/setup`. |
+| `mcp/course-lab-mcp.py` | In-repo MCP server exposing course-lab lessons/assignments as tools (see below). |
+| `mcp/requirements.txt` | Python deps for the MCP server (`fastmcp`). |
 | `skills/` | Symlinks back to `.agents/skills/<name>` (same pattern as `.claude/skills/` and `.cursor/skills/`). |
 
 ## How it fits the policy
@@ -39,3 +41,28 @@ at startup — restart opencode after editing any of these files.
 - `/review <submission>` — review a student's attempt
 - `/supplement <topic>` — find and fill gaps in the course material
 - `/lab <task>` — work the gated practice track (answer keys stay closed)
+
+## MCP: course-lab content server
+
+`mcp/course-lab-mcp.py` is an in-repo MCP server (FastMCP) registered in
+`opencode.json` under `mcp.course-lab`. It exposes the practice-course content
+as tools:
+
+- `list_lessons()` / `read_lesson(lesson)` — course-lab lessons (12 weeks);
+- `list_assignments()` / `read_assignment(assignment)` — course-lab tasks.
+
+It deliberately does **not** expose `course-lab/solutions/` — the answer keys
+are graded material gated by AGENTS.md, and the agent must not reach them
+before a student has attempted the task.
+
+Install the dependency and restart opencode to enable it:
+
+```bash
+python3 -m pip install -r .opencode/mcp/requirements.txt
+```
+
+Sanity-check the server standalone:
+
+```bash
+python3 .opencode/mcp/course-lab-mcp.py --list
+```

@@ -18,5 +18,15 @@
       "git *": "allow",
       "*": "ask"
     }
+  },
+  "mcp": {
+    "course-lab": {
+      "type": "local",
+      "command": [
+        "python3",
+        ".opencode/mcp/course-lab-mcp.py"
+      ],
+      "enabled": true
+    }
   }
 }
