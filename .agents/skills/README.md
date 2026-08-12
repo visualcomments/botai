@@ -1,6 +1,6 @@
 # Installed education skills
 
-11 curated, non-overlapping Agent Skills that give the co-learner assistant
+10 curated, non-overlapping Agent Skills that give the co-learner assistant
 methodology for the full teaching lifecycle: mapping the course, keeping the
 durable progress record, planning sessions, tutoring (explaining, breaking
 down, assessing, feedback), supplementing the course, and reporting progress.

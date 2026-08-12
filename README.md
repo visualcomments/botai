@@ -9,7 +9,7 @@ that work together:
 1.  **Guardrails and teaching policy** for the agent — learn with the student,
     never instead of them; Socratic first; check before teaching; honest
     coverage ([AGENTS.md](/home/zzz/Documents/Default Project/AGENTS.md));
-2.  **11 curated Agent Skills** that give the agent methodology for the full
+2.  **10 curated Agent Skills** that give the agent methodology for the full
     teaching lifecycle — mapping the course, keeping the progress record,
     planning sessions, explaining, breaking down assignments, assessing,
     feedback, supplements, and reporting
@@ -50,7 +50,7 @@ running any session.
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | The agent's policy: golden rules, consent gate, scope (course track), hard refusal list, teaching-safety rules, skill routing, evidence and feedback conventions. Every skill inherits it. |
 | [CLAUDE.md](CLAUDE.md) | A thin import so Claude Code (which reads `CLAUDE.md`, not `AGENTS.md`) loads the same guardrails. |
-| [.agents/skills/](.agents/skills/) | 11 Agent Skills (one `SKILL.md` per capability, plus references and templates). The real files live here. |
+| [.agents/skills/](.agents/skills/) | 10 Agent Skills (one `SKILL.md` per capability, plus references and templates). The real files live here. |
 | [.claude/skills/](.claude/skills/) | Relative symlinks pointing back to `.agents/skills/<name>`, so Claude Code discovers the same skills. Edit under `.agents/skills/`; the symlinks track changes. |
 | [.cursor/skills/](.cursor/skills/) | The same relative symlinks for Cursor, which scans `.cursor/skills/`. |
 | [Makefile](Makefile) | The cross-platform interface: scaffold courses, read progress, run the practice lab. Run `make help`. |
@@ -68,7 +68,7 @@ botai/
 ├── README.md                  # this file
 ├── Makefile                   # cross-platform interface: setup, new-course, progress, lab
 ├── opencode.json              # opencode settings (default agent, skills, permissions)
-├── .agents/skills/            # 11 education Agent Skills (real files)
+├── .agents/skills/            # 10 education Agent Skills (real files)
 │   ├── README.md              # what is installed, sources, how to use globally
 │   └── <skill>/SKILL.md       # one folder per skill
 ├── .claude/skills/            # symlinks -> ../../.agents/skills/<skill> (Claude Code)
@@ -122,7 +122,7 @@ startup: after editing them, restart opencode for the changes to take effect.
 
 ## The Agent Skills
 
-The 11 skills are non-overlapping — one per capability — and are loaded
+The 10 skills are non-overlapping — one per capability — and are loaded
 automatically by any agent working in this repo. See
 [.agents/skills/README.md](.agents/skills/README.md) for the full list and the
 per-skill routing table in [AGENTS.md](AGENTS.md).
@@ -199,6 +199,7 @@ make lab-clean                   # remove it when done
 
 ## Documentation
 
+- [TUTORIAL.md](TUTORIAL.md) - step-by-step tutorial: what botai is and how to use it;
 - [AGENTS.md](AGENTS.md) - the agent's operating policy and guardrails (start here);
 - [.agents/skills/README.md](.agents/skills/README.md) - what skills are installed and how to use them globally;
 - [docs/teaching-methods.md](docs/teaching-methods.md) - catalog of teaching practices by task;
