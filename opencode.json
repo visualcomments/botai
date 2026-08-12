@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "botai",
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "references": {
+    "docs": {
+      "path": "docs",
+      "description": "botai reference docs: teaching-method catalog, course-agent-skills ecosystem, practice-lab operator guide"
+    }
+  },
+  "permission": {
+    "edit": "allow",
+    "webfetch": "allow",
+    "bash": {
+      "make *": "allow",
+      "git *": "allow",
+      "*": "ask"
+    }
+  }
+}
