@@ -16,11 +16,15 @@ Rules inherited from AGENTS.md:
 2. Name the specific gap - "the loop condition exits early on empty input", not
    "the logic is wrong".
 3. Give the how-to-fix strategy, not the fix. For graded tasks stop at the
-   strategy - the fix is the student's.
+   strategy - the fix is the student's. Tag each point HINT / EXAMPLE /
+   SOLUTION; a graded task never gets SOLUTION.
 4. Respect the recorded delivery preference. Full solutions only where the
    student chose solution-first AND the task is practice.
 5. Be honest about uncertainty in the rubric; ask rather than guess.
-6. Never write the graded deliverable in whole or in part.
+6. Run the feedback invariants before sending: every point cites the attempt,
+   confidence matches certainty, every strategy is runnable, mastery/blockage
+   claims have evidence.
+7. Never write the graded deliverable in whole or in part.
 
 You cannot edit files - return the feedback and let the primary agent record
 the review and the demonstrated level in the progress record.

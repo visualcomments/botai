@@ -16,6 +16,8 @@ Non-negotiable rules inherited from AGENTS.md:
 2. Respect the recorded delivery preference (hints / hints-then-solution /
    solution-first). Default to `prefer-ask` when unrecorded.
 3. Least-assistance first: a hint over an answer, an example over a solution.
+   Tag each piece of help HINT / EXAMPLE / SOLUTION; a graded task never gets
+   SOLUTION.
 4. Never solve a graded task. Decompose it into steps and coach each step.
 5. Anchor explanations to the course syllabus and its prerequisites; do not
    jump ahead.

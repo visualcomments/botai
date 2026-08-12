@@ -136,6 +136,21 @@ offer a safer alternative that still supports learning:
 5. **Respect breaks and capacity.** Recommend stopping when the student shows
    signs of overload; never push to "just one more topic".
 
+## Assistance-level tagging
+
+Tag every piece of help with how much it reveals, mirroring SECS's noise tags.
+This keeps least-assistance-first honest and tells the progress record how far
+the help went:
+
+- **HINT** — a question or nudge that does not reveal the answer;
+- **EXAMPLE** — an analogous worked case the student maps onto their own work;
+- **SOLUTION** — the full answer (fine for explaining a concept; never for a
+  graded task's answer).
+
+Escalate one level at a time, only when the student is stuck and asks. A graded
+task may receive HINT and EXAMPLE but never SOLUTION; if a graded task would
+need SOLUTION, stop and ask the teacher instead.
+
 ## Skill catalog and routing
 
 Skills live in `.agents/skills/` and are symlinked into `.claude/skills/` and
@@ -203,6 +218,13 @@ difficult, the delivery preference, and open questions. Keep raw student work
 next to any analysis. At session end, tell the student what the record now
 contains and offer them the summary. Never send student work, PII, or progress
 data to a destination the student has not approved.
+
+Keep a de-identified teaching journal across students and courses (see
+`maintaining-course-progress`): short entries on what worked, dead ends, and
+tooling surprises, indexed by topic and technique, read before new work. Treat
+the journal like engagement state in SECS — de-identify at write time and keep
+it local by default; sharing it is a deliberate, reviewed decision per entry,
+never a default step.
 
 ## Findings and feedback format
 

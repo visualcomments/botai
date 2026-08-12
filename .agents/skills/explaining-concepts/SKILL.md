@@ -53,6 +53,22 @@ student's question requires material the course places later, say where it is
 covered rather than teaching it prematurely — unless the student explicitly
 asks for a preview.
 
+## Tag the assistance level
+
+Label each explanation step with how much it reveals, mirroring SECS's noise
+tags. The tag keeps least-assistance-first honest and lets the student see how
+much help they took:
+
+- **HINT** — a question or nudge that does not state the concept ("what stays
+  the same when you run this twice?"). Default opening.
+- **EXAMPLE** — a worked case that demonstrates the idea without solving the
+  student's task. Escalate here when the hint did not land.
+- **SOLUTION** — the concept stated outright. Fine for explaining a concept;
+  never for a graded task's answer.
+
+Escalate one level at a time, and only when the student is stuck and asks.
+A graded task may receive HINT and EXAMPLE but never SOLUTION.
+
 ## Worked-example shape
 
 ```

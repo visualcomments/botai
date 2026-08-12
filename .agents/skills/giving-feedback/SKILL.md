@@ -70,6 +70,48 @@ for comparison.
 - **Reject the urge to grade harshly or softly.** Feedback is about the next
   attempt, not the ego.
 
+## Tag every item by assistance level
+
+Tag each point of feedback with how much assistance it provides, mirroring
+SECS's noise tags. The tag tells the student (and the record) how far you
+went, and keeps least-assistance-first honest:
+
+- **HINT** — a nudge that does not reveal the answer ("check what the loop
+  does on an empty input"). Default for graded tasks.
+- **EXAMPLE** — an analogous worked case the student maps onto their own work.
+  Escalate here when a hint has not unblocked.
+- **SOLUTION** — the full answer. Only for practice tasks where
+  `solution-first` was agreed, and only after the attempt.
+
+A graded task may use HINT and EXAMPLE but never SOLUTION. If a review needs
+SOLUTION for a graded task, that is a stop-and-ask: escalate to the teacher,
+do not write it.
+
+## Invariants to check before feedback leaves draft
+
+Four checks adapted from SECS `reporting-security-findings`. Run them over
+every review before you send it; each maps to a way feedback has actually gone
+wrong:
+
+1. **Every point cites the attempt.** A claim that the student "did X wrong"
+   must point at the specific line, output, or sentence — not a general
+   impression. Feedback whose only support is a feeling is a *comment*, not
+   feedback; label it so.
+2. **Confidence and certainty cannot disagree.** If you would not bet on a gap
+   being real, do not write it as a fact — say "check whether …" and name what
+   would settle it. Certain phrasing with low confidence is how a wrong review
+   acquires authority.
+3. **Every strategy is runnable without a follow-up question.** "Review the
+   loop" is not a strategy; "add a print inside the loop and run it with an
+   empty input" is. If the student would have to ask what you meant, rewrite it.
+4. **A claim of mastery or blockage has evidence from the attempt.** "Mastered"
+   needs a correct unaided attempt; "blocked" needs a demonstrated failure
+   point. Reachability is not mastery.
+
+When a point fails one of these, it does not get dropped silently: it moves to
+an open question with the reason attached, so the next session knows what
+would promote it.
+
 ## References
 
 - `breaking-down-assignments` — when the feedback reveals the student needs the

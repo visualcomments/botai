@@ -154,6 +154,36 @@ immediate next action, and anything time-sensitive (a graded deadline, a
 student's request to review before Friday). If the receiving agent has to ask
 "what were we doing?", the handoff failed.
 
+## Across Students: the Teaching Journal
+
+The six records reset per course or per student. Two things are worth carrying
+between them, and both fail the same way — reconstructed from memory, they are
+wrong.
+
+**What this student's environment can actually do.** Before a skill runs a tool
+or presumes an installed dependency, the tool has to exist at a known path and
+version. Guessing that a student has Jupyter, a compiler, or network access and
+debugging the failure as if it were the material's fault is a standard way to
+lose a session. Keep a local, machine-specific inventory per student — tool,
+real path, version, and whether it is not just installed but *reachable*.
+Present and ready are different states.
+
+**What past sessions taught.** A short, de-identified journal entry per
+finished session — the scenario, the explanation that worked, the dead ends
+and the hours they cost, the tooling surprise — turns the next similar session
+from a cold start into a lookup. Keep an index over the entries by topic, by
+technique, and by student trait, and read *that* before starting new work, not
+the entries themselves; the index is the cheap part.
+
+Two disciplines make the journal safe to keep. **De-identify at write time**,
+not before sharing — real names, course codes, and identifying details become
+placeholders the moment the entry is written, so an entry that is never meant
+to leave still cannot leak if it does. And **keep it local by default**:
+contributing lessons to a shared or public location ships student detail to a
+third party, and "the model anonymised it" is not a control you would defend
+to a parent or teacher. If a journal is ever shared, that is a deliberate,
+reviewed decision per entry — not a default step in the workflow.
+
 ## Rationalizations to Reject
 
 - *"I'll remember where that student is."* You will not, and neither will the
