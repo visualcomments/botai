@@ -1,243 +1,250 @@
 # botai
 
-**botai** is a self-contained setup that turns an
-AGENTS.md-aware AI coding agent (Claude Code, pi, Cursor, Codex, OpenCode, or
-any compatible tool) into a **co-learner for a training course**: an agent that
-goes through the course *together with* the students. It ships three things
-that work together:
+**botai** — это автономный набор, который превращает AI-кодинг-агента,
+понимающего `AGENTS.md` (Claude Code, pi, Cursor, Codex, OpenCode или любой
+совместимый инструмент), в **сосоучастника учебного курса**: агента, который
+проходит курс *вместе со* студентами. Он поставляет три вещи, работающие
+вместе:
 
-1.  **Guardrails and teaching policy** for the agent — learn with the student,
-    never instead of them; Socratic first; check before teaching; honest
-    coverage ([AGENTS.md](/home/zzz/Documents/Default Project/AGENTS.md));
-2.  **10 curated Agent Skills** that give the agent methodology for the full
-    teaching lifecycle — mapping the course, keeping the progress record,
-    planning sessions, explaining, breaking down assignments, assessing,
-    feedback, supplements, and reporting
-    ([.agents/skills/](/home/zzz/Documents/Default Project/.agents/skills));
-3.  **A local course workspace** — a cross-platform `make` interface that
-    scaffolds courses, reads progress, and runs a deliberately under-specified
-    practice course for integrity testing ([Makefile](/home/zzz/Documents/Default Project/Makefile),
-    [docs/](/home/zzz/Documents/Default Project/docs)).
+1.  **Политика и педагогические ограничения** для агента — учиться вместе со
+    студентом, никогда вместо него; сначала вопросы (Socratic); проверять
+    понимание перед обучением; честно покрывать материал
+    ([AGENTS.md](AGENTS.md));
+2.  **10 подобранных Agent-скиллов**, которые дают агенту методологию для
+    полного цикла обучения — построение карты курса, ведение досье прогресса,
+    планирование сессий, объяснение, разбор заданий, оценку, обратную связь,
+    дополнения и отчёты ([.agents/skills/](.agents/skills/));
+3.  **Локальное рабочее пространство курса** — кроссплатформенный интерфейс
+    `make`, который создаёт курсы, читает прогресс и запускает намеренно
+    недоопределённый практический курс для проверки честности агента
+    ([Makefile](Makefile), [docs/](docs/)).
 
-The result is a repository you drop an agent into so it can study a course
-alongside the students — breaking down assignments, explaining material,
-supplying what the course lacks — while never completing graded work for them.
+Результат — репозиторий, в который вы «помещаете» агента, чтобы он изучал
+курс вместе со студентами — разбирал задания, объяснял материал, добавлял то,
+чего не хватает в курсе, — никогда не выполняя за них оцениваемую работу.
 
-## How it fits together
+## Как это устроено
 
-An AI coding agent (cloud or local) runs in this directory, bound by the
-[AGENTS.md](/home/zzz/Documents/Default Project/AGENTS.md) policy, drawing on
-the [Agent Skills](/home/zzz/Documents/Default Project/.agents/skills), and
-wired to a local course workspace created with `make setup`. The agent reads the
-same lessons the students read, does the same assignments as a basis for
-discussion, reviews the student's attempts, and keeps a durable progress record
-in `progress/` — nothing leaves the sandbox.
+AI-кодинг-агент (облачный или локальный) работает в этом каталоге, связан
+политикой [AGENTS.md](AGENTS.md), опирается на
+[Agent-скиллы](.agents/skills/) и подключён к локальному рабочему
+пространству курса, созданному командой `make setup`. Агент читает те же
+уроки, что и студенты, выполняет те же задания как основу для обсуждения,
+проверяет попытки студентов и ведёт постоянное досье прогресса в `progress/`
+— ничего не покидает песочницу.
 
-## Students first
+## Студенты прежде всего
 
-This project is for **learning together with students**. The agent's policy
-makes that concrete: it never writes a graded assignment for a student, never
-hands out an answer key before an attempt, never fabricates sources, and never
-impersonates the student. Before working with a student it runs a mandatory
-consent gate — level, delivery preference, graded vs practice split — and
-records the answers. The full policy lives in
-[AGENTS.md](/home/zzz/Documents/Default Project/AGENTS.md); read it before
-running any session.
+Этот проект — для **совместного обучения со студентами**. Политика агента
+делает это конкретным: он никогда не пишет оцениваемое задание за студента,
+не выдаёт ключи ответов до попытки, не выдумывает источники и не выдаёт себя
+за студента. Перед началом работы со студентом он проходит обязательный
+consent-gate — уровень, формат обратной связи, разделение на оцениваемые и
+тренировочные задания — и записывает ответы. Полная политика — в
+[AGENTS.md](AGENTS.md); прочитайте её перед любой сессией.
 
-## What is in this repository
+## Что в этом репозитории
 
-| Path | What it is |
+| Путь | Что это |
 | --- | --- |
-| [AGENTS.md](AGENTS.md) | The agent's policy: golden rules, consent gate, scope (course track), hard refusal list, teaching-safety rules, skill routing, evidence and feedback conventions. Every skill inherits it. |
-| [CLAUDE.md](CLAUDE.md) | A thin import so Claude Code (which reads `CLAUDE.md`, not `AGENTS.md`) loads the same guardrails. |
-| [.agents/skills/](.agents/skills/) | 10 Agent Skills (one `SKILL.md` per capability, plus references and templates). The real files live here. |
-| [.claude/skills/](.claude/skills/) | Relative symlinks pointing back to `.agents/skills/<name>`, so Claude Code discovers the same skills. Edit under `.agents/skills/`; the symlinks track changes. |
-| [.cursor/skills/](.cursor/skills/) | The same relative symlinks for Cursor, which scans `.cursor/skills/`. |
-| [Makefile](Makefile) | The cross-platform interface: scaffold courses, read progress, run the practice lab. Run `make help`. |
-| [opencode.json](opencode.json) | opencode top-level settings: default agent `botai`, skills paths, docs reference, permissions. |
-| [.opencode/](.opencode/) | opencode wiring: the `botai` primary agent + teaching subagents, slash commands, an in-repo MCP server, and skill symlinks. |
-| [docs/](docs/) | Reference docs: the teaching-method catalog, the skill ecosystem, and the practice-lab guide. |
-| [dist/](dist/) | Temporary files. Git-ignored except its `.gitignore`; nothing here is committed. |
+| [AGENTS.md](AGENTS.md) | Политика агента: золотые правила, consent-gate, область работы (трасса курса), список жёстких отказов, правила безопасности обучения, маршрутизация скиллов, правила фиксации фактов и обратной связи. Её наследует каждый скилл. |
+| [CLAUDE.md](CLAUDE.md) | Тонкий импорт, чтобы Claude Code (который читает `CLAUDE.md`, а не `AGENTS.md`) загружал те же ограничения. |
+| [.agents/skills/](.agents/skills/) | 10 Agent-скиллов (по одному `SKILL.md` на способность, плюс ссылки и шаблоны). Здесь лежат настоящие файлы. |
+| [.claude/skills/](.claude/skills/) | Относительные симлинки обратно в `.agents/skills/<name>`, чтобы Claude Code находил те же скиллы. Правьте в `.agents/skills/`; симлинки следят за изменениями. |
+| [.cursor/skills/](.cursor/skills/) | Те же относительные симлинки для Cursor, который сканирует `.cursor/skills/`. |
+| [Makefile](Makefile) | Кроссплатформенный интерфейс: создание курсов, чтение прогресса, запуск практической лаборатории. Выполните `make help`. |
+| [opencode.json](opencode.json) | Настройки opencode верхнего уровня: агент по умолчанию `botai`, пути скиллов, ссылка на docs, разрешения. |
+| [.opencode/](.opencode/) | Обвязка opencode: primary-агент `botai` + обучающие сабагенты, слэш-команды, собственный MCP-сервер и симлинки скиллов. |
+| [docs/](docs/) | Справочная документация: каталог методов преподавания, экосистема скиллов и руководство по практической лаборатории. |
+| [dist/](dist/) | Временные файлы. Git-игнорируются, кроме `.gitignore`; сюда ничего не коммитится. |
 
-### Repository layout
+### Структура репозитория
 
 ```
 botai/
-├── AGENTS.md                  # agent policy and guardrails (the source of truth)
-├── CLAUDE.md                  # thin import of AGENTS.md for Claude Code
-├── README.md                  # this file
-├── Makefile                   # cross-platform interface: setup, new-course, progress, lab
-├── opencode.json              # opencode settings (default agent, skills, permissions)
-├── .agents/skills/            # 10 education Agent Skills (real files)
-│   ├── README.md              # what is installed, sources, how to use globally
-│   └── <skill>/SKILL.md       # one folder per skill
-├── .claude/skills/            # symlinks -> ../../.agents/skills/<skill> (Claude Code)
-├── .cursor/skills/            # symlinks -> ../../.agents/skills/<skill> (Cursor)
-├── .opencode/                 # opencode wiring
-│   ├── agent/                 # botai primary agent + tutor/mapper/reviewer/supplementer subagents
+├── AGENTS.md                  # политика и ограничения агента (источник правды)
+├── CLAUDE.md                  # тонкий импорт AGENTS.md для Claude Code
+├── README.md                  # этот файл
+├── TUTORIAL.md                # пошаговый туториал
+├── Makefile                   # кроссплатформенный интерфейс: setup, new-course, progress, lab
+├── opencode.json              # настройки opencode (агент по умолчанию, скиллы, разрешения)
+├── .agents/skills/            # 10 образовательных Agent-скиллов (реальные файлы)
+│   ├── README.md              # что установлено, источники, как использовать глобально
+│   └── <skill>/SKILL.md       # один каталог на скилл
+├── .claude/skills/            # симлинки -> ../../.agents/skills/<skill> (Claude Code)
+├── .cursor/skills/            # симлинки -> ../../.agents/skills/<skill> (Cursor)
+├── .opencode/                 # обвязка opencode
+│   ├── agent/                 # primary-агент botai + сабагенты tutor/mapper/reviewer/supplementer
 │   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup
-│   ├── mcp/                   # in-repo MCP server (course-lab content tools)
-│   └── skills/                # symlinks -> ../../.agents/skills/<skill>
-├── courses/                   # course materials (created by make setup / make new-course)
-├── progress/                  # durable progress records (created by make setup)
-├── course-lab/                # gated practice course (committed content, make lab-* targets)
+│   ├── mcp/                   # собственный MCP-сервер (инструменты контента course-lab)
+│   └── skills/                # симлинки -> ../../.agents/skills/<skill>
+├── courses/                   # материалы курсов (создаются make setup / make new-course)
+├── progress/                  # постоянные досье прогресса (создаются make setup)
+├── course-lab/                # gated-практический курс (контент закоммичен, make lab-*)
 ├── docs/
-│   ├── teaching-methods.md        # catalog of teaching practices by task
-│   ├── course-agent-skills.md     # catalog of skill collections in the ecosystem
-│   └── course-lab.md              # practice-track guide (operator)
-└── dist/                          # temporary files (git-ignored)
+│   ├── teaching-methods.md        # каталог методов преподавания по задачам
+│   ├── course-agent-skills.md     # каталог коллекций скиллов в экосистеме
+│   └── course-lab.md              # руководство по практическому треку (для оператора)
+└── dist/                          # временные файлы (git-игнорируются)
 ```
 
-## Wiring for pi and other agents
+## Подключение для pi и других агентов
 
-Skills live once under `.agents/skills/` and the policy lives in `AGENTS.md`.
-[pi](https://pi.dev) and Cursor read `.agents/skills/` and `AGENTS.md` directly,
-so they pick the skills up with no extra setup the moment you run them from this
-directory (pi asks to trust the directory on first run; approve it once). Claude
-Code reads `.claude/skills/` and `CLAUDE.md` instead, and Cursor also scans
-`.cursor/skills/`, so both of those directories hold relative symlinks back to
-`.agents/skills/<name>`. Edit skills under `.agents/skills/`; the symlink farms
-track the change.
+Скиллы живут один раз в `.agents/skills/`, а политика — в `AGENTS.md`.
+[pi](https://pi.dev) и Cursor читают `.agents/skills/` и `AGENTS.md` напрямую,
+поэтому подхватывают скиллы без дополнительной настройки, как только вы
+запускаете их из этого каталога (pi просит довериться каталогу при первом
+запуске; подтвердите один раз). Claude Code вместо этого читает
+`.claude/skills/` и `CLAUDE.md`, а Cursor также сканирует `.cursor/skills/`,
+поэтому оба каталога содержат относительные симлинки обратно в
+`.agents/skills/<name>`. Правьте скиллы в `.agents/skills/`; симлинк-фермы
+следят за изменениями.
 
-## Wiring for opencode
+## Подключение для opencode
 
-opencode reads `AGENTS.md` natively and loads project skills from
-`.opencode/skills/`, which holds the same relative symlinks back to
-`.agents/skills/<name>`. It also loads:
+opencode читает `AGENTS.md` нативно и загружает проектные скиллы из
+`.opencode/skills/`, где лежат те же относительные симлинки обратно в
+`.agents/skills/<name>`. Он также загружает:
 
-- `opencode.json` — `default_agent` is `botai` (the co-learner); skills paths; a
-  `docs` reference; permissions (edit/webfetch allowed, bash allowed for
-  `make *` and `git *`, everything else asks);
-- `.opencode/agent/` — the primary agent `botai` plus the teaching subagents
-  `tutor`, `mapper`, `reviewer`, and `supplementer`, all bound by AGENTS.md;
-- `.opencode/command/` — slash commands `/session`, `/new-course`, `/progress`,
+- `opencode.json` — `default_agent` — `botai` (сосоучастник); пути скиллов;
+  ссылку на `docs`; разрешения (edit/webfetch разрешены, bash разрешён для
+  `make *` и `git *`, всё остальное спрашивает);
+- `.opencode/agent/` — primary-агент `botai` плюс обучающие сабагенты `tutor`,
+  `mapper`, `reviewer` и `supplementer`, все связаны AGENTS.md;
+- `.opencode/command/` — слэш-команды `/session`, `/new-course`, `/progress`,
   `/review`, `/supplement`, `/lab`, `/setup`;
-- `.opencode/mcp/course-lab-mcp.py` — an in-repo MCP server (registered as
-  `mcp.course-lab`) exposing the course-lab practice course as tools. It does
-  not expose `course-lab/solutions/` (graded answer keys). Enable with
-  `python3 -m pip install -r .opencode/mcp/requirements.txt`, then restart.
+- `.opencode/mcp/course-lab-mcp.py` — собственный MCP-сервер (зарегистрирован
+  как `mcp.course-lab`), отдающий практический курс course-lab как
+  инструменты. Он **не** отдаёт `course-lab/solutions/` (градационные ключи
+  ответов). Включение:
+  `python3 -m pip install -r .opencode/mcp/requirements.txt`, затем перезапуск.
 
-Run opencode from the repo root. Config and `.opencode/` files load once at
-startup: after editing them, restart opencode for the changes to take effect.
+Запускайте opencode из корня репозитория. Конфиг и файлы `.opencode/`
+загружаются один раз при старте: после их правки перезапустите opencode, чтобы
+изменения вступили в силу.
 
-## The Agent Skills
+## Agent-скиллы
 
-The 10 skills are non-overlapping — one per capability — and are loaded
-automatically by any agent working in this repo. See
-[.agents/skills/README.md](.agents/skills/README.md) for the full list and the
-per-skill routing table in [AGENTS.md](AGENTS.md).
+10 скиллов не пересекаются — по одному на способность — и автоматически
+загружаются любым агентом, работающим в этом репозитории. Полный список — в
+[.agents/skills/README.md](.agents/skills/README.md), таблица маршрутизации —
+в [AGENTS.md](AGENTS.md).
 
-- **Course lifecycle** — `mapping-course-syllabus`,
+- **Жизненный цикл курса** — `mapping-course-syllabus`,
   `maintaining-course-progress`, `planning-study-sessions`;
-- **Teaching** — `breaking-down-assignments`, `explaining-concepts`,
+- **Преподавание** — `breaking-down-assignments`, `explaining-concepts`,
   `assessing-understanding`, `giving-feedback`;
-- **Supplements** — `providing-supplementary-material`,
+- **Дополнения** — `providing-supplementary-material`,
   `creating-practice-exercises`;
-- **Reporting** — `reporting-learning-progress`.
+- **Отчёты** — `reporting-learning-progress`.
 
-Each skill is a set of instructions the agent will follow. Re-read a skill's
-`SKILL.md` before relying on it for a real session, and treat any third-party
-skill as untrusted until reviewed — see `docs/course-agent-skills.md`.
+Каждый скилл — это набор инструкций, которым будет следовать агент.
+Перечитайте `SKILL.md` скилла перед реальной сессией и относитесь к любому
+стороннему скиллу как к ненадёжному, пока не проверите его — см.
+`docs/course-agent-skills.md`.
 
-## How the agent operates
+## Как работает агент
 
-The policy defines three modes:
+Политика определяет три режима:
 
-- **Co-learning mode** (default) — the agent studies the course alongside the
-  student: reads the same lessons, does the same assignments as a basis for
-  discussion, then reviews the student's attempt and gives feedback;
-- **Tutoring mode** — the agent explains concepts, breaks down assignments into
-  steps, and drills the student, tailored to their current level;
-- **Supplement mode** — the agent detects a gap in the course material and
-  prepares additional material (explanations, examples, practice, external
-  references) to fill it, labeled as a supplement.
+- **Co-learning (по умолчанию)** — агент изучает курс вместе со студентом:
+  читает те же уроки, выполняет те же задания как основу для обсуждения,
+  затем проверяет попытку студента и даёт обратную связь;
+- **Tutoring** — агент объясняет понятия, разбивает задания на шаги и
+  тренирует студента с учётом его текущего уровня;
+- **Supplement** — агент обнаруживает пробел в материалах курса и готовит
+  дополнительный материал (объяснения, примеры, практику, внешние ссылки),
+  помеченный как дополнение.
 
-The golden rules, in short: learn with, not instead of; Socratic first; stay on
-the course track; honest coverage; check before teaching; never fabricate; log
-everything; when in doubt, stop and ask. The complete, binding version is in
-[AGENTS.md](AGENTS.md).
+Золотые правила вкратце: учиться вместе, а не вместо; сначала вопросы
+(Socratic); оставаться на трассе курса; честно покрывать материал; проверять
+перед обучением; никогда не выдумывать; всё записывать; сомневаешься —
+остановись и спроси. Полная обязательная версия — в [AGENTS.md](AGENTS.md).
 
-## Quick start
+## Быстрый старт
 
-Everything is driven by `make`. Run `make help` for the full target list, or
-`make doctor` to see the detected environment and any helper tools already
-present.
+Всем управляет `make`. Выполните `make help` для полного списка целей или
+`make doctor`, чтобы увидеть обнаруженное окружение и уже имеющиеся
+вспомогательные инструменты.
 
-### 1. Set up the workspace
-
-```bash
-make setup                       # create courses/, progress/, dist/
-make new-course NAME=my-course   # scaffold a course from the template
-```
-
-### 2. Start co-learning
-
-Run the agent from this directory and ask it to study the course with you.
-The agent runs the consent gate, maps the syllabus, and starts a session.
-
-In opencode, the `botai` agent is the default. Slash commands drive the common
-workflows: `/session`, `/new-course`, `/progress`, `/review`, `/supplement`,
-`/lab`, `/setup`.
+### 1. Настройте рабочее пространство
 
 ```bash
-make progress COURSE=my-course   # summarize the progress record for a course
-make review COURSE=my-course     # review a student's submission
+make setup                       # создать courses/, progress/, dist/
+make new-course NAME=my-course   # создать курс из шаблона
 ```
 
-### 3. Run the practice track (optional)
+### 2. Начните co-learning
 
-`course-lab/` is a practice course built on the open course «Анализ данных в
-научной литературе» from [top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph)
-(GPL-3.0-or-later). Its lessons leave gaps on purpose and its solution keys are
-graded material — used to test the agent's integrity. See the gate in
-`AGENTS.md` and `docs/course-lab.md`.
+Запустите агента из этого каталога и попросите его изучать курс вместе с
+вами. Агент проходит consent-gate, строит карту программы и начинает сессию.
+
+В opencode агент `botai` — по умолчанию. Слэш-команды управляют типовыми
+рабочими процессами: `/session`, `/new-course`, `/progress`, `/review`,
+`/supplement`, `/lab`, `/setup`.
 
 ```bash
-make lab-check                   # what the integrity test looks like
-make lab-clean                   # remove it when done
+make progress COURSE=my-course   # сводка досье прогресса курса
+make review COURSE=my-course     # ревью работы студента
 ```
 
-## Documentation
+### 3. Практический трек (опционально)
 
-- [TUTORIAL.md](TUTORIAL.md) - step-by-step tutorial: what botai is and how to use it;
-- [AGENTS.md](AGENTS.md) - the agent's operating policy and guardrails (start here);
-- [.agents/skills/README.md](.agents/skills/README.md) - what skills are installed and how to use them globally;
-- [docs/teaching-methods.md](docs/teaching-methods.md) - catalog of teaching practices by task;
-- [docs/course-agent-skills.md](docs/course-agent-skills.md) - the wider ecosystem of educational Agent Skills;
-- [docs/course-lab.md](docs/course-lab.md) - the practice-track guide (operator).
+`course-lab/` — это практический курс, построенный на открытом курсе
+«Анализ данных в научной литературе» из
+[top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph)
+(GPL-3.0-or-later). Его уроки намеренно оставлены с пробелами, а ключи
+решений — градационный материал — используются для проверки честности агента.
+См. гейт в `AGENTS.md` и `docs/course-lab.md`.
 
-## Attribution and derivation
+```bash
+make lab-check                   # как выглядит integrity-тест
+make lab-clean                   # удалить, когда закончите
+```
 
-**botai is a derivative work of [SECS](https://github.com/EvilFreelancer/secs)**
-(SECurity aSsistant), re-themed from information security to education.
+## Документация
 
-What is carried over from SECS:
+- [TUTORIAL.md](TUTORIAL.md) — пошаговый туториал: что такое botai и как им пользоваться;
+- [AGENTS.md](AGENTS.md) — политика и ограничения агента (начните отсюда);
+- [.agents/skills/README.md](.agents/skills/README.md) — какие скиллы установлены и как использовать их глобально;
+- [docs/teaching-methods.md](docs/teaching-methods.md) — каталог методов преподавания по задачам;
+- [docs/course-agent-skills.md](docs/course-agent-skills.md) — широкая экосистема образовательных Agent-скиллов;
+- [docs/course-lab.md](docs/course-lab.md) — руководство по практическому треку (для оператора).
 
-- the overall harness pattern — an `AGENTS.md` policy, a skills directory with
-  symlink farms for each agent surface (`.claude/skills/`, `.cursor/skills/`,
-  `.opencode/skills/`), a `Makefile` front door, a `docs/` reference set, and a
-  git-ignored `dist/`;
-- the guardrail structure — authorization gate and rules of engagement mapped
-  to a student consent gate and teaching rules, plus a gated practice track
-  (SECS's Metasploitable lab → botai's `course-lab/`).
+## Атрибуция и происхождение
 
-What is original to botai:
+**botai — производная работа проекта [SECS](https://github.com/EvilFreelancer/secs)**
+(SECurity aSsistant), переосмысленная из информационной безопасности в
+образование.
 
-- all teaching Skills under `.agents/skills/`;
-- the educational policy in `AGENTS.md`;
-- the course lifecycle `Makefile` and the opencode agent/command wiring.
+Что перенесено из SECS:
 
-The guardrail practices also draw on the [AGENTS.md spec](https://agents.md/)
-and on established teaching practice (Socratic method, scaffolded instruction,
-formative assessment).
+- общий паттерн harness — политика `AGENTS.md`, каталог скиллов с
+  симлинк-фермами для каждой поверхности агента (`.claude/skills/`,
+  `.cursor/skills/`, `.opencode/skills/`), входная дверь через `Makefile`,
+  набор справочников в `docs/` и git-игнорируемый `dist/`;
+- структура ограничений — гейт авторизации и правила взаимодействия,
+  переосмысленные в consent-gate студента и правила преподавания, плюс
+  gated-практический трек (лаборатория Metasploitable у SECS → `course-lab/`
+  у botai).
 
-SECS is licensed under the Apache License 2.0; the derived portions retain that
-attribution. botai itself is distributed under the GNU GPL v3 license (the
-Apache 2.0 license is GPL v3 compatible).
+Что оригинально в botai:
 
-## License
+- все обучающие скиллы в `.agents/skills/`;
+- образовательная политика в `AGENTS.md`;
+- `Makefile` жизненного цикла курса и обвязка агентов/команд opencode.
 
-GNU GPL v3. See [LICENSE](LICENSE).
+Практики ограничений также опираются на [спецификацию AGENTS.md](https://agents.md/)
+и на устоявшуюся педагогическую практику (метод Сократа, скаффолдинг,
+формирующее оценивание).
 
-Derivative of [SECS](https://github.com/EvilFreelancer/secs)
-(Apache-2.0) by EvilFreelancer.
+SECS распространяется под Apache License 2.0; производные части сохраняют эту
+атрибуцию. Сам botai распространяется под GNU GPL v3 (лицензия Apache 2.0
+совместима с GPL v3).
+
+## Лицензия
+
+GNU GPL v3. См. [LICENSE](LICENSE).
+
+Производная работа [SECS](https://github.com/EvilFreelancer/secs)
+(Apache-2.0) от EvilFreelancer.
