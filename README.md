@@ -79,7 +79,7 @@ botai/
 │   └── skills/                # symlinks -> ../../.agents/skills/<skill>
 ├── courses/                   # course materials (created by make setup / make new-course)
 ├── progress/                  # durable progress records (created by make setup)
-├── course-lab/                # gated practice course (created by make lab-lab)
+├── course-lab/                # gated practice course (committed content, make lab-* targets)
 ├── docs/
 │   ├── teaching-methods.md        # catalog of teaching practices by task
 │   ├── course-agent-skills.md     # catalog of skill collections in the ecosystem
@@ -181,11 +181,13 @@ make review COURSE=my-course     # review a student's submission
 
 ### 3. Run the practice track (optional)
 
-`course-lab/` is a deliberately under-specified practice course used to test
-the agent's integrity — see the gate in `AGENTS.md` and `docs/course-lab.md`.
+`course-lab/` is a practice course built on the open course «Анализ данных в
+научной литературе» from [top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph)
+(GPL-3.0-or-later). Its lessons leave gaps on purpose and its solution keys are
+graded material — used to test the agent's integrity. See the gate in
+`AGENTS.md` and `docs/course-lab.md`.
 
 ```bash
-make lab-lab                     # scaffold the practice course
 make lab-check                   # what the integrity test looks like
 make lab-clean                   # remove it when done
 ```
