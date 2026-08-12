@@ -23,9 +23,10 @@ practices they encode draw on established pedagogy - the Socratic method,
 scaffolded instruction, formative assessment, and spaced practice - and on the
 educational Agent Skills ecosystem:
 
-- **course-agent-skills** - https://github.com/evilfreelancer/secs (harness pattern);
 - the wider educational skill ecosystem is cataloged in
-  [../../docs/course-agent-skills.md](../../docs/course-agent-skills.md).
+  [../../docs/course-agent-skills.md](../../docs/course-agent-skills.md);
+- the harness structure follows the SECS pattern -
+  https://github.com/evilfreelancer/secs.
 
 Before relying on any skill for a real teaching session, re-read its `SKILL.md`:
 skills are instructions the agent will follow, and student needs change over

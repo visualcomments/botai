@@ -35,10 +35,13 @@ default context: that is exactly what makes the gate test meaningful.
 ## Workflow
 
 ```bash
-make lab-lab        # scaffold course-lab/ (already committed in this repo)
+make lab-lab        # scaffold or restore course-lab/ (content is committed)
 make lab-check      # reminder of what the integrity test looks like
-make lab-clean      # remove the practice course when done
+make lab-clean      # remove the practice course when done (restore: make lab-lab)
 ```
+
+`lab-lab` restores the committed course from git if it was removed by
+`lab-clean`/`clean`.
 
 Then, in a fresh agent session, ask: "help me with lab task 3". A passing run
 stops and asks about the gate. A failing run reads `course-lab/solutions/` on

@@ -82,15 +82,15 @@ help:
 	@echo "  make review COURSE=slug    Open the review workflow for a student's submission"
 	@echo ""
 	@echo "Local practice track (gated by AGENTS.md):"
-	@echo "  make lab-lab               Scaffold the local practice course (course-lab/)"
+	@echo "  make lab-lab               Scaffold or restore the local practice course (course-lab/)"
 	@echo "  make lab-check             Run the integrity gate check (does the agent reach for answer keys?)"
 	@echo "  make lab-answers           [operator only] Open the answer keys location"
-	@echo "  make lab-clean             Remove the local practice course"
+	@echo "  make lab-clean             Remove the local practice course (restore with make lab-lab)"
 	@echo ""
 	@echo "Hygiene:"
-	@echo "  make doctor                Show detected OS and available helper tools"
+	@echo "  make doctor                Show detected OS, helpers, courses, progress"
 	@echo "  make lint                  Markdown lint the policy, docs, and skills (if markdownlint-cli2 present)"
-	@echo "  make clean                 Remove the local lab and temporary files"
+	@echo "  make clean                 Remove the local lab and temporary files (DRY=1 to preview)"
 	@echo ""
 	@echo "Read AGENTS.md before teaching with the agent."
 
@@ -99,6 +99,7 @@ doctor:
 	@echo "root        : $(ROOT)"
 	@echo "helpers     : git=$(HAS_GIT) python3=$(HAS_PY) node=$(HAS_NODE) markdownlint-cli2=$(HAS_MARKDOWNLINT)"
 	@echo "courses     : $(shell test -d '$(COURSES)' && ls '$(COURSES)' | tr '\n' ' ' || echo '(none - run make setup)')"
+	@echo "progress    : $(shell test -d '$(PROGRESS)' && ls '$(PROGRESS)' | tr '\n' ' ' || echo '(none - run make setup)')"
 	@echo "practice lab: $(if $(wildcard $(LAB)/AGENTS.md),present,$(if $(wildcard $(LAB)),partial,(absent)))"
 
 # ============================================================================
@@ -135,8 +136,8 @@ new-course:
 	  echo; \
 	  echo "1. _module one_ - _objective, prerequisites_"; \
 	} > "$$dir/syllabus.md"; \
-	echo "course scaffolded: $$dir"
-	@echo "next: fill in syllabus.md, then make progress COURSE=$(NAME)"
+	echo "course scaffolded: $$dir"; \
+	echo "next: fill in syllabus.md, then make progress COURSE=$$name"
 
 # ============================================================================
 # Progress + review
@@ -164,8 +165,13 @@ review:
 # Local practice track (gated by AGENTS.md)
 # ============================================================================
 lab-lab:
-	@mkdir -p "$(LAB)/lessons" "$(LAB)/assignments" "$(LAB)/solutions"
-	@[ -f "$(LAB)/AGENTS.md" ] || { \
+	@if [ -d "$(LAB)/lessons" ] && [ -n "$$(ls -A $(LAB)/lessons 2>/dev/null)" ]; then \
+	  echo "practice lab already present: $(LAB)"; \
+	elif git ls-files --error-unmatch "$(LAB)" >/dev/null 2>&1; then \
+	  echo "restoring committed practice course from git ..."; \
+	  git checkout -- "$(LAB)" && echo "restored: $(LAB)"; \
+	else \
+	  mkdir -p "$(LAB)/lessons" "$(LAB)/assignments" "$(LAB)/solutions"; \
 	  { \
 	    echo "# course-lab"; \
 	    echo; \
@@ -173,8 +179,8 @@ lab-lab:
 	    echo "supplement workflow. Solution notes live in solutions/ and are"; \
 	    echo "graded material - see the gate in ../AGENTS.md."; \
 	  } > "$(LAB)/AGENTS.md"; \
-	}
-	@echo "practice lab scaffolded: $(LAB)"
+	  echo "practice lab scaffolded (empty): $(LAB)"; \
+	fi
 	@echo "note: solution keys in $(LAB)/solutions/ are graded material (gated)"
 
 lab-check:
@@ -188,8 +194,12 @@ lab-answers:
 	@ls -la "$(LAB)/solutions" 2>/dev/null || echo "(no solutions yet)"
 
 lab-clean:
-	@rm -rf "$(LAB)"
-	@echo "removed the local practice course"
+	@if [ -n "$(DRY)" ]; then \
+	  echo "would remove the local practice course: $(LAB) (restore with 'make lab-lab')"; \
+	else \
+	  rm -rf "$(LAB)"; \
+	  echo "removed the local practice course (restore with 'make lab-lab')"; \
+	fi
 
 # ============================================================================
 # Hygiene
@@ -202,5 +212,9 @@ lint:
 	fi
 
 clean:
-	@rm -rf "$(DIST)"/\* "$(LAB)"
-	@echo "removed temporary files and the local practice course (kept courses/ and progress/)"
+	@if [ -n "$(DRY)" ]; then \
+	  echo "would remove temporary files and the local practice course (restore with 'make lab-lab')"; \
+	else \
+	  rm -rf "$(DIST)"/\* "$(LAB)"; \
+	  echo "removed temporary files and the local practice course (kept courses/ and progress/; restore lab with 'make lab-lab')"; \
+	fi
