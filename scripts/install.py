@@ -148,6 +148,36 @@ def install(src, dest, init_git, dry_run):
 
     if init_git and not dry_run:
         subprocess.run(["git", "init"], cwd=str(dest), check=False)
+        subprocess.run(["git", "add", "-A"], cwd=str(dest), check=False)
+        commit = subprocess.run(
+            ["git", "commit", "-m", "botai initial install"],
+            cwd=str(dest),
+            capture_output=True,
+        )
+        if commit.returncode != 0:
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=botai",
+                    "-c",
+                    "user.email=botai@localhost",
+                    "commit",
+                    "-m",
+                    "botai initial install",
+                ],
+                cwd=str(dest),
+                check=False,
+            )
+        tracked = subprocess.run(
+            ["git", "ls-files", "course-lab"],
+            cwd=str(dest),
+            capture_output=True,
+        ).stdout
+        if not tracked.strip():
+            print("  warning: course-lab is not tracked by the initial commit")
+        else:
+            print("  git initial commit created (course-lab tracked; make lab-clean can be undone with make lab-lab)")
 
     print()
     print("botai installed into its own project: %s" % dest)

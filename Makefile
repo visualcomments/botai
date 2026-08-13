@@ -78,7 +78,7 @@ help:
 	@echo "Workspace:"
 	@echo "  make install [DEST=dir]  Install botai into a NEW separate project (default: botai-project)"
 	@echo "  make setup                 Create the workspace layout (courses/ progress/ course-lab/ dist/)"
-	@echo "  make new-course NAME=slug  Scaffold a new course from the course-lab template"
+	@echo "  make new-course NAME=slug [TITLE=My_Course]  Scaffold a new course from the course-lab template (TITLE without spaces)"
 	@echo ""
 	@echo "Working with a course:"
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
@@ -131,15 +131,19 @@ install:
 # ----------------------------------------------------------------------------
 # Scaffold a course from a minimal layout. Use with the course-lab template
 # as a starting point for a *real* course; do not ship a course empty.
+# TITLE is optional and must NOT contain spaces (pass e.g. TITLE=My_Course);
+# when omitted it falls back to the course name.
 # ----------------------------------------------------------------------------
 new-course:
-	@test -n "$(NAME)" || { echo "usage: make new-course NAME=<slug> [TITLE='Human Title']"; exit 2; }
+	@test -n "$(NAME)" || { echo "usage: make new-course NAME=<slug> [TITLE=<no_spaces>]"; exit 2; }
 	@name=$$(echo '$(NAME)' | tr 'A-Z ' 'a-z-'); \
+	title="$(TITLE)"; \
+	if [ -z "$$title" ]; then title=$$name; fi; \
 	dir="$(COURSES)/$$name"; \
 	if [ -e "$$dir" ]; then echo "course already exists: $$dir"; exit 2; fi; \
 	mkdir -p "$$dir/lessons" "$$dir/assignments" "$$dir/references"; \
 	{ \
-	  echo "# $$name"; \
+	  echo "# $$title"; \
 	  echo; \
 	  echo "> Scaffolded by botai. Fill in the syllabus before teaching."; \
 	} > "$$dir/README.md"; \

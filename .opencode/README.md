@@ -77,3 +77,29 @@ Sanity-check the server standalone:
 ```bash
 python3 .opencode/mcp/course-lab-mcp.py --list
 ```
+
+## Headless and automated use
+
+The interactive TUI is the primary interface (permissions are `ask` by design,
+and slash commands are typed there). For automated / non-interactive sessions,
+note the following:
+
+- **One-shot runs over plain SSH may hang without a TTY.** Use the interactive
+  channel or force a pseudo-TTY:
+  ```bash
+  ssh -tt server "cd <botai-project> && opencode run --agent botai --auto 'prompt'"
+  ```
+- **Non-interactive `opencode run` needs `--auto`** so that `ask`-permissions
+  (e.g. arbitrary bash beyond `make *` / `git *`) are not auto-rejected, which
+  would abort the session.
+- **Remote serve (`opencode serve`)**: attach with `--dir` to pick the botai
+  project and `--auto` to allow tools:
+  ```bash
+  opencode run --attach http://<host>:4096 --dir <botai-project> --agent botai --auto "prompt"
+  ```
+  The REST `/session`/`/message` endpoints currently ignore a per-session `dir`
+  and do not reliably preserve UTF-8 text bodies — prefer the CLI attach channel.
+- **Slash commands are not available through `opencode run --command /...`**
+  against a remote serve in opencode 1.18.x (returns `UnknownError`). Run the
+  interactive TUI to use `/session`, `/contribute`, etc., or prompt the `botai`
+  agent directly with the intent.
