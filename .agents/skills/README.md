@@ -46,12 +46,27 @@ Trust and vetting: `vetting-educational-material`.
 
 Reporting: `reporting-learning-progress`.
 
-## Using these globally
+## These skills stay in the project
 
-These skills are scoped to this project. To make them available in every
-session, symlink the real folders from `.agents/skills/` into `~/.claude/skills/`
-(run from the repo root):
+These skills are scoped to this project, and so are the agent files that load
+them: `AGENTS.md`, `CLAUDE.md`, the opencode agents (`agent.md` and the
+subagents under `.opencode/agent/`), the slash commands, and `opencode.json`.
+Installing botai never copies any of them into global configuration — nothing
+is written to `~/.claude/skills/`, `~/.config/opencode/`, `~/.cursor/`, or any
+other framework-wide location, so the harness can never leak into your other
+projects.
+
+To use botai in another course or workspace, install a **separate project**
+instead of reaching for global dirs:
 
 ```bash
-for d in .agents/skills/*/; do ln -s "$(pwd)/$d" "$HOME/.claude/skills/$(basename "$d")"; done
+cd botai
+make install DEST=my-other-botai     # or: python3 scripts/install.py --dest my-other-botai
+cd my-other-botai
 ```
+
+Each installed project is self-contained: the policy, the skills, and the agent
+files live only inside it. Do not symlink or copy `.agents/skills/` (or
+`AGENTS.md`, `agent.md`, `opencode.json`) into a global config directory — that
+would make the education policy and agents apply to every project you open,
+which this harness is explicitly designed against.

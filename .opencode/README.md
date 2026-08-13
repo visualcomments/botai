@@ -4,6 +4,12 @@ This directory adapts the botai harness to the opencode framework. opencode read
 `AGENTS.md` natively (it is the binding policy) and loads everything here once
 at startup — restart opencode after editing any of these files.
 
+Everything in this directory, and the `AGENTS.md`/`CLAUDE.md` policy files, are
+**project-scoped**. They are installed only into the botai project created by
+`scripts/install.py` / `make install` — the installer never writes agent files,
+skills, or config into opencode's global config, so botai can never affect other
+projects. Run opencode from the created project root.
+
 ## Layout
 
 | Path | What it is |

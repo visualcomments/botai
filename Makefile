@@ -23,6 +23,8 @@ COURSE     ?= $(NAME)
 # course slug for progress/review/lab targets
 DRY        ?=
 # set to 1 to preview actions, change nothing
+DEST       ?= botai-project
+# destination directory for `make install` - a NEW separate project
 
 # ============================================================================
 # Paths
@@ -61,7 +63,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 # ============================================================================
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
-.PHONY: help doctor \
+.PHONY: help doctor install \
         setup new-course \
         progress review \
         lab-lab lab-check lab-answers lab-clean \
@@ -74,6 +76,7 @@ help:
 	@echo "detected: $(OS)"
 	@echo ""
 	@echo "Workspace:"
+	@echo "  make install [DEST=dir]  Install botai into a NEW separate project (default: botai-project)"
 	@echo "  make setup                 Create the workspace layout (courses/ progress/ course-lab/ dist/)"
 	@echo "  make new-course NAME=slug  Scaffold a new course from the course-lab template"
 	@echo ""
@@ -113,6 +116,17 @@ setup:
 	@echo "  $(PROGRESS)  (progress records go here)"
 	@echo "  $(DIST)      (temporary files, git-ignored)"
 	@echo "next: make new-course NAME=<slug>"
+
+# ----------------------------------------------------------------------------
+# Install botai into a NEW, separate, project-scoped directory. The installer
+# (scripts/install.py) copies the whole harness - AGENTS.md, agent.md, skills,
+# commands, config - into the created project and never writes to global
+# configs (opencode / Claude Code / Cursor / ...). Agent files stay inside the
+# project only.
+# ----------------------------------------------------------------------------
+install:
+	@test "$(HAS_PY)" = yes || { echo "python3 is required for 'make install'"; exit 2; }
+	python3 scripts/install.py --dest "$(DEST)"
 
 # ----------------------------------------------------------------------------
 # Scaffold a course from a minimal layout. Use with the course-lab template

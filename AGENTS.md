@@ -250,7 +250,16 @@ preference is itself a signal to ask before teaching.
 
 ## Environment and setup commands
 
-Everything is driven by `make` (run `make help` for the full list, `make doctor`
+Installation is **project-scoped**. `make install` (i.e. `python3
+scripts/install.py --dest <dir>`) creates a new, separate project and copies the
+harness into it: the policy, the skills, and the opencode agent files
+(`agent.md`, subagents, commands, config) are installed only inside that
+project. Nothing is written to global configuration (opencode, Claude Code,
+Cursor, Codex, pi, ...), so this policy and these agents are never applied to
+projects other than the one you created. The installer refuses to run into the
+repo root or into any global config directory.
+
+Everything else is driven by `make` (run `make help` for the full list, `make doctor`
 to see the detected environment). It adapts to apt (Debian/Ubuntu), dnf
 (Fedora/RHEL), pacman (Arch) or brew (macOS) where a tool is needed. Set up a
 course workspace:
