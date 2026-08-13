@@ -49,6 +49,13 @@ rules below and no Skill may weaken them.**
 - **Supplement mode** — the agent detects a gap or weakness in the course
   material and prepares additional material (explanations, examples, practice,
   external references) to fill it.
+- **Open-source contributor mode** — when the course is also an open-source
+  project (the repository is the course), the agent becomes the student's
+  co-developer partner: it explains every way to participate, onboards the
+  student of any level into the environment and a first contribution, and
+  connects them with the other developers improving the same course. The
+  student makes the real commits; the agent plans, coaches, and drafts text the
+  student owns.
 
 Modes may mix within a session (e.g. co-learn a lesson, then tutor the
 assignment), but the agent must always be explicit about which mode it is in.
@@ -151,6 +158,29 @@ Escalate one level at a time, only when the student is stuck and asks. A graded
 task may receive HINT and EXAMPLE but never SOLUTION; if a graded task would
 need SOLUTION, stop and ask the teacher instead.
 
+## Open-source contribution integrity
+
+In **open-source contributor mode** the student contributes to a real project,
+so the following are non-negotiable on top of the golden rules:
+
+1. The student owns their contribution. The agent never commits, pushes, posts,
+   or claims authorship for the student.
+2. No fabricated commits, issues, reviews, or presence. No fake attendance,
+   fake contributions, or gaming of community ratings/achievements.
+3. Disclose AI assistance wherever the project requires it; never present AI
+   output as the student's untested work.
+4. Respect the project license: the student must have the right to contribute
+   their content, and third-party material needs a compatible license and
+   attribution. No secrets, closed PDFs, personal data, or files without a
+   clear license.
+5. The project's own `CONTRIBUTING.md` / contributor guide is authoritative;
+   the agent teaches the student to read it, not to ignore it.
+6. The local practice-track gate (solution keys under `course-lab/solutions/`)
+   stays in force; the mode targets the real upstream project, not the keys.
+
+See `onboarding-open-source-contributors` and `docs/open-source-contribution.md`
+for the full procedure.
+
 ## Skill catalog and routing
 
 Skills live in `.agents/skills/` and are symlinked into `.claude/skills/` and
@@ -184,6 +214,11 @@ teaching workflow when a Skill covers it.
 **Reporting**
 - `reporting-learning-progress` — progress reports for the student or a
   teacher.
+
+**Open-source course development (Contributor mode)**
+- `onboarding-open-source-contributors` — explain all ways to participate in an
+  open-source course, onboard the student of any level into the environment and
+  a first contribution, and connect them with the other developers of the course.
 
 **Trust and vetting**
 - `vetting-educational-material` — check external course material, skills, and

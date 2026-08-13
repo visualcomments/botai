@@ -1,10 +1,11 @@
 # Installed education skills
 
-11 curated, non-overlapping Agent Skills that give the co-learner assistant
+12 curated, non-overlapping Agent Skills that give the co-learner assistant
 methodology for the full teaching lifecycle: mapping the course, keeping the
 durable progress record, planning sessions, tutoring (explaining, breaking
-down, assessing, feedback), supplementing the course, vetting adopted
-material, and reporting progress. They are loaded automatically by any
+down, assessing, feedback), supplementing the course, onboarding students into
+open-source course projects as co-developers, vetting adopted material, and
+reporting progress. They are loaded automatically by any
 AGENTS.md/CLAUDE.md-aware agent working in this repo and are governed by the
 guardrails in [../../AGENTS.md](../../AGENTS.md).
 
@@ -41,6 +42,8 @@ Teaching: `breaking-down-assignments`, `explaining-concepts`,
 `assessing-understanding`, `giving-feedback`.
 
 Supplements: `providing-supplementary-material`, `creating-practice-exercises`.
+
+Open-source course development: `onboarding-open-source-contributors`.
 
 Trust and vetting: `vetting-educational-material`.
 

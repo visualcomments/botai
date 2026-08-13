@@ -10,10 +10,11 @@
     студентом, никогда вместо него; сначала вопросы (Socratic); проверять
     понимание перед обучением; честно покрывать материал
     ([AGENTS.md](AGENTS.md));
-2.  **11 подобранных Agent-скиллов**, которые дают агенту методологию для
+2.  **12 подобранных Agent-скиллов**, которые дают агенту методологию для
     полного цикла обучения — построение карты курса, ведение досье прогресса,
     планирование сессий, объяснение, разбор заданий, оценку, обратную связь,
-    дополнения и отчёты ([.agents/skills/](.agents/skills/));
+    дополнения, онбординг в опенсорс-курс как со-разработчика и отчёты
+    ([.agents/skills/](.agents/skills/));
 3.  **Локальное рабочее пространство курса** — кроссплатформенный интерфейс
     `make`, который создаёт курсы, читает прогресс и запускает намеренно
     недоопределённый практический курс для проверки честности агента
@@ -84,7 +85,7 @@ make doctor
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | Политика агента: золотые правила, consent-gate, область работы (трасса курса), список жёстких отказов, правила безопасности обучения, маршрутизация скиллов, правила фиксации фактов и обратной связи. Её наследует каждый скилл. |
 | [CLAUDE.md](CLAUDE.md) | Тонкий импорт, чтобы Claude Code (который читает `CLAUDE.md`, а не `AGENTS.md`) загружал те же ограничения. |
-| [.agents/skills/](.agents/skills/) | 11 Agent-скиллов (по одному `SKILL.md` на способность, плюс ссылки и шаблоны). Здесь лежат настоящие файлы. |
+| [.agents/skills/](.agents/skills/) | 12 Agent-скиллов (по одному `SKILL.md` на способность, плюс ссылки и шаблоны). Здесь лежат настоящие файлы. |
 | [.claude/skills/](.claude/skills/) | Относительные симлинки обратно в `.agents/skills/<name>`, чтобы Claude Code находил те же скиллы. Правьте в `.agents/skills/`; симлинки следят за изменениями. |
 | [.cursor/skills/](.cursor/skills/) | Те же относительные симлинки для Cursor, который сканирует `.cursor/skills/`. |
 | [Makefile](Makefile) | Кроссплатформенный интерфейс: установка в отдельный проект, создание курсов, чтение прогресса, запуск практической лаборатории. Выполните `make help`. |
@@ -106,14 +107,14 @@ botai/
 ├── opencode.json              # настройки opencode (агент по умолчанию, скиллы, разрешения)
 ├── scripts/
 │   └── install.py             # установщик: создаёт отдельный проект, файлы агента — только в нём
-├── .agents/skills/            # 11 образовательных Agent-скиллов (реальные файлы)
+├── .agents/skills/            # 12 образовательных Agent-скиллов (реальные файлы)
 │   ├── README.md              # что установлено, источники, как использовать глобально
 │   └── <skill>/SKILL.md       # один каталог на скилл
 ├── .claude/skills/            # симлинки -> ../../.agents/skills/<skill> (Claude Code)
 ├── .cursor/skills/            # симлинки -> ../../.agents/skills/<skill> (Cursor)
 ├── .opencode/                 # обвязка opencode
-│   ├── agent/                 # primary-агент botai + сабагенты tutor/mapper/reviewer/supplementer
-│   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup
+│   ├── agent/                 # primary-агент botai + сабагенты tutor/mapper/reviewer/supplementer/contributor
+│   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup, /contribute
 │   ├── mcp/                   # собственный MCP-сервер (инструменты контента course-lab)
 │   └── skills/                # симлинки -> ../../.agents/skills/<skill>
 ├── courses/                   # материалы курсов (создаются make setup / make new-course)
@@ -122,7 +123,8 @@ botai/
 ├── docs/
 │   ├── teaching-methods.md        # каталог методов преподавания по задачам
 │   ├── course-agent-skills.md     # каталог коллекций скиллов в экосистеме
-│   └── course-lab.md              # руководство по практическому треку (для оператора)
+│   ├── course-lab.md              # руководство по практическому треку (для оператора)
+│   └── open-source-contribution.md # режим со-разработчика опенсорс-курса
 └── dist/                          # временные файлы (git-игнорируются)
 ```
 
@@ -148,9 +150,10 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   ссылку на `docs`; разрешения (edit/webfetch разрешены, bash разрешён для
   `make *` и `git *`, всё остальное спрашивает);
 - `.opencode/agent/` — primary-агент `botai` плюс обучающие сабагенты `tutor`,
-  `mapper`, `reviewer` и `supplementer`, все связаны AGENTS.md;
+  `mapper`, `reviewer`, `supplementer` и `contributor` (онбординг в опенсорс-курс),
+  все связаны AGENTS.md;
 - `.opencode/command/` — слэш-команды `/session`, `/new-course`, `/progress`,
-  `/review`, `/supplement`, `/lab`, `/setup`;
+  `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`;
 - `.opencode/mcp/course-lab-mcp.py` — собственный MCP-сервер (зарегистрирован
   как `mcp.course-lab`), отдающий практический курс course-lab как
   инструменты. Он **не** отдаёт `course-lab/solutions/` (градационные ключи
@@ -163,7 +166,7 @@ opencode читает `AGENTS.md` нативно и загружает прое�
 
 ## Agent-скиллы
 
-11 скиллов не пересекаются — по одному на способность — и автоматически
+12 скиллов не пересекаются — по одному на способность — и автоматически
 загружаются любым агентом, работающим в этом репозитории. Полный список — в
 [.agents/skills/README.md](.agents/skills/README.md), таблица маршрутизации —
 в [AGENTS.md](AGENTS.md).
@@ -174,6 +177,7 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   `assessing-understanding`, `giving-feedback`;
 - **Дополнения** — `providing-supplementary-material`,
   `creating-practice-exercises`;
+- **Опенсорс-соавторство** — `onboarding-open-source-contributors`;
 - **Доверие и проверка** — `vetting-educational-material`;
 - **Отчёты** — `reporting-learning-progress`.
 
@@ -193,7 +197,16 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   тренирует студента с учётом его текущего уровня;
 - **Supplement** — агент обнаруживает пробел в материалах курса и готовит
   дополнительный материал (объяснения, примеры, практику, внешние ссылки),
-  помеченный как дополнение.
+  помеченный как дополнение;
+- **Open-source contributor** — если курс — это опенсорс-проект (репозиторий
+  и есть курс, как в [top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph)),
+  агент становится партнёром студента по со-разработке: рассказывает обо всех
+  способах участия, помогает слушателю любого уровня освоиться со средой и
+  сделать первый вклад и налаживает связь с другими разработчиками курса
+  (issues, обсуждения, чат сообщества, мейнтейнеры). Настоящие коммиты делает
+  студент; агент планирует, обучает и готовит тексты, которые студент
+  проверяет и публикует сам. Подробнее — в
+  [docs/open-source-contribution.md](docs/open-source-contribution.md).
 
 Золотые правила вкратце: учиться вместе, а не вместо; сначала вопросы
 (Socratic); оставаться на трассе курса; честно покрывать материал; проверять
@@ -260,7 +273,8 @@ make lab-clean                   # удалить, когда закончите
 - [.agents/skills/README.md](.agents/skills/README.md) — какие скиллы установлены и почему они остаются в рамках проекта;
 - [docs/teaching-methods.md](docs/teaching-methods.md) — каталог методов преподавания по задачам;
 - [docs/course-agent-skills.md](docs/course-agent-skills.md) — широкая экосистема образовательных Agent-скиллов;
-- [docs/course-lab.md](docs/course-lab.md) — руководство по практическому треку (для оператора).
+- [docs/course-lab.md](docs/course-lab.md) — руководство по практическому треку (для оператора);
+- [docs/open-source-contribution.md](docs/open-source-contribution.md) — режим со-разработчика опенсорс-курса: роли, вклад, связь с сообществом.
 
 ## Атрибуция и происхождение
 

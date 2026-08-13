@@ -20,7 +20,8 @@ projects. Run opencode from the created project root.
 | `agent/mapper.md` | Subagent: maps course documents into a track, maintains the progress record. |
 | `agent/reviewer.md` | Subagent: reviews a student's attempt and gives actionable feedback. Edit-deny. |
 | `agent/supplementer.md` | Subagent: fills course gaps with labeled, sourced supplements. |
-| `command/*.md` | Slash commands: `/session`, `/new-course`, `/progress`, `/review`, `/supplement`, `/lab`, `/setup`. |
+| `agent/contributor.md` | Subagent: onboards a student into an open-source course as a co-developer and connects them with the project community. Edit-deny. |
+| `command/*.md` | Slash commands: `/session`, `/new-course`, `/progress`, `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`. |
 | `mcp/course-lab-mcp.py` | In-repo MCP server exposing course-lab lessons/assignments as tools (see below). |
 | `mcp/requirements.txt` | Python deps for the MCP server (`fastmcp`). |
 | `skills/` | Symlinks back to `.agents/skills/<name>` (same pattern as `.claude/skills/` and `.cursor/skills/`). |
@@ -31,7 +32,7 @@ projects. Run opencode from the created project root.
   inherit the guardrails and may not weaken them (their prompts restate the
   non-negotiables so they hold even when invoked directly).
 - The primary agent routes teaching tasks to subagents via the task tool
-  (tutor/mapper/reviewer/supplementer), matching the skill catalog.
+  (tutor/mapper/reviewer/supplementer/contributor), matching the skill catalog.
 - `reviewer` and `tutor` are `edit: deny` so review and teaching never turn
   into "do it for the student" — they return findings, the primary agent
   records them.
@@ -47,6 +48,10 @@ projects. Run opencode from the created project root.
 - `/review <submission>` — review a student's attempt
 - `/supplement <topic>` — find and fill gaps in the course material
 - `/lab <task>` — work the gated practice track (answer keys stay closed)
+- `/contribute <project>` — switch to the open-source co-developer role: explain
+  how to participate in an open-source course, onboard the student into the
+  environment and a first contribution, and connect them with the project's
+  other developers
 
 ## MCP: course-lab content server
 
