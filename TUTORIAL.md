@@ -92,7 +92,7 @@ botai/
 ├── Makefile                   # интерфейс: setup, new-course, progress, lab
 ├── opencode.json              # настройки opencode (агент, скиллы, MCP)
 ├── LICENSE                    # GNU GPL v3
-├── .agents/skills/            # 12 скиллов (реальные файлы)
+├── .agents/skills/            # 13 скиллов (реальные файлы)
 │   ├── README.md
 │   ├── <skill>/SKILL.md       # один каталог на скилл
 │   ├── maintaining-course-progress/templates/progress-file.md
@@ -101,7 +101,7 @@ botai/
 ├── .cursor/skills/            # симлинки → .agents/skills/ (для Cursor)
 ├── .opencode/                 # обвязка для opencode
 │   ├── agent/                 # botai (primary) + tutor/mapper/reviewer/supplementer
-│   ├── command/               # /session, /new-course, /progress, /review, ...
+│   ├── command/               # /session, /new-course, /progress, /review, /education-club, ...
 │   ├── mcp/                   # MCP-сервер course-lab
 │   │   ├── course-lab-mcp.py
 │   │   └── requirements.txt
@@ -116,7 +116,8 @@ botai/
 ├── docs/
 │   ├── teaching-methods.md    # каталог методов преподавания
 │   ├── course-agent-skills.md # экосистема образовательных скиллов
-│   └── course-lab.md          # руководство оператора по практическому треку
+│   ├── course-lab.md          # руководство оператора по практическому треку
+│   └── education-club.md      # подключение каталога Open Education Club (MCP)
 └── dist/                      # временные файлы (git-игнорируются, кроме .gitignore)
 ```
 
@@ -639,6 +640,7 @@ python3 .opencode/mcp/course-lab-mcp.py --list
 | `/supplement <тема>` | найти и заполнить пробелы курса |
 | `/lab <задание>` | работа с практическим треком (ответы закрыты) |
 | `/contribute <проект>` | режим опенсорс-соавтора: способы участия, онбординг, первый вклад, связь с разработчиками |
+| `/education-club [курс]` | старт курса из каталога Open Education Club через MCP: просмотр каталога, чтение README, загрузка курса, начало co-learning |
 
 ### 16.3 Сабагенты opencode
 
@@ -774,6 +776,8 @@ A: Они в `.gitignore`. Это рабочие данные, которые н
 - `docs/course-agent-skills.md` — экосистема образовательных скиллов;
 - `docs/course-lab.md` — руководство оператора по практическому треку;
 - `docs/open-source-contribution.md` — режим со-разработчика опенсорс-курса;
+- `docs/education-club.md` — подключение каталога Open Education Club через
+  MCP и старт курса из каталога;
 - `.opencode/README.md` — обвязка opencode: агенты, команды, MCP;
 - исходники: [SECS](https://github.com/EvilFreelancer/secs) (родительский
   проект), [top-papers-graph](https://github.com/top-papers/top-papers-graph)

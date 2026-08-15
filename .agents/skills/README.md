@@ -1,6 +1,6 @@
 # Installed education skills
 
-12 curated, non-overlapping Agent Skills that give the co-learner assistant
+13 curated, non-overlapping Agent Skills that give the co-learner assistant
 methodology for the full teaching lifecycle: mapping the course, keeping the
 durable progress record, planning sessions, tutoring (explaining, breaking
 down, assessing, feedback), supplementing the course, onboarding students into
@@ -36,7 +36,7 @@ time.
 ## What is installed
 
 Course lifecycle: `mapping-course-syllabus`, `maintaining-course-progress`,
-`planning-study-sessions`.
+`planning-study-sessions`, `starting-course-from-education-club`.
 
 Teaching: `breaking-down-assignments`, `explaining-concepts`,
 `assessing-understanding`, `giving-feedback`.

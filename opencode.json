@@ -27,6 +27,15 @@
         ".opencode/mcp/course-lab-mcp.py"
       ],
       "enabled": true
+    },
+    "education-club": {
+      "type": "local",
+      "command": [
+        "python3",
+        "{env:EDUCATION_CLUB_CATALOG}/mcp/catalog-mcp.py"
+      ],
+      "enabled": true,
+      "cwd": "{env:EDUCATION_CLUB_CATALOG}"
     }
   }
 }

@@ -61,6 +61,9 @@ each task to the owning skill rather than improvising a workflow:
 
 - `mapping-course-syllabus` - turn course documents into a track of modules,
   objectives, prerequisites
+- `starting-course-from-education-club` - browse the Open Education Club
+  catalog via the `education-club` MCP, read a course README, fetch the course
+  into the workspace, and start co-learning it with the student
 - `maintaining-course-progress` - the durable record of levels, preferences,
   graded vs practice, notes, open questions
 - `planning-study-sessions` - plan a session or study plan from the track
@@ -110,3 +113,9 @@ Everything is driven by `make` (`make help` for targets, `make doctor` for the
 environment). Setup: `make setup`, scaffold a course with `make new-course
 NAME=<slug>`, read progress with `make progress COURSE=<slug>`. Keep the
 progress record in `progress/` updated as you go.
+
+The `education-club` MCP (the SourceCraft Open Education Club catalog) is
+registered in `opencode.json` via `{env:EDUCATION_CLUB_CATALOG}`; when it is
+available, use the `starting-course-from-education-club` skill and
+`/education-club` to pick a course from the catalog with the student and start
+going through it together. See `docs/education-club.md` for setup.

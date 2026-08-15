@@ -66,6 +66,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 .PHONY: help doctor install \
         setup new-course \
         progress review \
+        education-club \
         lab-lab lab-check lab-answers lab-clean \
         lint \
         clean
@@ -83,6 +84,7 @@ help:
 	@echo "Working with a course:"
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
 	@echo "  make review COURSE=slug    Open the review workflow for a student's submission"
+	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
 	@echo "Local practice track (gated by AGENTS.md):"
 	@echo "  make lab-lab               Scaffold or restore the local practice course (course-lab/)"
@@ -178,6 +180,20 @@ review:
 	@echo "  - run the giving-feedback skill (rubric + least-assistance-first)"
 	@echo "  - never reveal the answer to a graded task before the attempt"
 	@echo "route to the agent: 'review my submission for $(COURSE) with the rubric'"
+
+# ============================================================================
+# Open Education Club catalog (MCP)
+# ============================================================================
+education-club:
+	@test "$(HAS_GIT)" = yes || { echo "git is required for 'make education-club'"; exit 2; }
+	@test -n "$(EDUCATION_CLUB_CATALOG)" || { echo "usage: EDUCATION_CLUB_CATALOG=/path/to/open-education-club-by-yandex make education-club"; exit 2; }
+	@test -f "$(EDUCATION_CLUB_CATALOG)/mcp/catalog-mcp.py" || { echo "catalog-mcp.py not found under $(EDUCATION_CLUB_CATALOG)/mcp/"; exit 2; }
+	@echo "education-club catalog checkout OK:"
+	@echo "  $(EDUCATION_CLUB_CATALOG)"
+	@echo "next steps:"
+	@echo "  python3 -m pip install -r '$(EDUCATION_CLUB_CATALOG)/mcp/requirements.txt'"
+	@echo "  restart opencode (the education-club MCP is registered in opencode.json via {env:EDUCATION_CLUB_CATALOG})"
+	@echo "  then run /education-club to browse the catalog and start a course"
 
 # ============================================================================
 # Local practice track (gated by AGENTS.md)

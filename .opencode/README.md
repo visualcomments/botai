@@ -21,7 +21,7 @@ projects. Run opencode from the created project root.
 | `agent/reviewer.md` | Subagent: reviews a student's attempt and gives actionable feedback. Edit-deny. |
 | `agent/supplementer.md` | Subagent: fills course gaps with labeled, sourced supplements. |
 | `agent/contributor.md` | Subagent: onboards a student into an open-source course as a co-developer and connects them with the project community. Edit-deny. |
-| `command/*.md` | Slash commands: `/session`, `/new-course`, `/progress`, `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`. |
+| `command/*.md` | Slash commands: `/session`, `/new-course`, `/progress`, `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`, `/education-club`. |
 | `mcp/course-lab-mcp.py` | In-repo MCP server exposing course-lab lessons/assignments as tools (see below). |
 | `mcp/requirements.txt` | Python deps for the MCP server (`fastmcp`). |
 | `skills/` | Symlinks back to `.agents/skills/<name>` (same pattern as `.claude/skills/` and `.cursor/skills/`). |
@@ -52,6 +52,10 @@ projects. Run opencode from the created project root.
   how to participate in an open-source course, onboard the student into the
   environment and a first contribution, and connect them with the project's
   other developers
+- `/education-club [course]` — start a course from the SourceCraft Open
+  Education Club catalog: browse the catalog, read a course README, fetch the
+  course into `courses/`, and begin co-learning (requires the `education-club`
+  MCP, see below)
 
 ## MCP: course-lab content server
 
@@ -77,6 +81,23 @@ Sanity-check the server standalone:
 ```bash
 python3 .opencode/mcp/course-lab-mcp.py --list
 ```
+
+## MCP: Open Education Club catalog
+
+The catalog MCP is registered in `opencode.json` under `mcp.education-club`. It
+is served by `catalog-mcp.py` from a checkout of the SourceCraft
+[open-education-club-by-yandex](https://sourcecraft.dev/open-education-club-by-yandex/open-education-club-by-yandex)
+catalog repo, referenced through `{env:EDUCATION_CLUB_CATALOG}`. It exposes:
+
+- `education-club_list_courses()` — the whole course catalog;
+- `education-club_get_course(slug)` — course metadata + README;
+- `education-club_fetch_course(slug, courses)` — clone the course repo into
+  `courses/<slug>`.
+
+Enable it with `make education-club` (or set `EDUCATION_CLUB_CATALOG`), install
+the catalog's `mcp/requirements.txt`, and restart opencode. See
+[`docs/education-club.md`](../docs/education-club.md) for the full reference and
+the `starting-course-from-education-club` skill for the workflow.
 
 ## Headless and automated use
 

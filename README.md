@@ -10,9 +10,10 @@
     студентом, никогда вместо него; сначала вопросы (Socratic); проверять
     понимание перед обучением; честно покрывать материал
     ([AGENTS.md](AGENTS.md));
-2.  **12 подобранных Agent-скиллов**, которые дают агенту методологию для
+2.  **13 подобранных Agent-скиллов**, которые дают агенту методологию для
     полного цикла обучения — построение карты курса, ведение досье прогресса,
-    планирование сессий, объяснение, разбор заданий, оценку, обратную связь,
+    планирование сессий, старт курса из каталога Open Education Club,
+    объяснение, разбор заданий, оценку, обратную связь,
     дополнения, онбординг в опенсорс-курс как со-разработчика и отчёты
     ([.agents/skills/](.agents/skills/));
 3.  **Локальное рабочее пространство курса** — кроссплатформенный интерфейс
@@ -85,7 +86,7 @@ make doctor
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | Политика агента: золотые правила, consent-gate, область работы (трасса курса), список жёстких отказов, правила безопасности обучения, маршрутизация скиллов, правила фиксации фактов и обратной связи. Её наследует каждый скилл. |
 | [CLAUDE.md](CLAUDE.md) | Тонкий импорт, чтобы Claude Code (который читает `CLAUDE.md`, а не `AGENTS.md`) загружал те же ограничения. |
-| [.agents/skills/](.agents/skills/) | 12 Agent-скиллов (по одному `SKILL.md` на способность, плюс ссылки и шаблоны). Здесь лежат настоящие файлы. |
+| [.agents/skills/](.agents/skills/) | 13 Agent-скиллов (по одному `SKILL.md` на способность, плюс ссылки и шаблоны). Здесь лежат настоящие файлы. |
 | [.claude/skills/](.claude/skills/) | Относительные симлинки обратно в `.agents/skills/<name>`, чтобы Claude Code находил те же скиллы. Правьте в `.agents/skills/`; симлинки следят за изменениями. |
 | [.cursor/skills/](.cursor/skills/) | Те же относительные симлинки для Cursor, который сканирует `.cursor/skills/`. |
 | [Makefile](Makefile) | Кроссплатформенный интерфейс: установка в отдельный проект, создание курсов, чтение прогресса, запуск практической лаборатории. Выполните `make help`. |
@@ -107,14 +108,14 @@ botai/
 ├── opencode.json              # настройки opencode (агент по умолчанию, скиллы, разрешения)
 ├── scripts/
 │   └── install.py             # установщик: создаёт отдельный проект, файлы агента — только в нём
-├── .agents/skills/            # 12 образовательных Agent-скиллов (реальные файлы)
+├── .agents/skills/            # 13 образовательных Agent-скиллов (реальные файлы)
 │   ├── README.md              # что установлено, источники, как использовать глобально
 │   └── <skill>/SKILL.md       # один каталог на скилл
 ├── .claude/skills/            # симлинки -> ../../.agents/skills/<skill> (Claude Code)
 ├── .cursor/skills/            # симлинки -> ../../.agents/skills/<skill> (Cursor)
 ├── .opencode/                 # обвязка opencode
 │   ├── agent/                 # primary-агент botai + сабагенты tutor/mapper/reviewer/supplementer/contributor
-│   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup, /contribute
+│   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup, /contribute, /education-club
 │   ├── mcp/                   # собственный MCP-сервер (инструменты контента course-lab)
 │   └── skills/                # симлинки -> ../../.agents/skills/<skill>
 ├── courses/                   # материалы курсов (создаются make setup / make new-course)
@@ -153,12 +154,17 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   `mapper`, `reviewer`, `supplementer` и `contributor` (онбординг в опенсорс-курс),
   все связаны AGENTS.md;
 - `.opencode/command/` — слэш-команды `/session`, `/new-course`, `/progress`,
-  `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`;
+  `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`, `/education-club`;
 - `.opencode/mcp/course-lab-mcp.py` — собственный MCP-сервер (зарегистрирован
   как `mcp.course-lab`), отдающий практический курс course-lab как
   инструменты. Он **не** отдаёт `course-lab/solutions/` (градационные ключи
   ответов). Включение:
-  `python3 -m pip install -r .opencode/mcp/requirements.txt`, затем перезапуск.
+  `python3 -m pip install -r .opencode/mcp/requirements.txt`, затем перезапуск;
+- `mcp.education-club` — MCP-сервер каталога SourceCraft Open Education Club
+  (зарегистрирован через `{env:EDUCATION_CLUB_CATALOG}`): просмотр каталога,
+  чтение README курса и загрузка материалов курса в `courses/`. Включение:
+  `make education-club`, затем перезапуск. Подробности — в
+  [docs/education-club.md](docs/education-club.md).
 
 Запускайте opencode из корня репозитория. Конфиг и файлы `.opencode/`
 загружаются один раз при старте: после их правки перезапустите opencode, чтобы
@@ -166,13 +172,14 @@ opencode читает `AGENTS.md` нативно и загружает прое�
 
 ## Agent-скиллы
 
-12 скиллов не пересекаются — по одному на способность — и автоматически
+13 скиллов не пересекаются — по одному на способность — и автоматически
 загружаются любым агентом, работающим в этом репозитории. Полный список — в
 [.agents/skills/README.md](.agents/skills/README.md), таблица маршрутизации —
 в [AGENTS.md](AGENTS.md).
 
 - **Жизненный цикл курса** — `mapping-course-syllabus`,
-  `maintaining-course-progress`, `planning-study-sessions`;
+  `maintaining-course-progress`, `planning-study-sessions`,
+  `starting-course-from-education-club`;
 - **Преподавание** — `breaking-down-assignments`, `explaining-concepts`,
   `assessing-understanding`, `giving-feedback`;
 - **Дополнения** — `providing-supplementary-material`,
@@ -274,7 +281,8 @@ make lab-clean                   # удалить, когда закончите
 - [docs/teaching-methods.md](docs/teaching-methods.md) — каталог методов преподавания по задачам;
 - [docs/course-agent-skills.md](docs/course-agent-skills.md) — широкая экосистема образовательных Agent-скиллов;
 - [docs/course-lab.md](docs/course-lab.md) — руководство по практическому треку (для оператора);
-- [docs/open-source-contribution.md](docs/open-source-contribution.md) — режим со-разработчика опенсорс-курса: роли, вклад, связь с сообществом.
+- [docs/open-source-contribution.md](docs/open-source-contribution.md) — режим со-разработчика опенсорс-курса: роли, вклад, связь с сообществом;
+- [docs/education-club.md](docs/education-club.md) — подключение каталога Open Education Club через MCP и старт курса из каталога.
 
 ## Атрибуция и происхождение
 

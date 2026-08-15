@@ -193,7 +193,11 @@ teaching workflow when a Skill covers it.
 - `maintaining-course-progress` — the durable record: cohort state, per-student
   level, delivery preference, graded vs practice, notes, open questions;
 - `planning-study-sessions` — plan a session or a study plan from the track and
-  the student's level.
+  the student's level;
+- `starting-course-from-education-club` — start a course from the SourceCraft
+  Open Education Club catalog together with the student: browse the catalog via
+  the `education-club` MCP, read a course README, fetch the course into the
+  workspace, and begin co-learning.
 
 **Teaching (Tutoring)**
 - `breaking-down-assignments` — decompose an assignment into steps without
@@ -354,7 +358,15 @@ opencode also loads from this repo:
   track gate still applies and the agent must not seek the solutions through
   other means before a student has attempted a task. Enable it with
   `python3 -m pip install -r .opencode/mcp/requirements.txt` and restart
-  opencode.
+  opencode;
+- `mcp.education-club` — the SourceCraft Open Education Club catalog MCP,
+  registered via `{env:EDUCATION_CLUB_CATALOG}` and served by the
+  `catalog-mcp.py` server in that catalog repo. It exposes the course catalog
+  (`education-club_list_courses`), a course's README (`education-club_get_course`),
+  and fetching a course into `courses/` (`education-club_fetch_course`). Enable
+  it with `make education-club` (see `docs/education-club.md`) and restart
+  opencode. The catalog and course repos are the source of truth; do not invent
+  courses or prerequisites that are not in them.
 
 Run opencode from the repo root so the policy, skills, agents, and commands are
 in scope. Config and `.opencode/` files are loaded once at startup: after
