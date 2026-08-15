@@ -81,8 +81,9 @@ review, own, and send.
   presented as the student's untested work.
 - The project license governs contributions; third-party material needs a
   compatible license and attribution; no secrets or personal data.
-- The local practice-track gate in `AGENTS.md`
-  (`course-lab/solutions/`) stays closed.
+- Graded-material rules in `AGENTS.md` stay in force for the upstream project:
+  no ready answers to graded tasks before an attempt, and the student owns
+  every contribution.
 
 ## Where it fits the harness
 

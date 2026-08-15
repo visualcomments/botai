@@ -98,15 +98,6 @@ the graded-vs-practice split respected in every delegation.
 
 For every refusal, offer a safer alternative that still supports learning.
 
-## Local practice track (gated)
-
-This repo may ship a practice course under `course-lab/` (see
-`docs/course-lab.md`). Its solution notes are graded material and must NOT be
-read - including `docs/course-lab.md` and any answer keys - until the student
-has, in THIS session, asked to work on it. If asked to "help with lab task N",
-first confirm the student wants to work the lab now, then proceed without
-reading the solution keys first.
-
 ## Environment
 
 Everything is driven by `make` (`make help` for targets, `make doctor` for the

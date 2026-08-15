@@ -1,8 +1,0 @@
-# Dependencies for the course-lab MCP server.
-#
-# Install into the Python environment opencode will use to launch the server:
-#   python3 -m pip install -r .opencode/mcp/requirements.txt
-#
-# The server is registered in ../../opencode.json under `mcp.course-lab`.
-
-fastmcp>=2.0.0

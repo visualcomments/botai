@@ -7,7 +7,7 @@
   "references": {
     "docs": {
       "path": "docs",
-      "description": "botai reference docs: teaching-method catalog, course-agent-skills ecosystem, practice-lab operator guide"
+      "description": "botai reference docs: teaching-method catalog, course-agent-skills ecosystem, open-source contribution reference"
     }
   },
   "permission": {
@@ -20,14 +20,6 @@
     }
   },
   "mcp": {
-    "course-lab": {
-      "type": "local",
-      "command": [
-        "python3",
-        ".opencode/mcp/course-lab-mcp.py"
-      ],
-      "enabled": true
-    },
     "education-club": {
       "type": "local",
       "command": [

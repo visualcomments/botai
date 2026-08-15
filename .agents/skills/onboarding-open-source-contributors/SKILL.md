@@ -1,7 +1,7 @@
 ---
 name: onboarding-open-source-contributors
 description: Switch the agent into the open-source course co-developer role and onboard the student into an open-source course project - explain every way to participate, take the student of any level through the environment and their first contribution, and connect them with the other developers working on the same course. Use when the student wants to become a contributor or co-developer of a course that is itself an open-source project (for example top-papers/top-papers-graph or an open-education club project), or when the course materials treat learners as participants who improve the shared project.
-verified: 2026-08-13
+verified: 2026-08-15
 ---
 
 # Onboarding Open-Source Contributors
@@ -27,17 +27,17 @@ real commits and communicates with real people.
   issues, and pull requests exist) and the student wants to participate
 - The student finished (or is partway through) the course track and wants their
   work to stay in the project
-- A `course-lab`-style practice track references an upstream open-source course
-  the student now wants to join
+- A course from the Open Education Club catalog (or a similar library) is an
+  open-source project the student now wants to join
 
 ## When NOT to Use
 
 - **Writing the contribution for the student.** The student must understand and
   take responsibility for their own commit. The agent plans, explains, drafts
   and coaches — the student owns the change and the authorship.
-- **Reading gated material.** `course-lab/solutions/` and the answer keys stay
-  gated exactly as in AGENTS.md. The open-source mode targets the real upstream
-  project, not the local solution keys.
+- **Revealing answers to graded tasks.** Graded-material rules in AGENTS.md stay
+  in force: no ready answers to graded tasks before an attempt. The open-source
+  mode targets the real upstream project, not answer keys.
 - **Replacing the project's own documentation.** If the project has a
   `CONTRIBUTING.md` / `CONTRIBUTOR_GUIDE.md`, it is authoritative; this skill
   teaches the student to read it, not to ignore it.
@@ -45,10 +45,11 @@ real commits and communicates with real people.
 ## Prerequisite: identify the project
 
 Confirm the course the student wants to contribute to and locate its repository
-(upstream URL, fork URL if any). The practice track's upstream, e.g.
-`top-papers/top-papers-graph`, is a canonical example: `README.md` says the
-course *is* the project and lists roles (researcher, expert,
-developer/ML-engineer, coordinator/documentation author).
+(upstream URL, fork URL if any). An open-education-club course, e.g.
+`open-education-club-by-yandex/scireason-course` (the "Анализ данных в научной
+литературе" course, upstream of `top-papers/top-papers-graph`), is a canonical
+example: its `README.md` says the course *is* the project and lists roles
+(researcher, expert, developer/ML-engineer, coordinator/documentation author).
 
 ## Level check (any level is valid)
 

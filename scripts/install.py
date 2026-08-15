@@ -4,8 +4,7 @@
 Creates a NEW, self-contained project directory and installs the whole botai
 harness into it: AGENTS.md, CLAUDE.md, Makefile, opencode.json, the agent files
 (.opencode/agent/*.md), the skills (.agents/skills/), the per-framework symlink
-farms (.claude/skills/, .cursor/skills/, .opencode/skills/), docs, and the
-course-lab practice track.
+farms (.claude/skills/, .cursor/skills/, .opencode/skills/), and docs.
 
 Everything is scoped to the new project directory only. Nothing is written to
 global configuration (opencode, Claude Code, Cursor, Codex, pi, ...): agent
@@ -37,7 +36,7 @@ FILES = [
     "opencode.json",
 ]
 
-COPY_DIRS = [".agents", "course-lab", "docs"]
+COPY_DIRS = [".agents", "docs"]
 
 COPY_DIRS_IGNORING_SKILLS = [".opencode"]
 
@@ -169,15 +168,7 @@ def install(src, dest, init_git, dry_run):
                 cwd=str(dest),
                 check=False,
             )
-        tracked = subprocess.run(
-            ["git", "ls-files", "course-lab"],
-            cwd=str(dest),
-            capture_output=True,
-        ).stdout
-        if not tracked.strip():
-            print("  warning: course-lab is not tracked by the initial commit")
-        else:
-            print("  git initial commit created (course-lab tracked; make lab-clean can be undone with make lab-lab)")
+        print("  git initial commit created")
 
     print()
     print("botai installed into its own project: %s" % dest)

@@ -9,8 +9,9 @@ The student wants to become a co-developer of an open-source course: $ARGUMENTS
 Switch into the open-source co-developer mode. Follow the botai policy in
 AGENTS.md and the `onboarding-open-source-contributors` skill exactly:
 
-1. Identify the target project (upstream repository; e.g. for the practice
-   track, `top-papers/top-papers-graph`). Read its `README.md`,
+1. Identify the target project (upstream repository; e.g. an Open Education
+   Club course such as `open-education-club-by-yandex/scireason-course`, whose
+   upstream is `top-papers/top-papers-graph`). Read its `README.md`,
    `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, and open issues/PRs.
 2. Run the level check: git/terminal/account experience, so onboarding starts
    from where the student is. Any level is valid.
@@ -26,6 +27,7 @@ AGENTS.md and the `onboarding-open-source-contributors` skill exactly:
    conduct.
 
 Never commit, push, or post for the student; never fabricate contributions;
-disclose AI use per the project rules; keep the practice-track gate closed.
+disclose AI use per the project rules; keep graded-material rules in AGENTS.md
+in force (no ready answers to graded tasks before an attempt).
 Delegate the onboarding to the `contributor` subagent via the task tool, then
 record the outcome in the progress dossier with `maintaining-course-progress`.

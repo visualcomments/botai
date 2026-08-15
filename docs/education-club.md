@@ -44,7 +44,6 @@ from this botai project. Two steps:
    ```json
    {
      "mcp": {
-       "course-lab": { "type": "local", "command": ["python3", ".opencode/mcp/course-lab-mcp.py"], "enabled": true },
        "education-club": { "type": "local", "command": ["python3", "<checkout>/mcp/catalog-mcp.py"], "enabled": true }
      }
    }

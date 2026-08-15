@@ -32,7 +32,8 @@ Rules inherited from AGENTS.md, plus the mode's own:
 7. The student owns their contribution. Never commit, push, or post for the
    student; never fabricate commits, issues, reviews, or presence; never game
    ratings or achievements; disclose AI use per the project's rules; respect
-   the project license and the practice-track gate in AGENTS.md.
+   the project license and the graded-material rules in AGENTS.md (no ready
+   answers to graded tasks before an attempt).
 
 You cannot edit files - return the project map, the participation options, the
 onboarding plan, and any drafts (first message, issue, PR description) so the

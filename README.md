@@ -66,8 +66,7 @@ make doctor
 
 - создаёт новый каталог проекта (по умолчанию `botai-project/`);
 - копирует туда обвязку целиком: `AGENTS.md`, `CLAUDE.md`, `Makefile`,
-  `opencode.json`, `.agents/`, `.opencode/`, `.claude/`, `.cursor/`, `docs/`,
-  `course-lab/`;
+  `opencode.json`, `.agents/`, `.opencode/`, `.claude/`, `.cursor/`, `docs/`;
 - заново создаёт симлинк-фермы скиллов (`.claude/skills/`, `.cursor/skills/`,
   `.opencode/skills/` → `.agents/skills/`);
 - создаёт рабочее пространство `courses/`, `progress/`, `dist/` и
@@ -93,7 +92,7 @@ make doctor
 | [scripts/install.py](scripts/install.py) | Установщик: создаёт новый изолированный проект и копирует обвязку в него. Файлы агента (`AGENTS.md`, `agent.md`, скиллы, команды) устанавливаются только в рамках проекта, никогда в глобальные конфиги. |
 | [opencode.json](opencode.json) | Настройки opencode верхнего уровня: агент по умолчанию `botai`, пути скиллов, ссылка на docs, разрешения. |
 | [.opencode/](.opencode/) | Обвязка opencode: primary-агент `botai` + обучающие сабагенты, слэш-команды, собственный MCP-сервер и симлинки скиллов. |
-| [docs/](docs/) | Справочная документация: каталог методов преподавания, экосистема скиллов и руководство по практической лаборатории. |
+| [docs/](docs/) | Справочная документация: каталог методов преподавания, экосистема скиллов, режим опенсорс-соавторства, подключение каталога Open Education Club. |
 | [dist/](dist/) | Временные файлы. Git-игнорируются, кроме `.gitignore`; сюда ничего не коммитится. |
 
 ### Структура репозитория
@@ -104,8 +103,8 @@ botai/
 ├── CLAUDE.md                  # тонкий импорт AGENTS.md для Claude Code
 ├── README.md                  # этот файл
 ├── TUTORIAL.md                # пошаговый туториал
-├── Makefile                   # кроссплатформенный интерфейс: install, setup, new-course, progress, lab
-├── opencode.json              # настройки opencode (агент по умолчанию, скиллы, разрешения)
+├── Makefile                   # кроссплатформенный интерфейс: install, setup, new-course, progress, education-club
+├── opencode.json              # настройки opencode (агент по умолчанию, скиллы, MCP, разрешения)
 ├── scripts/
 │   └── install.py             # установщик: создаёт отдельный проект, файлы агента — только в нём
 ├── .agents/skills/            # 13 образовательных Agent-скиллов (реальные файлы)
@@ -115,17 +114,15 @@ botai/
 ├── .cursor/skills/            # симлинки -> ../../.agents/skills/<skill> (Cursor)
 ├── .opencode/                 # обвязка opencode
 │   ├── agent/                 # primary-агент botai + сабагенты tutor/mapper/reviewer/supplementer/contributor
-│   ├── command/               # /session, /new-course, /progress, /review, /supplement, /lab, /setup, /contribute, /education-club
-│   ├── mcp/                   # собственный MCP-сервер (инструменты контента course-lab)
+│   ├── command/               # /session, /new-course, /progress, /review, /supplement, /setup, /contribute, /education-club
 │   └── skills/                # симлинки -> ../../.agents/skills/<skill>
 ├── courses/                   # материалы курсов (создаются make setup / make new-course)
 ├── progress/                  # постоянные досье прогресса (создаются make setup)
-├── course-lab/                # gated-практический курс (контент закоммичен, make lab-*)
 ├── docs/
 │   ├── teaching-methods.md        # каталог методов преподавания по задачам
 │   ├── course-agent-skills.md     # каталог коллекций скиллов в экосистеме
-│   ├── course-lab.md              # руководство по практическому треку (для оператора)
-│   └── open-source-contribution.md # режим со-разработчика опенсорс-курса
+│   ├── open-source-contribution.md # режим со-разработчика опенсорс-курса
+│   └── education-club.md          # подключение каталога Open Education Club (MCP)
 └── dist/                          # временные файлы (git-игнорируются)
 ```
 
@@ -154,12 +151,7 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   `mapper`, `reviewer`, `supplementer` и `contributor` (онбординг в опенсорс-курс),
   все связаны AGENTS.md;
 - `.opencode/command/` — слэш-команды `/session`, `/new-course`, `/progress`,
-  `/review`, `/supplement`, `/lab`, `/setup`, `/contribute`, `/education-club`;
-- `.opencode/mcp/course-lab-mcp.py` — собственный MCP-сервер (зарегистрирован
-  как `mcp.course-lab`), отдающий практический курс course-lab как
-  инструменты. Он **не** отдаёт `course-lab/solutions/` (градационные ключи
-  ответов). Включение:
-  `python3 -m pip install -r .opencode/mcp/requirements.txt`, затем перезапуск;
+  `/review`, `/supplement`, `/setup`, `/contribute`, `/education-club`;
 - `mcp.education-club` — MCP-сервер каталога SourceCraft Open Education Club
   (зарегистрирован через `{env:EDUCATION_CLUB_CATALOG}`): просмотр каталога,
   чтение README курса и загрузка материалов курса в `courses/`. Включение:
@@ -206,7 +198,8 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   дополнительный материал (объяснения, примеры, практику, внешние ссылки),
   помеченный как дополнение;
 - **Open-source contributor** — если курс — это опенсорс-проект (репозиторий
-  и есть курс, как в [top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph)),
+  и есть курс, как, например, курсы Open Education Club
+  [open-education-club-by-yandex/scireason-course](https://sourcecraft.dev/open-education-club-by-yandex/scireason-course)),
   агент становится партнёром студента по со-разработке: рассказывает обо всех
   способах участия, помогает слушателю любого уровня освоиться со средой и
   сделать первый вклад и налаживает связь с другими разработчиками курса
@@ -252,26 +245,26 @@ make new-course NAME=my-course   # создать курс из шаблона
 
 В opencode агент `botai` — по умолчанию. Слэш-команды управляют типовыми
 рабочими процессами: `/session`, `/new-course`, `/progress`, `/review`,
-`/supplement`, `/lab`, `/setup`.
+`/supplement`, `/setup`, `/education-club`.
 
 ```bash
 make progress COURSE=my-course   # сводка досье прогресса курса
 make review COURSE=my-course     # ревью работы студента
 ```
 
-### 4. Практический трек (опционально)
+### 4. Каталог Open Education Club (опционально)
 
-`course-lab/` — это практический курс, построенный на открытом курсе
-«Анализ данных в научной литературе» из
-[top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph)
-(GPL-3.0-or-later). Его уроки намеренно оставлены с пробелами, а ключи
-решений — градационный материал — используются для проверки честности агента.
-См. гейт в `AGENTS.md` и `docs/course-lab.md`.
+Курсы из каталога Open Education Club (лекции, лабораторные, задания от вузов —
+включая «Анализ данных в научной литературе», upstream которого
+[top-papers/top-papers-graph](https://github.com/top-papers/top-papers-graph))
+подключаются через MCP-сервер каталога. Агент показывает студенту каталог,
+читает README курса и тянет материалы в `courses/` — без ручного клонирования.
 
 ```bash
-make lab-check                   # как выглядит integrity-тест
-make lab-clean                   # удалить, когда закончите
+make education-club              # проверить подключение каталога (EDUCATION_CLUB_CATALOG=...)
 ```
+
+Затем `/education-club`, чтобы выбрать курс и начать co-learning.
 
 ## Документация
 
@@ -280,7 +273,6 @@ make lab-clean                   # удалить, когда закончите
 - [.agents/skills/README.md](.agents/skills/README.md) — какие скиллы установлены и почему они остаются в рамках проекта;
 - [docs/teaching-methods.md](docs/teaching-methods.md) — каталог методов преподавания по задачам;
 - [docs/course-agent-skills.md](docs/course-agent-skills.md) — широкая экосистема образовательных Agent-скиллов;
-- [docs/course-lab.md](docs/course-lab.md) — руководство по практическому треку (для оператора);
 - [docs/open-source-contribution.md](docs/open-source-contribution.md) — режим со-разработчика опенсорс-курса: роли, вклад, связь с сообществом;
 - [docs/education-club.md](docs/education-club.md) — подключение каталога Open Education Club через MCP и старт курса из каталога.
 
@@ -298,8 +290,8 @@ make lab-clean                   # удалить, когда закончите
   набор справочников в `docs/` и git-игнорируемый `dist/`;
 - структура ограничений — гейт авторизации и правила взаимодействия,
   переосмысленные в consent-gate студента и правила преподавания, плюс
-  gated-практический трек (лаборатория Metasploitable у SECS → `course-lab/`
-  у botai).
+  gated-практический трек (лаборатория Metasploitable у SECS → подключение
+  gated-материалов курса у botai через каталог Open Education Club).
 
 Что оригинально в botai:
 
