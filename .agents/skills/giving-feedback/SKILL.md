@@ -1,7 +1,7 @@
 ---
 name: giving-feedback
 description: Review a student's attempt and give feedback that is actionable — what is right, what needs work, how to fix it themselves — while respecting the delivery preference and never giving a ready answer to a graded task. Use when the student submits an attempt for review, when the student is stuck after several tries, or when a teacher asks for a review of a submission against a rubric.
-verified: 2026-08-12
+verified: 2026-08-16
 ---
 
 # Giving Feedback
@@ -39,7 +39,9 @@ graded tasks the review ends at the fix, never at the solved task.
    student can run: "add a test with an empty input and see what the loop does".
    For graded tasks stop here.
 5. **Respect the delivery preference.** Hints by default; full solutions only
-   where the student chose `solution-first` and the task is practice.
+   where the student chose `solution-first` and the task is practice. The
+   preference is a session-settled decision recorded in the progress record —
+   read it, do not re-ask it (see AGENTS.md "Session-settled decisions").
 6. **Record the review and the attempt** in the progress file (raw attempt
    stays with the analysis).
 
@@ -121,4 +123,4 @@ would promote it.
 
 ## Last Validated
 
-2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.
+2026-08-16. Procedure current as of this date; re-verify when the course material or teaching rules change.

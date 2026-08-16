@@ -1,7 +1,7 @@
 ---
 name: maintaining-course-progress
 description: Keep the durable record that outlives a session — the cohort's level, each student's baseline, delivery preference (hints vs full solutions), graded vs practice split, what was demonstrated, what was difficult, and open questions — so learning spanning days or multiple students does not restart or contradict itself. Use when a course runs longer than one sitting, when resuming work after a gap, when switching between students, before a context window rolls over, or when you cannot say where a student's level was last recorded.
-verified: 2026-08-12
+verified: 2026-08-16
 ---
 
 # Maintaining Course Progress
@@ -66,6 +66,15 @@ this session:
 Name the status before the first teaching exchange, not after a lesson has been
 pitched at the wrong level. When this skill says a session needs a gate, it
 means `consented` or an explicit `defaulted`.
+
+The gate's outputs are **session-settled decisions** (AGENTS.md): each recorded
+answer carries a provenance annotation — `session-settled: user-approved` (the
+student explicitly chose it), `session-settled: user-directed` (the student
+directed it, e.g. "don't test me, I'll self-assess"), or `assumed` (the agent's
+fallback, e.g. `prefer-ask`). Downstream skills (`giving-feedback`,
+`breaking-down-assignments`, `planning-study-sessions`) read these and do not
+re-ask them. A decision changes only on new evidence from the student, recorded
+as a new annotated entry with its own date — never silently overwritten.
 
 ### 2. Per-student baseline and progress
 
@@ -209,5 +218,5 @@ reviewed decision per entry — not a default step in the workflow.
 
 ## Last Validated
 
-2026-08-12. Procedure and six-records structure current as of this date;
+2026-08-16. Procedure and six-records structure current as of this date;
 re-verify when the progress template or consent-gate rules change.

@@ -13,6 +13,19 @@ it as you work, not at the end. Raw student work stays next to any analysis in
 | --- | --- | --- | --- | --- |
 | <name> | <stated level for prerequisites> | tested / self-assessed | hints / hints-then-solution / solution-first | consented / defaulted / partial |
 
+Each consent-gate answer is a session-settled decision; annotate its
+provenance so later sessions do not re-ask it:
+
+```
+level    : session-settled: user-approved | <stated level>             | 2026-08-12
+delivery : session-settled: user-approved | hints-then-solution        | 2026-08-12
+assessed : session-settled: user-directed | self-assessed              | 2026-08-12
+graded   : session-settled: user-approved | ex-02, ex-05, final        | 2026-08-12
+```
+
+A new date with the same field is a new settled decision, not a correction of
+the old one.
+
 ## Graded vs practice
 
 - **Graded (no ready answers):** <assignment ids or descriptions>

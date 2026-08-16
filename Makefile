@@ -66,7 +66,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         setup new-course \
         progress review \
         education-club \
-        lint \
+        lint check \
         clean
 
 help:
@@ -87,6 +87,7 @@ help:
 	@echo "Hygiene:"
 	@echo "  make doctor                Show detected OS, helpers, courses, progress"
 	@echo "  make lint                  Markdown lint the policy, docs, and skills (if markdownlint-cli2 present)"
+	@echo "  make check                 Validate harness integrity: skill frontmatter, symlink-farm parity, path safety, methods store"
 	@echo "  make clean                 Remove temporary files (DRY=1 to preview)"
 	@echo ""
 	@echo "Read AGENTS.md before teaching with the agent."
@@ -194,6 +195,15 @@ lint:
 	else \
 	  echo "markdownlint-cli2 not installed - skipping (brew install markdownlint-cli, or npm i -g markdownlint-cli2)"; \
 	fi
+
+# ----------------------------------------------------------------------------
+# Integrity check: skill frontmatter (name/description/verified), symlink-farm
+# parity across .claude/.cursor/.opencode, path safety in skill files, and the
+# teaching-methods store. Uses the git index so it works on Windows junctions.
+# ----------------------------------------------------------------------------
+check:
+	@test "$(HAS_PY)" = yes || { echo "python3 is required for 'make check'"; exit 2; }
+	python3 scripts/check.py
 
 clean:
 	@if [ -n "$(DRY)" ]; then \

@@ -78,6 +78,37 @@ If the student does not want to state a level, proceed in Tutoring mode with
 adding material. The gate is a light touch: it exists so the agent never
 teaches over a student's head or does the work for them by default.
 
+## Session-settled decisions (consent-gate outputs)
+
+The answers a student gives at the consent gate — baseline level, tested vs
+self-assessed, delivery preference, and the graded-vs-practice split — are
+**session-settled decisions**: examined and chosen by the student in a session,
+and once recorded they bind the rest of that course relationship until the
+student changes them.
+
+Record each in the progress record with a provenance annotation so later
+sessions know where it came from and why it is trusted:
+
+- `session-settled: user-approved` — the student explicitly stated or chose it
+  in a session;
+- `session-settled: user-directed` — the student directed it (e.g. "don't test
+  me, I'll self-assess"), even where the default differs;
+- `assumed` — the agent's fallback (e.g. `prefer-ask` when the student declined
+  to state a level). Not a settled decision; it stays open to change.
+
+Rules that follow:
+
+1. A recorded session-settled decision is not re-asked. `giving-feedback`,
+   `breaking-down-assignments`, and `planning-study-sessions` read it from the
+   progress record and act on it; they do not re-ask what the record already
+   holds.
+2. A session-settled decision may be contradicted only on evidence — the
+   student changes their mind — and the change is recorded as a new
+   session-settled entry with its own date, never silently overwritten.
+3. An unexamined assertion is not a settled decision. A preference the agent
+   merely assumed is recorded as `assumed`, not `user-approved`, and stays open
+   to revision.
+
 ## Scope definition and validation (course context)
 
 Maintain a session scope for teaching: the current course, the lesson/module,
@@ -300,7 +331,7 @@ make review COURSE=<slug>    # review a student's submission against the rubric
 make clean                   # remove temporary files
 ```
 
-See `docs/teaching-methods.md` for the teaching-method catalog and
+See `docs/teaching-methods/` for the teaching-method store and
 `docs/course-agent-skills.md` for the wider ecosystem of educational Agent
 Skills.
 
@@ -348,6 +379,23 @@ editing them, restart opencode for the changes to take effect. The subagents
 inherit the guardrails here and may not weaken them; the `botai` agent routes
 teaching tasks to them via the task tool.
 
+### Model tiers for subagents (cost control)
+
+The opencode subagents carry a `model` and a `model tier` annotation in their
+frontmatter, mirroring the cost-tier pattern (extraction / generation /
+ceiling) from the oh-my-opencode-slim and compound-engineering ecosystems:
+
+| Tier | Meaning | Subagents |
+| --- | --- | --- |
+| `extraction` | cheapest capable model — large-volume extraction, record-keeping | `mapper` |
+| `generation` | mid-tier — judgment-heavy, accuracy matters more than speed | `reviewer`, `supplementer`, `contributor` |
+| `ceiling` | strongest model — teaching quality is the product | `tutor` |
+
+The default model IDs are examples for a typical install; override them to the
+models available on your provider. The tier *assignment* is the part to keep:
+cheap extraction where volume is high, strong judgment where the student's
+learning is on the line.
+
 ## References
 
 Practices above are drawn from the AGENTS.md spec (https://agents.md/) and from
@@ -355,4 +403,9 @@ established teaching practice (Socratic method, scaffolded instruction,
 formative assessment). The harness structure is derived from the SECS pattern
 (https://github.com/EvilFreelancer/secs, Apache-2.0), re-themed from
 information security to education; see README.md for the attribution and
-licensing note. This repository is distributed under the GNU GPL v3 license.
+licensing note. Patterns ported from oh-my-opencode-slim
+(https://github.com/alvinunreal/oh-my-opencode-slim, MIT) and
+compound-engineering-plugin
+(https://github.com/EveryInc/compound-engineering-plugin, MIT) are documented
+with their rationale in `docs/borrowed-patterns.md`. This repository is
+distributed under the GNU GPL v3 license.

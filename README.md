@@ -119,7 +119,8 @@ botai/
 ├── courses/                   # материалы курсов (создаются make setup / make new-course)
 ├── progress/                  # постоянные досье прогресса (создаются make setup)
 ├── docs/
-│   ├── teaching-methods.md        # каталог методов преподавания по задачам
+│   ├── teaching-methods/            # структурированное хранилище методов преподавания (frontmatter)
+│   ├── borrowed-patterns.md         # заимствованные паттерны (oh-my-opencode-slim, compound-engineering-plugin)
 │   ├── course-agent-skills.md     # каталог коллекций скиллов в экосистеме
 │   ├── open-source-contribution.md # режим со-разработчика опенсорс-курса
 │   └── education-club.md          # подключение каталога Open Education Club (MCP)
@@ -271,7 +272,8 @@ make education-club              # проверить подключение к�
 - [TUTORIAL.md](TUTORIAL.md) — пошаговый туториал: что такое botai и как им пользоваться;
 - [AGENTS.md](AGENTS.md) — политика и ограничения агента (начните отсюда);
 - [.agents/skills/README.md](.agents/skills/README.md) — какие скиллы установлены и почему они остаются в рамках проекта;
-- [docs/teaching-methods.md](docs/teaching-methods.md) — каталог методов преподавания по задачам;
+- [docs/teaching-methods/](docs/teaching-methods/) — структурированное хранилище методов преподавания по задачам;
+- [docs/borrowed-patterns.md](docs/borrowed-patterns.md) — паттерны, перенесённые из oh-my-opencode-slim и compound-engineering-plugin, с обоснованием;
 - [docs/course-agent-skills.md](docs/course-agent-skills.md) — широкая экосистема образовательных Agent-скиллов;
 - [docs/open-source-contribution.md](docs/open-source-contribution.md) — режим со-разработчика опенсорс-курса: роли, вклад, связь с сообществом;
 - [docs/education-club.md](docs/education-club.md) — подключение каталога Open Education Club через MCP и старт курса из каталога.

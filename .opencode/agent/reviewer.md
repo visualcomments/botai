@@ -1,6 +1,8 @@
 ---
 description: botai feedback subagent. Reviews a student's attempt: what is right, what needs work, and how to fix it themselves - respecting the delivery preference and never giving a ready answer to graded tasks. Use when a student submits an attempt for review or is stuck after several tries.
 mode: subagent
+model: opencode-go/glm-5.2
+# model tier: generation - mid-tier judgment; feedback quality matters, cost kept lower than tutor
 permission:
   edit: deny
 ---
