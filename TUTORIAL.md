@@ -107,7 +107,7 @@ botai/
 ├── courses/                   # ваши курсы (создаются `make setup`)
 ├── progress/                  # досье прогресса (создаются `make setup`)
 ├── docs/
-│   ├── teaching-methods/      # структурированное хранилище методов преподавания (frontmatter)
+│   ├── teaching-methods.md    # каталог методов преподавания
 │   ├── course-agent-skills.md # экосистема образовательных скиллов
 │   ├── open-source-contribution.md # режим опенсорс-соавтора курса
 │   └── education-club.md      # подключение каталога Open Education Club (MCP)
@@ -754,7 +754,7 @@ A: Они в `.gitignore`. Это рабочие данные, которые н
 
 - `README.md` — обзор проекта, лицензия, атрибуция;
 - `AGENTS.md` — политика агента (прочитать обязательно);
-- `docs/teaching-methods/` — структурированное хранилище методов преподавания;
+- `docs/teaching-methods.md` — каталог методов преподавания;
 - `docs/course-agent-skills.md` — экосистема образовательных скиллов;
 - `docs/open-source-contribution.md` — режим со-разработчика опенсорс-курса;
 - `docs/education-club.md` — подключение каталога Open Education Club через

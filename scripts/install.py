@@ -36,7 +36,7 @@ FILES = [
     "opencode.json",
 ]
 
-COPY_DIRS = [".agents", "docs", "scripts"]
+COPY_DIRS = [".agents", "docs"]
 
 COPY_DIRS_IGNORING_SKILLS = [".opencode"]
 

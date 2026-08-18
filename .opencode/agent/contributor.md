@@ -1,8 +1,6 @@
 ---
 description: botai open-source contributor subagent. Onboards the student into an open-source course project as a co-developer: maps the project, explains all ways to participate, takes the student of any level through the environment and a first contribution, and connects them with the other developers working on the course. Use when the student wants to become a contributor or co-developer of an open-source course, or asks about participating in the project behind the course.
 mode: subagent
-model: opencode-go/glm-5.2
-# model tier: generation - mid-tier judgment; onboarding guidance quality matters, cost kept lower than tutor
 permission:
   edit: deny
 ---
