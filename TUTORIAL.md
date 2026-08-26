@@ -138,6 +138,30 @@ botai/
 | OpenCode (рекомендуется) | полноценная работа с агентом, сабагентами, MCP | `opencode --version` |
 | (опция) Claude Code / Cursor / Codex / pi | работа в другом агенте | их CLI |
 
+**Как открыть терминал:**
+
+- **Windows:** нажмите `Win + R`, введите `cmd` и нажмите Enter — откроется
+  командная строка. Для команд `git` и `make` используйте **Git Bash**
+  (ставится вместе с Git for Windows) или **WSL** — в обычном `cmd` команды
+  `make` не работают, потому что Makefile использует команды Unix-шелла.
+- **macOS:** нажмите `Cmd + Space`, введите «Terminal» и нажмите Enter.
+- **Linux:** откройте любой эмулятор терминала (в Ubuntu — `Ctrl + Alt + T`).
+
+**Как установить инструменты:**
+
+| ОС | Git | Python 3 | make |
+| --- | --- | --- | --- |
+| Windows | [git-scm.com/download/win](https://git-scm.com/download/win) — вместе с ним появится Git Bash | [python.org](https://www.python.org/downloads/) — при установке отметьте «Add python.exe to PATH» | `choco install make` (Chocolatey, от администратора) или WSL: `sudo apt install make` |
+| macOS | `xcode-select --install` (ставит git и make) | [python.org](https://www.python.org/downloads/) или `brew install python` | `xcode-select --install` |
+| Debian/Ubuntu | `sudo apt install git` | `sudo apt install python3` | `sudo apt install make` |
+| Fedora | `sudo dnf install git` | `sudo dnf install python3` | `sudo dnf install make` |
+| Arch | `sudo pacman -S git` | `sudo pacman -S python` | `sudo pacman -S make` |
+
+Проверка после установки: `git --version`, `python3 --version`,
+`make --version` — каждая команда должна напечатать номер версии. Если
+`python3` не найден на Windows, попробуйте `python --version` или
+`py -3 --version`.
+
 Аккаунты/доступ:
 
 - API-ключ для LLM-провайдера (например Anthropic, OpenAI) — нужен агенту
@@ -164,6 +188,11 @@ export EDUCATION_CLUB_CATALOG=<checkout>   # путь к клонированн�
 `opencode.json` — устанавливаются **только внутри этого проекта** и никогда не
 пишутся в глобальные конфиги opencode, Claude Code, Cursor или других
 фреймворков.
+
+> **Новичкам:** все команды ниже выполняются в терминале (на Windows — в Git
+> Bash или WSL, см. раздел «Что нужно перед стартом»). Если команда не найдена
+> (`make: command not found`, `git: command not found`) — вернитесь к разделу
+> «Что нужно перед стартом» и установите недостающий инструмент.
 
 ```bash
 git clone https://github.com/visualcomments/botai.git
@@ -378,10 +407,44 @@ courses/python-101/
 
 ### 10.1 Запустить агента из каталога установленного проекта
 
-```bash
-# в opencode
-opencode
-```
+**Пошагово (opencode):**
+
+1. Откройте терминал (на Windows — Git Bash или WSL) и перейдите в каталог
+   установленного проекта:
+
+   ```bash
+   cd my-course-botai
+   ```
+
+2. Запустите opencode:
+
+   ```bash
+   opencode
+   ```
+
+   Откроется интерактивный интерфейс (TUI). Внизу — строка ввода, в ней —
+   имя активного агента. По умолчанию это `botai` (задано в `opencode.json`).
+   Примерно так:
+
+   ```
+   ┌────────────────────────────────────────────────────────────┐
+   │  botai · <ваша модель>                                     │
+   │                                                            │
+   │  > _                                                       │
+   └────────────────────────────────────────────────────────────┘
+   ```
+
+3. **Проверьте, что агент `botai` включён и готов к работе:**
+   - введите `/agents` и нажмите Enter — в списке агентов должен быть `botai`
+     (primary);
+   - или задайте контрольный вопрос: «Кто ты и как ты работаешь?» — бот
+     должен представиться сокурсником, назвать режимы работы (co-learning,
+     tutoring, supplement, open-source contributor) и сослаться на политику
+     `AGENTS.md`;
+   - если активен другой агент — переключитесь на `botai` через `/agents`.
+
+4. Начните сессию: «Изучай курс python-101 вместе со мной». Агент пройдёт
+   consent-gate (см. 10.2) и начнёт co-learning.
 
 или в другом агенте — просто откройте терминал в каталоге **установленного
 проекта** (например `my-course-botai/`) и запустите свой агент. Политика
@@ -400,6 +463,12 @@ opencode
 
 Ответы агент сохранит в `progress/<course>.md` через скилл
 `maintaining-course-progress`.
+
+> Если курс — опенсорс-проект и его лицензия разрешает вклад, агент во время
+> знакомства также расскажет о возможности стать **контрибьютором курса**:
+> как организована такая работа (реальные коммиты делает студент, агент
+> планирует, обучает и готовит черновики) и спросит, интересна ли вам эта
+> роль. Подробнее — в шаге 13.
 
 ### 10.3 Провести сессию
 
@@ -777,6 +846,7 @@ A: Они в `.gitignore`. Это рабочие данные, которые н
 - [ ] `make new-course NAME=python-101` — курс создан
 - [ ] `courses/python-101/syllabus.md` заполнен, материалы в `lessons/`
 - [ ] Агент собрал трассу курса (`track.md`)
+- [ ] opencode запущен, агент `botai` активен (проверка `/agents` или контрольный вопрос)
 - [ ] Первая сессия: consent gate пройден
 - [ ] Задание разобрано на шаги, попытка отправлена на ревью
 - [ ] `make progress COURSE=python-101` — досье ведётся

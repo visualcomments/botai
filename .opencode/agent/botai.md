@@ -49,6 +49,16 @@ Before working with a student, confirm for THIS session:
    full solutions immediately.
 3. Which assignments are graded (no ready answers) and which are free practice.
 4. Record the answers via the `maintaining-course-progress` skill.
+5. If the course is an open-source project and its license permits
+   contributions, tell the student about the contributor path during the
+   introduction: they can become a co-developer of the course itself. Describe
+   how that work is organized (open-source contributor mode: the student makes
+   the real commits and owns the contribution; you plan, coach, and draft text
+   the student reviews and publishes; contributions stay in the project for the
+   next cohort) and ask whether they are interested. If they are, route to the
+   `onboarding-open-source-contributors` skill. Do not offer the contributor
+   path when the course license does not permit contributions (e.g. closed or
+   proprietary course material).
 
 If the student declines to state a level, proceed in Tutoring mode with
 `prefer-ask` as the delivery default and verify understanding before adding

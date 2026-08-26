@@ -54,6 +54,67 @@ consent-gate — уровень, формат обратной связи, ра�
 глобальные конфиги opencode, Claude Code, Cursor или других фреймворков и не
 становятся общими для ваших остальных проектов.
 
+### Что нужно установить заранее (для новичков)
+
+Вам понадобятся три инструмента: **Git**, **Python 3** и **make**. Ниже — как
+открыть терминал и поставить их на каждой ОС.
+
+**Как открыть терминал:**
+
+- **Windows:** нажмите `Win + R`, введите `cmd` и нажмите Enter — откроется
+  командная строка. Для команд `git` и `make` удобнее **Git Bash** (ставится
+  вместе с Git for Windows, см. ниже) — в нём работают те же команды, что и в
+  Linux/macOS.
+- **macOS:** нажмите `Cmd + Space`, введите «Terminal» и нажмите Enter.
+- **Linux:** откройте любой эмулятор терминала (в Ubuntu — `Ctrl + Alt + T`).
+
+**Windows:**
+
+1. **Git** — скачайте [Git for Windows](https://git-scm.com/download/win) и
+   установите. Вместе с ним появится **Git Bash** — терминал, в котором
+   работают команды `git` и `make`.
+2. **Python 3** — скачайте с [python.org](https://www.python.org/downloads/) и
+   при установке обязательно отметьте галочку **«Add python.exe to PATH»**.
+3. **make** — в Git Bash `make` нет по умолчанию. Поставьте его одним из
+   способов:
+   - через пакетный менеджер **Chocolatey** (запустите CMD от имени
+     администратора): `choco install make`;
+   - или установите **WSL** (подсистема Linux) и поставьте всё внутри него:
+     `sudo apt install make git python3` — самый надёжный вариант для Windows.
+
+   Проверьте: `make --version`.
+
+> **Важно для Windows:** команды `make ...` и `git ...` выполняйте в **Git
+> Bash** или **WSL**, а не в обычной командной строке `cmd` — Makefile
+> использует команды Unix-шелла, которых в `cmd` нет.
+
+**macOS:**
+
+1. Откройте Terminal и выполните `xcode-select --install` — это поставит
+   `make`, `git` и компиляторы (появится окно установки; подтвердите).
+2. Python 3 — скачайте с [python.org](https://www.python.org/downloads/) или
+   через Homebrew: `brew install python`.
+
+**Linux (Debian/Ubuntu):**
+
+```bash
+sudo apt update
+sudo apt install make git python3
+```
+
+(Fedora: `sudo dnf install make git python3`; Arch: `sudo pacman -S make git python`.)
+
+**Проверка после установки** — выполните в терминале:
+
+```bash
+git --version
+python3 --version
+make --version
+```
+
+Каждая команда должна напечатать номер версии. Если `python3` не найден на
+Windows, попробуйте `python --version` или `py -3 --version`.
+
 ```bash
 git clone https://github.com/visualcomments/botai.git
 cd botai
@@ -231,6 +292,11 @@ make install DEST=my-course-botai   # создать и заполнить ./my-
 cd my-course-botai
 ```
 
+> Новичкам: если команда не найдена (`make: command not found`,
+> `git: command not found`), вернитесь к разделу «Что нужно установить
+> заранее» выше — там пошагово, как открыть терминал и поставить
+> недостающий инструмент на вашей ОС.
+
 ### 2. Настройте рабочее пространство
 
 ```bash
@@ -243,9 +309,40 @@ make new-course NAME=my-course   # создать курс из шаблона
 Запустите агента из созданного проекта и попросите его изучать курс вместе с
 вами. Агент проходит consent-gate, строит карту программы и начинает сессию.
 
-В opencode агент `botai` — по умолчанию. Слэш-команды управляют типовыми
-рабочими процессами: `/session`, `/new-course`, `/progress`, `/review`,
-`/supplement`, `/setup`, `/education-club`.
+**Пошагово (opencode):**
+
+1. Откройте терминал (на Windows — Git Bash или WSL) и перейдите в каталог
+   установленного проекта:
+
+   ```bash
+   cd my-course-botai
+   ```
+
+2. Запустите opencode:
+
+   ```bash
+   opencode
+   ```
+
+   Откроется интерактивный интерфейс (TUI). В строке ввода внизу вы увидите
+   имя активного агента — по умолчанию это `botai` (задано в
+   `opencode.json`).
+
+3. **Проверьте, что агент `botai` включён и готов:**
+   - введите `/agents` и нажмите Enter — в списке агентов должен быть `botai`
+     (primary);
+   - или задайте контрольный вопрос: «Кто ты и как ты работаешь?» — бот
+     должен представиться сокурсником, назвать режимы работы и сослаться на
+     политику `AGENTS.md`;
+   - если активен другой агент — переключитесь на `botai` через `/agents`.
+
+4. Начните сессию: «Изучай курс python-101 вместе со мной». Агент пройдёт
+   consent-gate (уровень, формат обратной связи, оцениваемые задания) и
+   начнёт co-learning.
+
+Слэш-команды управляют типовыми рабочими процессами: `/session`,
+`/new-course`, `/progress`, `/review`, `/supplement`, `/setup`,
+`/education-club`.
 
 ```bash
 make progress COURSE=my-course   # сводка досье прогресса курса

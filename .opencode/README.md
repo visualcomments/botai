@@ -37,6 +37,16 @@ projects. Run opencode from the created project root.
 - Permissions in `opencode.json` let the agent run `make *` and `git *`, edit
   files, and webfetch for supplements; everything else asks.
 
+## Verifying the botai agent is active
+
+- `opencode.json` sets `default_agent: botai`, so the TUI starts on the botai
+  agent; the active agent's name is shown in the input line.
+- In the TUI, `/agents` lists the agents — `botai` is the primary one.
+- A control question ("Who are you and how do you work?") should get the
+  co-learner introduction: the operating modes and a reference to `AGENTS.md`.
+- Config and these files are loaded once at startup: after editing them,
+  restart opencode for the changes to take effect.
+
 ## Using the slash commands
 
 - `/setup` — create the workspace layout and check the environment
