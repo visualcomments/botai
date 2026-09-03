@@ -19,8 +19,8 @@ in doubt, say "not found" instead of inventing.
    (or the active course subproject, see `multi-course-workspace`) typically has
    `tools/` and a `Makefile`. Read its `CORPUS.md` / `docs/GOOGLE-DRIVE.md` /
    `citations.md` first — they name the exact commands and env vars
-   (`FALT_CORPUS_ROOT`, `FALT_TXT_DIR`, `FALT_INDEX_DIR`, `FALT_INDEX_URL`).
-2. **Check state.** `FALT_CORPUS_ROOT/txt/` holds the texts; `index/` holds
+   (`COURSE_CORPUS_ROOT`, `COURSE_TXT_DIR`, `COURSE_INDEX_DIR`, `COURSE_INDEX_URL`).
+2. **Check state.** `COURSE_CORPUS_ROOT/txt/` holds the texts; `index/` holds
    `annoy.index`, `embeddings.npy`, `chunks.jsonl`, `config.json`. If `index/`
    is missing or empty, the index is not installed yet.
 
@@ -34,7 +34,7 @@ the course; each channel below works with or without the course tooling.
 
 | Channel | Where to get it | Typical command |
 |---|---|---|
-| Preinstalled/bundled | already in `FALT_INDEX_DIR` (local copy) | sanity check only, no download |
+| Preinstalled/bundled | already in `COURSE_INDEX_DIR` (local copy) | sanity check only, no download |
 | Google Drive share link | `index-manifest.json` → `archive.url`, or a link the student gives | `make index-fetch URL="<link>"` / `tools/index_fetch.py` (Drive big-file flow: virus-scan page, `confirm`, `drive.usercontent.google.com`) |
 | Generic HTTPS / S3 / object storage | any static URL (course website, university server, S3 presigned URL) | `curl -L "<url>" -o idx.zip` + manual SHA-256 check, then unzip |
 | GitHub Releases | release asset of the course repo | `curl -L "<releases>/download/<tag>/<archive>.zip"` or `gh release download <tag>` |
@@ -42,7 +42,7 @@ the course; each channel below works with or without the course tooling.
 
 Universal procedure (independent of channel):
 
-1. **Locate the source**: manifest `url` (any scheme), `FALT_INDEX_URL` env,
+1. **Locate the source**: manifest `url` (any scheme), `COURSE_INDEX_URL` env,
    or the student's link/path; if none, ask — never guess a URL.
 2. **Validate identity**: when a manifest exists, verify **SHA-256 of the
    archive and of each file before unpacking**; mismatch = wrong/stale
