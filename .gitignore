@@ -1,2 +1,6 @@
 courses/
 progress/
+
+__pycache__/
+*.py[cod]
+
