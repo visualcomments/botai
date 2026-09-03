@@ -78,6 +78,7 @@ help:
 	@echo "  make install [DEST=dir]  Install botai into a NEW separate project (default: botai-project)"
 	@echo "  make setup                 Create the workspace layout (courses/ progress/ dist/)"
 	@echo "  make new-course NAME=slug [TITLE=My_Course]  Scaffold a new course (TITLE without spaces)"
+	@echo "  (on any OS, incl. Windows without make: python scripts/cli.py <command>)"
 	@echo ""
 	@echo "Multi-course workspace:"
 	@echo "  make courses                List course subprojects with progress tails"
@@ -97,22 +98,13 @@ help:
 	@echo "Read AGENTS.md before teaching with the agent."
 
 doctor:
-	@echo "OS          : $(OS)"
-	@echo "root        : $(ROOT)"
-	@echo "helpers     : git=$(HAS_GIT) python3=$(HAS_PY) node=$(HAS_NODE) markdownlint-cli2=$(HAS_MARKDOWNLINT)"
-	@echo "courses     : $(shell test -d '$(COURSES)' && ls '$(COURSES)' | tr '\n' ' ' || echo '(none - run make setup)')"
-	@echo "progress    : $(shell test -d '$(PROGRESS)' && ls '$(PROGRESS)' | tr '\n' ' ' || echo '(none - run make setup)')"
+	@python3 scripts/cli.py doctor
 
 # ============================================================================
 # Workspace
 # ============================================================================
 setup:
-	@mkdir -p "$(COURSES)" "$(PROGRESS)" "$(DIST)"
-	@echo "workspace ready:"
-	@echo "  $(COURSES)   (course materials go here)"
-	@echo "  $(PROGRESS)  (progress records go here)"
-	@echo "  $(DIST)      (temporary files, git-ignored)"
-	@echo "next: make new-course NAME=<slug>"
+	@python3 scripts/cli.py setup
 
 # ----------------------------------------------------------------------------
 # Install botai into a NEW, separate, project-scoped directory. The installer
@@ -122,8 +114,7 @@ setup:
 # project only.
 # ----------------------------------------------------------------------------
 install:
-	@test "$(HAS_PY)" = yes || { echo "python3 is required for 'make install'"; exit 2; }
-	python3 scripts/install.py --dest "$(DEST)"
+	@python3 scripts/install.py --dest "$(DEST)"
 
 # ----------------------------------------------------------------------------
 # Scaffold a course from a minimal layout. Use as a starting point for a
@@ -132,81 +123,28 @@ install:
 # when omitted it falls back to the course name.
 # ----------------------------------------------------------------------------
 new-course:
-	@test -n "$(NAME)" || { echo "usage: make new-course NAME=<slug> [TITLE=<no_spaces>]"; exit 2; }
-	@name=$$(echo '$(NAME)' | tr 'A-Z ' 'a-z-'); \
-	title="$(TITLE)"; \
-	if [ -z "$$title" ]; then title=$$name; fi; \
-	dir="$(COURSES)/$$name"; \
-	if [ -e "$$dir" ]; then echo "course already exists: $$dir"; exit 2; fi; \
-	mkdir -p "$$dir/lessons" "$$dir/assignments" "$$dir/references"; \
-	{ \
-	  echo "# $$title"; \
-	  echo; \
-	  echo "> Scaffolded by botai. Fill in the syllabus before teaching."; \
-	} > "$$dir/README.md"; \
-	{ \
-	  echo "# Syllabus"; \
-	  echo; \
-	  echo "## Modules"; \
-	  echo; \
-	  echo "1. _module one_ - _objective, prerequisites_"; \
-	} > "$$dir/syllabus.md"; \
-	echo "course scaffolded: $$dir"; \
-	echo "next: fill in syllabus.md, then make progress COURSE=$$name"
+	@python3 scripts/cli.py new-course --name "$(NAME)" --title "$(TITLE)"
 
 # ============================================================================
 # Progress + review
 # ============================================================================
 progress:
-	@test -n "$(COURSE)" || { echo "usage: make progress COURSE=<slug>"; exit 2; }
-	@f="$(PROGRESS)/$(COURSE).md"; \
-	if [ -f "$$f" ]; then \
-	  echo "== progress: $(COURSE) =="; \
-	  grep -E '^## |^### |^- \[' "$$f" | head -n 60; \
-	else \
-	  echo "no progress record yet: $$f"; \
-	  echo "hint: the agent writes it with the maintaining-course-progress skill"; \
-	fi
+	@python3 scripts/cli.py progress --course "$(COURSE)"
 
 review:
-	@test -n "$(COURSE)" || { echo "usage: make review COURSE=<slug>"; exit 2; }
-	@echo "review workflow for $(COURSE):"
-	@echo "  - locate the student's submission under courses/$(COURSE)/assignments/"
-	@echo "  - run the giving-feedback skill (rubric + least-assistance-first)"
-	@echo "  - never reveal the answer to a graded task before the attempt"
-	@echo "route to the agent: 'review my submission for $(COURSE) with the rubric'"
+	@python3 scripts/cli.py review --course "$(COURSE)"
 
 # ============================================================================
 # Multi-course workspace: per-course subprojects + active-course switching
 # ============================================================================
 courses:
-	@found=0; \
-	for d in "$(COURSES)"/*/; do \
-	  [ -d "$$d" ] || continue; \
-	  found=1; \
-	  slug="$$(basename "$$d")"; \
-	  title="$$(head -1 "$$d/README.md" 2>/dev/null | sed 's/^# //')"; \
-	  stat="(no progress yet)"; \
-	  if [ -f "$(PROGRESS)/$$slug.md" ]; then \
-	    stat="$$(grep -m1 '^## ' "$(PROGRESS)/$$slug.md" 2>/dev/null | sed 's/^## //')"; \
-	  fi; \
-	  echo "$$slug - $$title $$stat"; \
-	done; \
-	if [ "$$found" = "0" ]; then echo "(no courses yet - run make new-course NAME=<slug>)"; fi
+	@python3 scripts/cli.py courses
 
 course-set:
-	@test -n "$(COURSE)" || { echo "usage: make course-set COURSE=<slug>"; exit 2; }
-	@test -d "$(COURSES)/$(COURSE)" || { echo "no such course: $(COURSES)/$(COURSE)"; echo "list: make courses"; exit 2; }
-	@mkdir -p "$(ROOT)/.botai"
-	@printf '%s' '$(COURSE)' > "$(ROOT)/.botai/active"
-	@echo "active course: $(COURSE)"
+	@python3 scripts/cli.py course-set --course "$(COURSE)"
 
 active:
-	@if [ -f "$(ROOT)/.botai/active" ] && [ -n "$$(cat "$(ROOT)/.botai/active")" ]; then \
-	  echo "active course: $$(cat "$(ROOT)/.botai/active")"; \
-	else \
-	  echo "no active course (run: make course-set COURSE=<slug>)"; \
-	fi
+	@python3 scripts/cli.py active
 
 # ============================================================================
 # Open Education Club catalog (MCP)
@@ -233,9 +171,4 @@ lint:
 	fi
 
 clean:
-	@if [ -n "$(DRY)" ]; then \
-	  echo "would remove temporary files under $(DIST)"; \
-	else \
-	  rm -rf "$(DIST)"/\*; \
-	  echo "removed temporary files (kept courses/ and progress/)"; \
-	fi
+	@python3 scripts/cli.py clean

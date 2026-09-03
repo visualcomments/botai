@@ -302,8 +302,11 @@ repo root or into any global config directory.
 
 Everything else is driven by `make` (run `make help` for the full list, `make doctor`
 to see the detected environment). It adapts to apt (Debian/Ubuntu), dnf
-(Fedora/RHEL), pacman (Arch) or brew (macOS) where a tool is needed. Set up a
-course workspace:
+(Fedora/RHEL), pacman (Arch) or brew (macOS) where a tool is needed. All
+workspace commands are cross-platform (Windows / Linux / macOS): `make` targets
+delegate to `scripts/cli.py`, which also runs directly without make —
+`python scripts/cli.py setup|new-course|progress|review|courses|course-set|active|doctor|clean`.
+Set up a course workspace:
 
 ```bash
 make setup                  # create the workspace layout (courses/, progress/, dist/)

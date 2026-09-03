@@ -176,8 +176,10 @@ def install(src, dest, init_git, dry_run):
     print("  nothing was written to global config (opencode / Claude Code / Cursor / ...)")
     print("next:")
     print("  cd %s" % dest)
-    print("  make help")
-    print("  make setup   # (already done by install) create courses/ progress/ dist/")
+    print("  make help            # or, without make (any OS incl. Windows):")
+    print("                       #   python scripts/cli.py doctor")
+    print("  make setup           # (already done by install) create courses/ progress/ dist/")
+    print("                       # or: python scripts/cli.py setup")
 
 
 def main():

@@ -71,6 +71,10 @@ botai поддерживает **одновременное прохождени
 
 ## Команды
 
+Все команды кроссплатформенны (Windows / Linux / macOS). `make` цели —
+это обёртки над `scripts/cli.py`; без make (например, в командной строке
+Windows) используйте Python-вариант:
+
 ```bash
 make install DEST=<workspace>       # создать новый workspace
 make new-course NAME=<slug>         # создать подпроект курса
@@ -78,6 +82,15 @@ make courses                        # список курсов + статус �
 make course-set COURSE=<slug>       # переключить активный курс
 make active                         # показать активный курс
 make progress COURSE=<slug>         # сводка прогресса по курсу
+```
+
+```bat
+py -3 scripts\cli.py setup
+py -3 scripts\cli.py new-course --name <slug>
+py -3 scripts\cli.py courses
+py -3 scripts\cli.py course-set --course <slug>
+py -3 scripts\cli.py active
+py -3 scripts\cli.py progress --course <slug>
 ```
 
 Полная процедура агента — навык `multi-course-workspace`
