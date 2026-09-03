@@ -1,6 +1,6 @@
 ---
 name: rag-corpus-operations
-description: Work with a course corpus through its RAG index — embeddings, chunks, and search — without ever fabricating a citation. Covers locating the corpus and index, installing the index from Google Drive (manifest + SHA-256), searching with coordinates (file · chunk #N), quote-verification discipline, checking index freshness, and running the local RAG API. Use whenever a course supplies a corpus (verified texts) and the student or a task needs material, evidence, or citations from it, or when the index is missing/stale and must be fetched or rebuilt.
+description: Work with a course corpus through its RAG index — embeddings, chunks, and search — without ever fabricating a citation. Covers locating the corpus and index, installing the index from any distribution channel (bundled/local, Google Drive, plain HTTPS/S3 links, GitHub Releases, HuggingFace), hash or structural verification, searching with coordinates (file · chunk #N), quote-verification discipline, checking index freshness, and running the local RAG API. Use whenever a course supplies a corpus (verified texts) and the student or a task needs material, evidence, or citations from it, or when the index is missing/stale and must be fetched or rebuilt.
 verified: 2026-09-03
 ---
 
@@ -24,23 +24,50 @@ in doubt, say "not found" instead of inventing.
    `annoy.index`, `embeddings.npy`, `chunks.jsonl`, `config.json`. If `index/`
    is missing or empty, the index is not installed yet.
 
-## Installing the index (Google Drive, no server)
+## Installing the index (any distribution channel)
+
+The index ships in many ways; the contract is always the same —
+**one archive** (`annoy.index`, `embeddings.npy`, `chunks.jsonl`,
+`config.json`) described by **`index-manifest.json`** (sizes + SHA-256 per
+file, archive hash, optional `url`/`index_version`). Prefer tools provided by
+the course; each channel below works with or without the course tooling.
+
+| Channel | Where to get it | Typical command |
+|---|---|---|
+| Preinstalled/bundled | already in `FALT_INDEX_DIR` (local copy) | sanity check only, no download |
+| Google Drive share link | `index-manifest.json` → `archive.url`, or a link the student gives | `make index-fetch URL="<link>"` / `tools/index_fetch.py` (Drive big-file flow: virus-scan page, `confirm`, `drive.usercontent.google.com`) |
+| Generic HTTPS / S3 / object storage | any static URL (course website, university server, S3 presigned URL) | `curl -L "<url>" -o idx.zip` + manual SHA-256 check, then unzip |
+| GitHub Releases | release asset of the course repo | `curl -L "<releases>/download/<tag>/<archive>.zip"` or `gh release download <tag>` |
+| HuggingFace repository | file in an HF repo (same flow as corpus) | `curl -L "https://huggingface.co/<org>/<repo>/resolve/main/<archive>?download=true"` |
+
+Universal procedure (independent of channel):
+
+1. **Locate the source**: manifest `url` (any scheme), `FALT_INDEX_URL` env,
+   or the student's link/path; if none, ask — never guess a URL.
+2. **Validate identity**: when a manifest exists, verify **SHA-256 of the
+   archive and of each file before unpacking**; mismatch = wrong/stale
+   artifact → stop, report, do not use. When no hash is available (plain
+   URL, HF, etc.), downgrade to structural validation: archive opens, four
+   expected files present, `config.json` parses, `n_chunks`/`n_files` are
+   sensible; say explicitly that the artifact was **not hash-verified**.
+3. **Install atomically**: swap `index/` → `index_old/`, unpack, sanity check
+   (`n_chunks`, `n_files` from `config.json`), and confirm the manifest
+   `index_version` matches `config.json`'s build metadata.
+4. **Record provenance**: note the channel + hash/verification level in the
+   session record (and, for a course repo, keep `index-manifest.json` current).
+
+Manual fallback (no course tooling):
 
 ```bash
-make index-fetch URL="<share link>"        # or:
-python tools/index_fetch.py                # reads url from index-manifest.json / FALT_INDEX_URL
+mkdir -p idx && cd idx
+curl -L "<url-or-link>" -o index.zip
+# hash check if a manifest/hash exists:
+sha256sum index.zip          # compare with manifest archive.sha256
+unzip index.zip              # must yield annoy.index, chunks.jsonl, config.json, embeddings.npy
+python -c "import json; c=json.load(open('config.json')); print(c['n_chunks'], c['n_files'])"
 ```
 
-What the tool does and must verify:
-- downloads the archive (Drive big-file flow: virus-scan page, `confirm`,
-  `drive.usercontent.google.com`);
-- **checks SHA-256 of the archive and each file against the manifest before
-  unpacking** — mismatch means a wrong/stale archive: stop, report, do not use;
-- atomically swaps `index/` → `index_old/`, unpacks, verifies sanity
-  (`n_chunks`, `n_files` from `config.json`).
-
-After install, confirm: `config.json` says `n_chunks`/`n_files` matching the
-manifest; if the manifest says a newer `index_version`, flag the stale index.
+Windows (`certutil -hashfile index.zip SHA256` instead of `sha256sum`).
 
 ## Searching
 
@@ -70,12 +97,12 @@ When a claim must be shown as a direct quote:
 
 ## Freshness, rebuild, and the RAG API
 
-- **Freshness check.** If `index_version` (manifest) is newer than
-  `config.json`'s build date, or the corpus `txt/` changed (new files), the
-  index is stale: fetch the new archive, or rebuild (see the
-  `building-agent-ready-course-repo` skill in course repos: chunking
-  1400/140 or 512/128, fastembed, Annoy angular, cluster build, new
-  manifest+zip).
+- **Freshness check.** If the manifest's `index_version` is newer than
+  `config.json`'s build metadata, or the corpus `txt/` changed (new files),
+  the index is stale: fetch the newest archive from the configured channel, or
+  rebuild (see the `building-agent-ready-course-repo` skill in course repos:
+  chunking 1400/140 or 512/128, fastembed, Annoy angular, cluster build, new
+  manifest+zip, publish to the same channel).
 - **Local RAG API** (optional, interactive sessions): `make serve` →
   `tools/rag_api.py` (localhost, `GET /search?q=...&k=...`; OpenAPI in
   `tools/rag-openapi.json`). Use it for live semantic search during a session;
@@ -83,7 +110,7 @@ When a claim must be shown as a direct quote:
 - **Missing index fallback.** Without an index you can still work statically:
   grep the corpus (`tools/quote_finder.py`, or ripgrep over `txt/`), cite with
   coordinates after locating the chunk, and tell the student the index is not
-  installed yet (`make index-fetch`).
+  installed yet (`make index-fetch` / fetch from the configured channel).
 
 ## Anti-patterns (never)
 
@@ -92,4 +119,7 @@ When a claim must be shown as a direct quote:
   — that is authorial synthesis, labeled "вне корпуса".
 - Serving stale fragments after the corpus changed; re-check freshness first.
 - Presenting the index as authoritative when `config.json`/manifest mismatch
-  (sizes, SHA-256, file count).
+  (sizes, SHA-256, file count) — and never claiming hash verification when
+  the channel provided no hash (say "not hash-verified").
+- Hard-coding one distribution channel (e.g. "always Google Drive"): read the
+  manifest/course docs to learn where the index actually lives.
