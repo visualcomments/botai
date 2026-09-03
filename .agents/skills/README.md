@@ -44,6 +44,11 @@ Teaching: `breaking-down-assignments`, `explaining-concepts`,
 
 Supplements: `providing-supplementary-material`, `creating-practice-exercises`.
 
+Corpus and RAG: `rag-corpus-operations` — searching a course corpus through its
+RAG index (embeddings + Annoy + chunks), installing the index from Google
+Drive (manifest + SHA-256), citing with `file · фрагмент #N` coordinates,
+freshness and verification discipline, and the local RAG API.
+
 Open-source course development: `onboarding-open-source-contributors`.
 
 Trust and vetting: `vetting-educational-material`.
