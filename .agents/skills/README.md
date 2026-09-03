@@ -36,7 +36,8 @@ time.
 ## What is installed
 
 Course lifecycle: `mapping-course-syllabus`, `maintaining-course-progress`,
-`planning-study-sessions`, `starting-course-from-education-club`.
+`planning-study-sessions`, `multi-course-workspace`,
+`starting-course-from-education-club`.
 
 Teaching: `breaking-down-assignments`, `explaining-concepts`,
 `assessing-understanding`, `giving-feedback`.
