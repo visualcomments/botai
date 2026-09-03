@@ -193,6 +193,9 @@ teaching workflow when a Skill covers it.
   level, delivery preference, graded vs practice, notes, open questions;
 - `planning-study-sessions` — plan a session or a study plan from the track and
   the student's level;
+- `multi-course-workspace` — run in a dedicated workspace project with one
+  subproject per course when several courses run simultaneously: per-course
+  progress, active-course switching, no cross-course leakage;
 - `starting-course-from-education-club` — start a course from the SourceCraft
   Open Education Club catalog together with the student: browse the catalog via
   the `education-club` MCP, read a course README, fetch the course into the
@@ -307,8 +310,37 @@ make setup                  # create the workspace layout (courses/, progress/, 
 make new-course NAME=<slug>  # scaffold a new course from the template
 make progress COURSE=<slug>  # summarize the progress record for a course
 make review COURSE=<slug>    # review a student's submission against the rubric
+make courses                 # list course subprojects with progress tails
+make course-set COURSE=<slug> # switch the active course (.botai/active)
+make active                  # show the active course
 make clean                   # remove temporary files
 ```
+
+## Multi-course workspaces
+
+A student may study several courses at once. Keep them strictly separated:
+
+- **One workspace project is one botai install.** `make install DEST=<dir>`
+  creates the workspace and copies the harness only inside it. Run the agent
+  from that project's root so the policy and skills are in scope.
+- **One subproject per course.** Scaffold with `make new-course NAME=<slug>`
+  → `courses/<slug>/` (README, syllabus.md, lessons/, assignments/,
+  references/). Never put two courses in one subproject.
+- **State is keyed by course slug.** Progress, consent gate, delivery
+  preference, graded-vs-practice lists, and supplements belong to exactly one
+  course: `progress/<slug>.md` per course, plus a de-identified teaching
+  journal shared across courses (`progress/_journal.md`).
+- **Active course.** `make course-set COURSE=<slug>` records the current
+  course in `.botai/active`; `make active` prints it; `make courses` lists
+  every subproject with a progress tail. If no marker exists, ask the student
+  which course to work on — never guess.
+- **No cross-course leakage.** A supplement or example made for course A is
+  not course B material; consent, delivery preference, and grading rules are
+  per course and may differ; a topic shared by two courses is taught from the
+  active course's material, not fused.
+
+The full procedure is the `multi-course-workspace` skill and
+`docs/multi-course.md`.
 
 See `docs/teaching-methods.md` for the teaching-method catalog and
 `docs/course-agent-skills.md` for the wider ecosystem of educational Agent

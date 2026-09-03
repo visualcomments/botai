@@ -349,6 +349,20 @@ make progress COURSE=my-course   # сводка досье прогресса к
 make review COURSE=my-course     # ревью работы студента
 ```
 
+**Несколько курсов одновременно.** Один workspace = один проект botai, под
+каждый курс — отдельный подпроект `courses/<slug>/`; прогресс ведётся
+пофайлово (`progress/<slug>.md`), активный курс переключается маркером
+`.botai/active`:
+
+```bash
+make courses                  # список курсов-подпроектов + статус прогресса
+make course-set COURSE=slug   # переключить активный курс
+make active                   # показать активный курс
+```
+
+Подробности — в [docs/multi-course.md](docs/multi-course.md) и навыке
+`multi-course-workspace`.
+
 ### 4. Каталог Open Education Club (опционально)
 
 Курсы из каталога Open Education Club (лекции, лабораторные, задания от вузов —

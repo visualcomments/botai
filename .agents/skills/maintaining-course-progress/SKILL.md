@@ -1,7 +1,7 @@
 ---
 name: maintaining-course-progress
 description: Keep the durable record that outlives a session — the cohort's level, each student's baseline, delivery preference (hints vs full solutions), graded vs practice split, what was demonstrated, what was difficult, and open questions — so learning spanning days or multiple students does not restart or contradict itself. Use when a course runs longer than one sitting, when resuming work after a gap, when switching between students, before a context window rolls over, or when you cannot say where a student's level was last recorded.
-verified: 2026-08-12
+verified: 2026-09-03
 ---
 
 # Maintaining Course Progress
@@ -43,6 +43,10 @@ it.
 
 Keep these in one file per course (see `templates/progress-file.md`), in the
 `progress/` directory, updated as you go — not reconstructed at the end.
+File name: `progress/<course-slug>.md`. When several courses run in parallel
+(see `multi-course-workspace`), every record stays keyed by its course slug —
+never merge two courses into one file; the de-identified teaching journal
+(`progress/_journal.md`) is the only cross-course artifact.
 
 ### 1. Cohort and consent
 

@@ -64,7 +64,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 .NOTPARALLEL:
 .PHONY: help doctor install \
         setup new-course \
-        progress review \
+        progress review courses course-set active \
         education-club \
         lint \
         clean
@@ -78,6 +78,11 @@ help:
 	@echo "  make install [DEST=dir]  Install botai into a NEW separate project (default: botai-project)"
 	@echo "  make setup                 Create the workspace layout (courses/ progress/ dist/)"
 	@echo "  make new-course NAME=slug [TITLE=My_Course]  Scaffold a new course (TITLE without spaces)"
+	@echo ""
+	@echo "Multi-course workspace:"
+	@echo "  make courses                List course subprojects with progress tails"
+	@echo "  make course-set COURSE=slug Switch the active course (.botai/active)"
+	@echo "  make active                 Show the active course"
 	@echo ""
 	@echo "Working with a course:"
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
@@ -170,6 +175,38 @@ review:
 	@echo "  - run the giving-feedback skill (rubric + least-assistance-first)"
 	@echo "  - never reveal the answer to a graded task before the attempt"
 	@echo "route to the agent: 'review my submission for $(COURSE) with the rubric'"
+
+# ============================================================================
+# Multi-course workspace: per-course subprojects + active-course switching
+# ============================================================================
+courses:
+	@found=0; \
+	for d in "$(COURSES)"/*/; do \
+	  [ -d "$$d" ] || continue; \
+	  found=1; \
+	  slug="$$(basename "$$d")"; \
+	  title="$$(head -1 "$$d/README.md" 2>/dev/null | sed 's/^# //')"; \
+	  stat="(no progress yet)"; \
+	  if [ -f "$(PROGRESS)/$$slug.md" ]; then \
+	    stat="$$(grep -m1 '^## ' "$(PROGRESS)/$$slug.md" 2>/dev/null | sed 's/^## //')"; \
+	  fi; \
+	  echo "$$slug - $$title $$stat"; \
+	done; \
+	if [ "$$found" = "0" ]; then echo "(no courses yet - run make new-course NAME=<slug>)"; fi
+
+course-set:
+	@test -n "$(COURSE)" || { echo "usage: make course-set COURSE=<slug>"; exit 2; }
+	@test -d "$(COURSES)/$(COURSE)" || { echo "no such course: $(COURSES)/$(COURSE)"; echo "list: make courses"; exit 2; }
+	@mkdir -p "$(ROOT)/.botai"
+	@printf '%s' '$(COURSE)' > "$(ROOT)/.botai/active"
+	@echo "active course: $(COURSE)"
+
+active:
+	@if [ -f "$(ROOT)/.botai/active" ] && [ -n "$$(cat "$(ROOT)/.botai/active")" ]; then \
+	  echo "active course: $$(cat "$(ROOT)/.botai/active")"; \
+	else \
+	  echo "no active course (run: make course-set COURSE=<slug>)"; \
+	fi
 
 # ============================================================================
 # Open Education Club catalog (MCP)
