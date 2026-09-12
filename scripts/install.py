@@ -93,6 +93,57 @@ def make_symlink_or_copy(target, link):
     return False
 
 
+def corpus_manifests(course_dir):
+    return [m for m in ("index-manifest.json", "corpus-manifest.json")
+            if (course_dir / m).exists()]
+
+
+def fetch_corpora(dest):
+    """Acquire the corpus of every course subproject that publishes one.
+
+    Best-effort by design: a failed download must not abort an install that has
+    already produced a usable workspace. Failures are reported loudly and the
+    documented one-liner to retry is printed, because a course taught without
+    its corpus is taught without evidence.
+    """
+    courses = dest / "courses"
+    if not courses.is_dir():
+        return
+    todos = [d for d in sorted(courses.iterdir()) if d.is_dir() and corpus_manifests(d)]
+    if not todos:
+        return
+
+    print()
+    print("corpus acquisition (courses that publish a corpus):")
+    failures = []
+    for cdir in todos:
+        fetcher = cdir / "tools" / "corpus_fetch.py"
+        if not fetcher.exists():
+            fetcher = cdir / "tools" / "index_fetch.py" if (cdir / "tools" / "index_fetch.py").exists() else None
+        print("  %s: %s" % (cdir.name, ", ".join(corpus_manifests(cdir))))
+        if not fetcher:
+            print("    no tools/corpus_fetch.py - fetch manually per its CORPUS.md")
+            failures.append((cdir.name, "no fetcher"))
+            continue
+        rc = subprocess.run([sys.executable or "python3", str(fetcher)], cwd=str(cdir)).returncode
+        if rc != 0:
+            failures.append((cdir.name, "exit %d" % rc))
+            print("    FAILED (exit %d)" % rc)
+        else:
+            print("    ok")
+
+    if failures:
+        print()
+        print("WARNING: corpus not installed for: %s"
+              % ", ".join("%s (%s)" % f for f in failures))
+        print("  a course without its corpus cannot verify quotations - retry with:")
+        for name, _ in failures:
+            print("    python scripts/cli.py corpus --course %s" % name)
+        print("  if the link is dead, report it: do not substitute a URL.")
+    else:
+        print("  all published corpora installed.")
+
+
 def install(src, dest, init_git, dry_run):
     dest = Path(dest).expanduser().resolve()
     if dest == src:
@@ -144,6 +195,13 @@ def install(src, dest, init_git, dry_run):
             (dest / runtime).mkdir(exist_ok=True)
     if not dry_run:
         (dest / "dist" / ".gitignore").write_text(DIST_GITIGNORE_CONTENT, encoding="utf-8")
+
+    # A course that publishes a corpus is not ready to teach until the corpus is
+    # installed, so acquisition is part of deployment - not a later manual step.
+    # Only courses that actually ship corpus manifests are fetched; an empty or
+    # corpus-less workspace is a normal, fully valid outcome.
+    if not dry_run:
+        fetch_corpora(dest)
 
     if init_git and not dry_run:
         subprocess.run(["git", "init"], cwd=str(dest), check=False)

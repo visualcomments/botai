@@ -65,6 +65,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 .PHONY: help doctor install \
         setup new-course \
         progress review courses course-set active \
+        corpus \
         education-club \
         lint \
         clean
@@ -88,6 +89,7 @@ help:
 	@echo "Working with a course:"
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
 	@echo "  make review COURSE=slug    Open the review workflow for a student's submission"
+	@echo "  make corpus COURSE=slug    Acquire the course corpus (index + texts, verified)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
 	@echo "Hygiene:"
@@ -145,6 +147,16 @@ course-set:
 
 active:
 	@python3 scripts/cli.py active
+
+# ============================================================================
+# Corpus acquisition
+# ----------------------------------------------------------------------------
+# A course that publishes a corpus is not ready to teach until the corpus is
+# installed. `make install` fetches it automatically; this target refetches one
+# course on demand (FORCE=1 to refetch an already-installed corpus).
+# ============================================================================
+corpus:
+	@python3 scripts/cli.py corpus --course "$(COURSE)" $(if $(FORCE),--force,)
 
 # ============================================================================
 # Open Education Club catalog (MCP)

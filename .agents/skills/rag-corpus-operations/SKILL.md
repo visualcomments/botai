@@ -20,7 +20,13 @@ in doubt, say "not found" instead of inventing.
    `tools/` and a `Makefile`. Read its `CORPUS.md` / `docs/GOOGLE-DRIVE.md` /
    `citations.md` first — they name the exact commands and env vars
    (`COURSE_CORPUS_ROOT`, `COURSE_TXT_DIR`, `COURSE_INDEX_DIR`, `COURSE_INDEX_URL`).
-2. **Check state.** `COURSE_CORPUS_ROOT/txt/` holds the texts; `index/` holds
+2. **Is the corpus installed at all?** If `index/` or `txt/` is missing, do not
+   start searching — **acquire the corpus first** (`make corpus-fetch`, or
+   `python3 tools/corpus_fetch.py`). The `corpus-acquisition` skill covers that
+   procedure; this skill picks up once the artifacts are on disk. An index
+   without texts can retrieve a fragment but cannot verify it, which for a
+   citation is the same as having nothing.
+3. **Check state.** `COURSE_CORPUS_ROOT/txt/` holds the texts; `index/` holds
    `annoy.index`, `embeddings.npy`, `chunks.jsonl`, `config.json`. If `index/`
    is missing or empty, the index is not installed yet.
 

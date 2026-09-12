@@ -11,6 +11,7 @@ workspace works everywhere, including on Windows without a POSIX shell:
     python scripts/cli.py courses
     python scripts/cli.py course-set --course <slug>
     python scripts/cli.py active
+    python scripts/cli.py corpus --course <slug>
     python scripts/cli.py doctor
     python scripts/cli.py clean
 
@@ -21,6 +22,7 @@ with --root or the BOTAI_ROOT environment variable.
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -161,6 +163,105 @@ def cmd_doctor(root, dry):
     ps = [p.name for p in (root / "progress").glob("*.md")] if (root / "progress").exists() else []
     print("courses     : %s" % (" ".join(cs) or "(none - run setup)"))
     print("progress    : %s" % (" ".join(ps) or "(none)"))
+    for slug in cs:
+        st = corpus_state(root / "courses" / slug)
+        print("  corpus %-24s: %s" % (slug, st["summary"]))
+
+
+# --- Corpus acquisition -----------------------------------------------------
+#
+# A course that publishes a corpus is not ready to teach until that corpus is
+# installed. The course repo owns the how (tools/corpus_fetch.py reads its own
+# manifests); this command is the workspace-level front door that finds the
+# course's fetcher, runs it, and reports whether the corpus is actually usable.
+
+CORPUS_URL_KEYS = ("COURSE_INDEX_URL", "COURSE_CORPUS_URL")
+CORPUS_ROOT_KEYS = ("COURSE_CORPUS_ROOT",)
+
+
+def corpus_state(course_dir):
+    """Report whether a course corpus is installed, without downloading.
+
+    Returns a dict with keys: summary, manifests, installed, fetcher.
+    """
+    if not course_dir.is_dir():
+        return {"summary": "(no such course)", "manifests": [], "installed": False, "fetcher": None}
+
+    manifests = [m for m in ("index-manifest.json", "corpus-manifest.json")
+                 if (course_dir / m).exists()]
+    fetcher = course_dir / "tools" / "corpus_fetch.py"
+    if not fetcher.exists():
+        fetcher = course_dir / "tools" / "index_fetch.py" if (course_dir / "tools" / "index_fetch.py").exists() else None
+
+    root = os.environ.get("COURSE_CORPUS_ROOT")
+    if not root:
+        return {
+            "summary": "COURSE_CORPUS_ROOT not set - cannot tell where the corpus lives",
+            "manifests": manifests, "installed": False, "fetcher": fetcher,
+        }
+
+    idx = Path(root) / "index"
+    txt = Path(root) / "txt"
+    have_index = idx.is_dir() and (idx / "config.json").exists()
+    n_txt = len(list(txt.glob("*.txt"))) if txt.is_dir() else 0
+
+    if have_index and n_txt:
+        summary = "installed (index + %d texts)" % n_txt
+    elif have_index:
+        summary = "PARTIAL - index present but no texts under %s" % txt
+    elif n_txt:
+        summary = "PARTIAL - %d texts but no index under %s" % (n_txt, idx)
+    else:
+        summary = "MISSING - run: python scripts/cli.py corpus --course %s" % course_dir.name
+    return {"summary": summary, "manifests": manifests, "installed": have_index and bool(n_txt), "fetcher": fetcher}
+
+
+def cmd_corpus(root, course, dry, force):
+    """Acquire (or report on) a course corpus. Run by deploy/setup, not by hand."""
+    if not course:
+        sys.exit("usage: cli.py corpus --course <slug> [--force] [--dry-run]")
+    cdir = root / "courses" / course
+    if not cdir.is_dir():
+        print("no such course: %s" % cdir)
+        print("list: python scripts/cli.py courses")
+        sys.exit(2)
+
+    st = corpus_state(cdir)
+    print("== corpus: %s ==" % course)
+    print("  manifests : %s" % (", ".join(st["manifests"]) or "(none in the course repo)"))
+
+    if not st["manifests"]:
+        print("  this course publishes no corpus manifest - nothing to acquire.")
+        print("  teach with explicitly labelled material outside the corpus instead.")
+        return 0
+
+    print("  state     : %s" % st["summary"])
+
+    if st["installed"] and not force:
+        print("  corpus already installed; nothing to do (use --force to refetch).")
+        return 0
+
+    if not st["fetcher"]:
+        print("  no tools/corpus_fetch.py in the course - fetch manually per its CORPUS.md.")
+        return 1
+
+    if dry:
+        print("  would run: %s" % st["fetcher"])
+        return 0
+
+    if not os.environ.get("COURSE_CORPUS_ROOT"):
+        print("  COURSE_CORPUS_ROOT is not set - set it (see CORPUS.md) before fetching.")
+        return 2
+
+    print("  running: %s" % st["fetcher"])
+    py = sys.executable or "python3"
+    rc = subprocess.run([py, str(st["fetcher"])], cwd=str(cdir)).returncode
+    if rc != 0:
+        print("  corpus fetch FAILED (exit %d) - report the cause, do not substitute a URL" % rc)
+        return rc
+    st2 = corpus_state(cdir)
+    print("  after fetch: %s" % st2["summary"])
+    return 0 if st2["installed"] else 1
 
 
 def cmd_clean(root, dry):
@@ -178,11 +279,14 @@ def cmd_clean(root, dry):
 def main():
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
     ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
-                                        "courses", "course-set", "active", "doctor", "clean"])
+                                        "courses", "course-set", "active", "corpus",
+                                        "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course")
     ap.add_argument("--title", help="course title for new-course")
-    ap.add_argument("--course", help="course slug for progress/review/course-set")
+    ap.add_argument("--course", help="course slug for progress/review/course-set/corpus")
     ap.add_argument("--root", help="project root (default: cwd or BOTAI_ROOT)")
+    ap.add_argument("--force", action="store_true",
+                    help="corpus: refetch even when the corpus is already installed")
     ap.add_argument("--dry-run", action="store_true", help="preview, change nothing")
     args = ap.parse_args()
 
@@ -210,6 +314,8 @@ def main():
         cmd_course_set(root, args.course, args.dry_run)
     elif cmd == "active":
         cmd_active(root, args.dry_run)
+    elif cmd == "corpus":
+        sys.exit(cmd_corpus(root, args.course, args.dry_run, args.force))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

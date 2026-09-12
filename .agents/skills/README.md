@@ -1,13 +1,14 @@
 # Installed education skills
 
-13 curated, non-overlapping Agent Skills that give the co-learner assistant
+17 curated, non-overlapping Agent Skills that give the co-learner assistant
 methodology for the full teaching lifecycle: mapping the course, keeping the
 durable progress record, planning sessions, tutoring (explaining, breaking
-down, assessing, feedback), supplementing the course, onboarding students into
-open-source course projects as co-developers, vetting adopted material, and
-reporting progress. They are loaded automatically by any
-AGENTS.md/CLAUDE.md-aware agent working in this repo and are governed by the
-guardrails in [../../AGENTS.md](../../AGENTS.md).
+down, assessing, feedback), supplementing the course, presenting material in
+Russian (terminology and translated quotations), acquiring the course corpus
+automatically, onboarding students into open-source course projects as
+co-developers, vetting adopted material, and reporting progress. They are
+loaded automatically by any AGENTS.md/CLAUDE.md-aware agent working in this
+repo and are governed by the guardrails in [../../AGENTS.md](../../AGENTS.md).
 
 ## Layout
 
@@ -48,6 +49,18 @@ Corpus and RAG: `rag-corpus-operations` — searching a course corpus through it
 RAG index (embeddings + Annoy + chunks), installing the index from Google
 Drive (manifest + SHA-256), citing with `file · фрагмент #N` coordinates,
 freshness and verification discipline, and the local RAG API.
+
+Corpus acquisition: `corpus-acquisition` — obtaining the corpus automatically
+when a course publishes it as links (Google Drive, HTTPS/S3, GitHub Releases,
+HuggingFace), the index **and** the texts, hash verification before unpacking,
+atomic install, what to do when a link or a hash fails, and the rule that a
+course is not ready to teach until its corpus is installed.
+
+Presentation language: `language-and-translation` — Russian terminology instead
+of untranslated foreign words, and quotations from foreign-language sources
+given as the verbatim original plus a marked Russian translation; what is never
+translated (paths, coordinates, commands, identifiers), and why the corpus
+itself is never translated.
 
 Open-source course development: `onboarding-open-source-contributors`.
 
