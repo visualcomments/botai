@@ -20,9 +20,13 @@ TITLE      ?=
 STUDENT    ?= student
 # student identifier used for per-student records
 COURSE     ?= $(NAME)
-# course slug for progress/review targets
-DRY        ?=
-# set to 1 to preview actions, change nothing
+# course slug for progress/review/corpus/course-update targets
+COURSE_URL ?=
+# git URL of a course repository (course-add)
+COURSE_REF ?=
+# branch/tag/commit for course-add / course-update (empty = default branch)
+REF        ?=
+# branch/tag/commit of the harness for `make update` (empty = recorded/default)
 DEST       ?= botai-project
 # destination directory for `make install` - a NEW separate project
 
@@ -66,6 +70,8 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         setup new-course \
         progress review courses course-set active \
         corpus \
+        update update-check update-dry-run \
+        course-add course-update course-update-check course-update-commit detect-courses \
         education-club \
         lint \
         clean
@@ -91,6 +97,16 @@ help:
 	@echo "  make review COURSE=slug    Open the review workflow for a student's submission"
 	@echo "  make corpus COURSE=slug    Acquire the course corpus (index + texts, verified)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
+	@echo ""
+	@echo "Keeping things current:"
+	@echo "  make update                Update this botai harness itself (harness only; never courses/ or progress/)"
+	@echo "  make update-check          Report whether a newer harness is published (exit 10 = yes)"
+	@echo "  make update-dry-run        Show what an update would change; write nothing"
+	@echo "  make course-add COURSE_URL=<git-url> [REF=<branch>]  Get a course repository into courses/<slug>/"
+	@echo "  make course-update COURSE=slug  Update a course from its own repository (keeps local work)"
+	@echo "  make course-update-check COURSE=slug  Report whether the course has an update (exit 10 = yes)"
+	@echo "  make course-update-commit COURSE=slug Commit the course's pending work, then update it"
+	@echo "  make detect-courses        Show every course, its source, version and dirty state"
 	@echo ""
 	@echo "Hygiene:"
 	@echo "  make doctor                Show detected OS, helpers, courses, progress"
@@ -157,6 +173,46 @@ active:
 # ============================================================================
 corpus:
 	@python3 scripts/cli.py corpus --course "$(COURSE)" $(if $(FORCE),--force,)
+
+# ============================================================================
+# Keeping the harness and the courses current
+# ----------------------------------------------------------------------------
+# `update` refreshes the harness itself (policy, skills, agents, scripts, docs)
+# and never writes into courses/, progress/, .botai/ or dist/. A file edited
+# locally is kept and reported; .botai/backup/<stamp>/ holds anything replaced.
+# ============================================================================
+update:
+	@python3 scripts/cli.py update $(if $(REF),--ref "$(REF)",)
+
+update-check:
+	@python3 scripts/cli.py update --check $(if $(REF),--ref "$(REF)",)
+
+update-dry-run:
+	@python3 scripts/cli.py update --dry-run $(if $(REF),--ref "$(REF)",)
+
+# ----------------------------------------------------------------------------
+# Courses come from their own repositories. `course-add` obtains one and records
+# where it came from; `course-update` refreshes it from that same place, keeping
+# local work. Neither invents a source: an unknown origin is reported, not
+# guessed.
+# ----------------------------------------------------------------------------
+course-add:
+	@test -n "$(COURSE_URL)" || { echo "usage: make course-add COURSE_URL=<git-url> [REF=<branch>]"; exit 2; }
+	@python3 scripts/cli.py course-add --url "$(COURSE_URL)" $(if $(COURSE_REF),--ref "$(COURSE_REF)",) $(if $(NAME),--name "$(NAME)",)
+
+course-update:
+	@python3 scripts/cli.py course-update --course "$(COURSE)" $(if $(REF),--ref "$(REF)",)
+
+# Same, but the course's uncommitted work is committed first (never discarded).
+course-update-commit:
+	@python3 scripts/cli.py course-update --course "$(COURSE)" --commit-and-update $(if $(REF),--ref "$(REF)",)
+
+course-update-check:
+	@python3 scripts/cli.py course-update --course "$(COURSE)" --check
+
+detect-courses:
+	@python3 scripts/cli.py courses
+	@python3 scripts/courses.py detect
 
 # ============================================================================
 # Open Education Club catalog (MCP)

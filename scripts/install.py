@@ -11,6 +11,12 @@ global configuration (opencode, Claude Code, Cursor, Codex, pi, ...): agent
 files such as AGENTS.md and agent.md are never installed outside the project.
 The installer refuses to target the repo root itself or any global config dir.
 
+The install also records *what* was installed and *from where* in
+`.botai/install.json` (source, ref, revision, per-file sha256). That record is
+what makes `scripts/update.py` safe later: a file whose hash no longer matches
+the record was edited locally, and an update keeps it instead of overwriting it.
+Without the record an update could only guess.
+
 Usage:
     python3 scripts/install.py [--dest PATH] [--no-git] [--dry-run]
     make install DEST=my-botai-project
@@ -23,24 +29,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import harness as H  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-FILES = [
-    ".gitignore",
-    "AGENTS.md",
-    "CLAUDE.md",
-    "LICENSE",
-    "Makefile",
-    "README.md",
-    "TUTORIAL.md",
-    "opencode.json",
-]
+# The harness file list lives in scripts/harness.py: the updater overwrites
+# exactly what the installer wrote, and one list is what keeps those two honest.
+FILES = list(H.MANAGED_FILES)
 
-COPY_DIRS = [".agents", "docs", "scripts"]
+COPY_DIRS = list(H.MANAGED_DIRS)
 
-COPY_DIRS_IGNORING_SKILLS = [".opencode"]
+COPY_DIRS_IGNORING_SKILLS = list(H.MANAGED_DIRS_KEEP_SKILLS)
 
-FARM_DIRS = [".claude/skills", ".cursor/skills", ".opencode/skills"]
+FARM_DIRS = list(H.FARM_DIRS)
 
 RUNTIME_DIRS = ["courses", "progress", "dist"]
 
@@ -73,24 +76,7 @@ def global_config_homes():
 
 
 def make_symlink_or_copy(target, link):
-    if link.exists() or link.is_symlink():
-        return True
-    rel = os.path.relpath(str(target), start=str(link.parent))
-    try:
-        os.symlink(rel, str(link), target_is_directory=True)
-        return True
-    except OSError:
-        pass
-    if sys.platform == "win32":
-        try:
-            import _winapi
-
-            _winapi.CreateJunction(str(target), str(link))
-            return True
-        except Exception:
-            pass
-    shutil.copytree(str(target), str(link))
-    return False
+    return H.make_symlink_or_copy(target, link)
 
 
 def corpus_manifests(course_dir):
@@ -179,15 +165,8 @@ def install(src, dest, init_git, dry_run):
     skills = dest / ".agents" / "skills"
     for farm in FARM_DIRS:
         print("  link farm %s/" % farm)
-        if dry_run:
-            continue
-        for skill in sorted(skills.iterdir()):
-            if not skill.is_dir():
-                continue
-            link = dest / farm / skill.name
-            link.parent.mkdir(parents=True, exist_ok=True)
-            if not make_symlink_or_copy(skill, link):
-                print("    warning: symlink failed for %s; copied instead" % link)
+    if not dry_run:
+        H.relink_skill_farms(dest, dry=False, log=lambda _m: None)
 
     for runtime in RUNTIME_DIRS:
         print("  workspace %s/" % runtime)
@@ -195,6 +174,22 @@ def install(src, dest, init_git, dry_run):
             (dest / runtime).mkdir(exist_ok=True)
     if not dry_run:
         (dest / "dist" / ".gitignore").write_text(DIST_GITIGNORE_CONTENT, encoding="utf-8")
+
+    # Where the harness came from, and what it looked like: the baseline every
+    # later update compares against to tell "upstream changed this" apart from
+    # "the student changed this".
+    if not dry_run:
+        H.save_record(dest, {
+            "schema": 1,
+            "version": H.read_version(src),
+            "source": H.DEFAULT_SOURCE,
+            "ref": H.DEFAULT_REF,
+            "mode": "install",
+            "revision": H.git_head(src, short=False),
+            "installed_at": H.now_iso(),
+            "files": H.fingerprint(dest),
+        })
+        print("  install record .botai/install.json (%s)" % (H.read_version(src) or "no VERSION"))
 
     # A course that publishes a corpus is not ready to teach until the corpus is
     # installed, so acquisition is part of deployment - not a later manual step.
@@ -238,6 +233,8 @@ def install(src, dest, init_git, dry_run):
     print("                       #   python scripts/cli.py doctor")
     print("  make setup           # (already done by install) create courses/ progress/ dist/")
     print("                       # or: python scripts/cli.py setup")
+    print("  make course-add COURSE_URL=<git-url>   # bring in a course and keep it current")
+    print("  make update-check                      # is a newer botai published?")
 
 
 def main():

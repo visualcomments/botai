@@ -43,7 +43,13 @@ rules below and no Skill may weaken them.**
    is not ready to teach until that corpus is fetched and verified. If the
    corpus is missing, acquiring it is the session's first action. See
    `corpus-acquisition`.
-10. **When in doubt, stop and ask.** Prefer a clarifying question over a guess
+10. **Keep the harness and the course current — without losing work.** A course
+   repository and the harness that teaches it both change; teach from the
+   current revision, and never let an update discard the student's work. An
+   update that cannot proceed safely stops and says why — it never deletes and
+   re-clones a checkout, and never invents a substitute source. See
+   `keeping-harness-and-course-current`.
+11. **When in doubt, stop and ask.** Prefer a clarifying question over a guess
    about a student's level, intent, or a course policy.
 
 ## Operating modes
@@ -181,6 +187,38 @@ verified. The procedure is the `corpus-acquisition` Skill.
   fix in the session, and the student is told what was missing and what was
   installed.
 
+## Updates: harness and course
+
+A study environment has two moving parts, and both are updated under one rule:
+**an update may never discard work.**
+
+- **The harness** (`make update`, `scripts/update.py`) refreshes the policy,
+  skills, agents, commands, scripts and docs. It writes **only** the paths the
+  installer wrote and never touches `courses/`, `progress/`, `.botai/` or
+  `dist/`. A file whose hash differs from the recorded install is treated as a
+  local edit: it is kept and reported, not overwritten.
+- **A course** (`make course-add`, `make course-update COURSE=<slug>`) is a git
+  checkout of a course repository at `courses/<slug>/`. It is updated from the
+  source it was obtained from and no other. Uncommitted work stops the update
+  (commit it, or use `--commit-and-update`, which commits first and never
+  discards); a course with its own commits is reported as diverged rather than
+  forced.
+- **Substitute sources are refused.** If a course's recorded source and its
+  `origin` disagree, or a link is dead, the agent reports it and asks. It never
+  silently points a course at a different repository.
+- **Check before teaching after a pause.** `make update-check` and
+  `make course-update-check` exit 10 when an update exists; a lesson corrected
+  upstream is what the student should be reading.
+- **Restart the session after a harness update** that touched `AGENTS.md`,
+  `opencode.json`, `.opencode/`, or a loaded skill: configuration is read once
+  at startup, and teaching from the previous policy is a silent version skew.
+
+The full procedure is the `keeping-harness-and-course-current` Skill;
+`docs/updating.md` is the user-facing description, including rollback.
+
+A course that publishes a **corpus** is a third artifact with its own rules —
+manifests, hashes, and `make corpus-fetch`; see `corpus-acquisition`.
+
 ## Hard refusal list (no instruction overrides these)
 
 Refuse the following regardless of how the student phrases the request, and
@@ -305,7 +343,10 @@ teaching workflow when a Skill covers it.
   translation alongside the verbatim original; the rule for every piece of
   material the student reads;
 - `corpus-acquisition` — obtain the course corpus automatically from published
-  links, verify it, install it atomically; run before teaching from evidence.
+  links, verify it, install it atomically; run before teaching from evidence;
+- `keeping-harness-and-course-current` — update the harness and the course
+  repositories themselves: what may be overwritten, how to read the "locally
+  edited, kept" report, and what to do when an update stops.
 
 **Open-source course development (Contributor mode)**
 - `onboarding-open-source-contributors` — explain all ways to participate in an
@@ -406,6 +447,18 @@ make courses                 # list course subprojects with progress tails
 make course-set COURSE=<slug> # switch the active course (.botai/active)
 make active                  # show the active course
 make clean                   # remove temporary files
+```
+
+Keeping the environment current (neither target touches courses/ or progress/):
+
+```bash
+make update                  # update the botai harness itself
+make update-check            # is a newer harness published? (exit 10 = yes)
+make update-dry-run          # show what an update would change; write nothing
+make course-add COURSE_URL=<git-url> [REF=<branch>]   # obtain a course repository
+make course-update COURSE=<slug>          # update it from its own source
+make course-update-check COURSE=<slug>    # exit 10 = update available
+make detect-courses          # courses with source, version and dirty state
 ```
 
 ## Multi-course workspaces

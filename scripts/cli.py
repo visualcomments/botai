@@ -12,11 +12,18 @@ workspace works everywhere, including on Windows without a POSIX shell:
     python scripts/cli.py course-set --course <slug>
     python scripts/cli.py active
     python scripts/cli.py corpus --course <slug>
+    python scripts/cli.py update [--check]
+    python scripts/cli.py course-add --url <git-url> [--name <slug>] [--ref <ref>]
+    python scripts/cli.py course-update --course <slug> [--check] [--dry-run]
     python scripts/cli.py doctor
     python scripts/cli.py clean
 
 Paths are resolved against the current directory (the project root); override
 with --root or the BOTAI_ROOT environment variable.
+
+`update` keeps the harness current; `course-update` keeps a course current.
+Neither writes into student material — see scripts/harness.py for what counts
+as the harness, and why that list is defined in exactly one place.
 """
 
 import argparse
@@ -25,6 +32,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import courses as C  # noqa: E402
+import harness as H  # noqa: E402
+import update as U  # noqa: E402
 
 RUNTIME_DIRS = ["courses", "progress", "dist"]
 DIST_GITIGNORE = "*\n!.gitignore\n"
@@ -167,6 +180,21 @@ def cmd_doctor(root, dry):
         st = corpus_state(root / "courses" / slug)
         print("  corpus %-24s: %s" % (slug, st["summary"]))
 
+    # Provenance: a project that cannot say which harness it runs cannot be
+    # updated responsibly, so the doctor reports it rather than assuming it.
+    rec = H.load_record(root) or {}
+    print("harness     : %s" % (H.read_version(root) or "(no VERSION yet)"))
+    print("  source    : %s" % (rec.get("source") or H.DEFAULT_SOURCE))
+    print("  ref       : %s" % (rec.get("ref") or H.DEFAULT_REF))
+    print("  updated   : %s" % (rec.get("updated_at") or rec.get("installed_at") or "(never recorded)"))
+    if rec.get("files"):
+        print("  fingerprint: %d files" % len(rec["files"]))
+    else:
+        print("  fingerprint: none - first `cli.py update` will record one")
+    for cdir in sorted((root / "courses").glob("*")):
+        if cdir.is_dir():
+            print("  course %-20s: %s" % (cdir.name, C.course_url(cdir) or "(no source recorded)"))
+
 
 # --- Corpus acquisition -----------------------------------------------------
 #
@@ -280,15 +308,34 @@ def main():
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
     ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
                                         "courses", "course-set", "active", "corpus",
+                                        "update", "course-add", "course-update",
                                         "doctor", "clean"])
-    ap.add_argument("--name", help="course slug for new-course")
+    ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
-    ap.add_argument("--course", help="course slug for progress/review/course-set/corpus")
+    ap.add_argument("--course", help="course slug for progress/review/course-set/corpus/course-update")
+    ap.add_argument("--url", help="git URL of the course repository (course-add)")
+    ap.add_argument("--ref", help="branch/tag/commit (update/course-add/course-update)")
+    ap.add_argument("--source", help="upstream harness repository (update)")
+    ap.add_argument("--mode", choices=["auto", "git", "archive"], default="auto",
+                    help="update: how to update the harness (auto by default)")
+    ap.add_argument("--check", action="store_true",
+                    help="update/course-update: report only (exit code 10 = update available)")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="update: also replace locally edited harness files (backed up first)")
+    ap.add_argument("--take-upstream", action="store_true",
+                    help="course-update: also replace locally edited course files (backed up first)")
+    ap.add_argument("--commit-and-update", dest="commit", action="store_true",
+                    help="course-update: commit the course's pending work first, then update it")
+    ap.add_argument("--prune", action="store_true",
+                    help="update: remove files the harness no longer ships (backed up first)")
     ap.add_argument("--root", help="project root (default: cwd or BOTAI_ROOT)")
     ap.add_argument("--force", action="store_true",
-                    help="corpus: refetch even when the corpus is already installed")
+                    help="corpus: refetch even when installed; course-add: replace the directory")
     ap.add_argument("--dry-run", action="store_true", help="preview, change nothing")
     args = ap.parse_args()
+
+    if args.check and args.dry_run:
+        ap.error("--check and --dry-run are mutually exclusive")
 
     root = resolve_root(args.root)
     cmd = args.command
@@ -316,6 +363,20 @@ def main():
         cmd_active(root, args.dry_run)
     elif cmd == "corpus":
         sys.exit(cmd_corpus(root, args.course, args.dry_run, args.force))
+    elif cmd == "update":
+        sys.exit(U.run(root=root, source=args.source, ref=args.ref, mode=args.mode,
+                       check=args.check, dry_run=args.dry_run,
+                       overwrite=args.overwrite, prune=args.prune))
+    elif cmd == "course-add":
+        if not args.url:
+            sys.exit("usage: cli.py course-add --url <git-url> [--name <slug>] [--ref <ref>]")
+        sys.exit(C.fetch_course(root, args.url, args.name, args.ref, args.force))
+    elif cmd == "course-update":
+        if not args.course:
+            sys.exit("usage: cli.py course-update --course <slug> [--check|--dry-run]")
+        sys.exit(C.update_course(root, args.course, check=args.check, dry=args.dry_run,
+                                 take_upstream=args.take_upstream, ref=args.ref,
+                                 commit=args.commit))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

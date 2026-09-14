@@ -1,6 +1,6 @@
 # Installed education skills
 
-17 curated, non-overlapping Agent Skills that give the co-learner assistant
+18 curated, non-overlapping Agent Skills that give the co-learner assistant
 methodology for the full teaching lifecycle: mapping the course, keeping the
 durable progress record, planning sessions, tutoring (explaining, breaking
 down, assessing, feedback), supplementing the course, presenting material in
@@ -38,7 +38,7 @@ time.
 
 Course lifecycle: `mapping-course-syllabus`, `maintaining-course-progress`,
 `planning-study-sessions`, `multi-course-workspace`,
-`starting-course-from-education-club`.
+`starting-course-from-education-club`, `keeping-harness-and-course-current`.
 
 Teaching: `breaking-down-assignments`, `explaining-concepts`,
 `assessing-understanding`, `giving-feedback`.
@@ -49,6 +49,12 @@ Corpus and RAG: `rag-corpus-operations` — searching a course corpus through it
 RAG index (embeddings + Annoy + chunks), installing the index from Google
 Drive (manifest + SHA-256), citing with `file · фрагмент #N` coordinates,
 freshness and verification discipline, and the local RAG API.
+
+Keeping current: `keeping-harness-and-course-current` — updating the harness
+itself and the course repositories: what an update may overwrite (never the
+student's material), how to read a "locally edited, kept" report, what to do
+when an update stops on uncommitted or diverged work, and how to schedule
+routine updates without letting a scheduler touch a course checkout.
 
 Corpus acquisition: `corpus-acquisition` — obtaining the corpus automatically
 when a course publishes it as links (Google Drive, HTTPS/S3, GitHub Releases,
