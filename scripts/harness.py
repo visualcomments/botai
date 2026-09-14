@@ -477,20 +477,29 @@ def download(url, dest, timeout=600, user_agent="botai-updater"):
 
 
 def safe_extract_tar(archive, dest):
-    """Extract a tar archive, refusing members that escape `dest`.
+    """Extract a tar archive, refusing anything that could escape `dest`.
 
-    An upstream archive is still input from the network: `../` or absolute paths
-    in it must never reach the filesystem.
+    An upstream archive is still input from the network: `../` or absolute
+    targets must never reach the filesystem. Symlinks inside the archive are not
+    dangerous to `dest` if their resolved target stays under it, but GitHub
+    ships this repo's skill-farm symlinks (`.claude/skills/*`); the archive
+    cannot represent them reliably across platforms, and the farms are
+    regenerated right after an update by relink_skill_farms(). So symlinks are
+    skipped here — an empty farm in the extracted tree is expected.
     """
     dest = Path(dest).resolve()
     dest.mkdir(parents=True, exist_ok=True)
     with tarfile.open(str(archive)) as tf:
+        skipped_links = 0
         for member in tf.getmembers():
-            if member.issym() or member.islnk() or member.isdev():
-                raise RuntimeError("архив содержит ссылку/устройство: %s" % member.name)
             target = (dest / member.name).resolve()
             if target != dest and dest not in target.parents:
                 raise RuntimeError("архив пытается писать вне каталога: %s" % member.name)
+            if member.isdev():
+                raise RuntimeError("архив содержит устройство: %s" % member.name)
+            if member.issym() or member.islnk():
+                skipped_links += 1
+                continue
         tf.extractall(str(dest))
     return dest
 

@@ -99,11 +99,6 @@ def remote_version(source, ref):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-        if len(parts) == 2:
-            return parts[0]
-    return ""
-
-
 # ---------------------------------------------------------------------------
 # Mode detection
 # ---------------------------------------------------------------------------
