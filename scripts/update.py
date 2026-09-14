@@ -392,26 +392,49 @@ def check_only(root, source, ref, local_version, mode, log=print):
         log("  выполните: python scripts/cli.py update   (или: make update)")
         return 10
 
+    # В режиме архива версия читается потоком raw.githubusercontent, который
+    # после публикации отдаёт закешированное значение ещё несколько минут.
+    # Поэтому «версия та же» — не доказательство: сверяем ещё и коммит, а он
+    # берётся из git ls-remote и задержкой не страдает. Иначе сразу после
+    # выпуска --check честно отвечает «обновление не требуется» про уже
+    # вышедшую версию.
     remote = remote_version(source, ref)
-    if remote is None:
-        rev = remote_revision(source, ref)
-        if rev:
-            log("  версия upstream не читается (нет VERSION или нет доступа), "
-                "но ref доступен: %s" % rev[:8])
-            log("  вывод: проверить можно только обновлением (--dry-run)")
-            return 1
+    remote_rev = remote_revision(source, ref)
+    local_version = H.read_version(root)
+    installed_rev = (H.load_record(root) or {}).get("revision") or ""
+
+    if remote is None and not remote_rev:
         log("  не удалось получить данные upstream: нет связи, нет доступа "
             "или неверный адрес источника")
         log("  это момент, а не факт: проверьте сеть и повторите")
         return 1
 
-    log("  версия upstream: %s" % remote)
-    if remote == H.read_version(root):
-        log("  обновление не требуется")
-        return 0
-    log("  доступно обновление: %s -> %s" % (local_version, remote))
-    log("  выполните: python scripts/cli.py update   (или: make update)")
-    return 10
+    if remote is not None:
+        log("  версия upstream: %s" % remote)
+    else:
+        log("  версия upstream не читается (нет VERSION или нет доступа); "
+            "сверяю по коммиту")
+
+    if remote is not None and remote != local_version:
+        log("  доступно обновление: %s -> %s" % (local_version, remote))
+        log("  выполните: python scripts/cli.py update   (или: make update)")
+        return 10
+
+    if remote_rev:
+        if installed_rev and installed_rev != remote_rev:
+            log("  версия та же (%s), но коммит upstream новее: %s -> %s"
+                % (local_version, installed_rev[:8], remote_rev[:8]))
+            log("  это кеш raw.githubusercontent; обновление всё равно есть")
+            log("  выполните: python scripts/cli.py update   (или: make update)")
+            return 10
+        if not installed_rev:
+            log("  версия совпадает; коммит upstream: %s (в записи установки не "
+                "сохранён — сверка по коммиту недоступна)" % remote_rev[:8])
+        else:
+            log("  коммит совпадает: %s" % installed_rev[:8])
+
+    log("  обновление не требуется")
+    return 0
 
 
 def main(argv=None):

@@ -325,6 +325,54 @@ def test_legacy_record_is_migrated_once():
                   (H.load_record(project).get("files") or {})))
 
 
+def test_check_uses_commit_not_only_cached_version():
+    """`--check` не должен верить закешированной версии.
+
+    raw.githubusercontent отдаёт VERSION с задержкой в несколько минут после
+    публикации, поэтому «версия та же» не доказывает, что обновления нет.
+    Проверка обязана сверять ещё и коммит: у установки он записан, у upstream
+    читается через git ls-remote, а тот задержкой не страдает.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        # upstream как git-репозиторий (с полным деревом обвязки), чтобы
+        # ls-remote отвечал и установка была настоящей
+        up = make_harness_tree(base, "1.0.0", prefix="up")
+        subprocess.run(["git", "init", "-q"], cwd=up, check=True)
+        for cmd in (["git", "add", "-A"],
+                    ["git", "-c", "user.name=t", "-c", "user.email=t@l",
+                     "commit", "-qm", "v1"]):
+            subprocess.run(cmd, cwd=up, check=True)
+        rev1 = H.git_head(up, short=False)
+
+        project = base / "project"
+        project.mkdir()
+        install_from(up, project)
+        rec = H.load_record(project)
+        rec["source"] = str(up)
+        rec["revision"] = rev1
+        H.save_record(project, rec)
+
+        # upstream выпустил новый коммит, НЕ меняя VERSION (тот же кеш-эффект)
+        (up / "docs").mkdir(exist_ok=True)
+        (up / "docs" / "new.md").write_text("n\n", encoding="utf-8")
+        subprocess.run(["git", "add", "-A"], cwd=up, check=True)
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@l",
+                        "commit", "-qm", "v1+1"], cwd=up, check=True)
+        rev2 = H.git_head(up, short=False)
+        check("коммиты upstream действительно разные", rev1 != rev2)
+
+        p = subprocess.run(
+            [sys.executable, str(project / "scripts" / "update.py"),
+             "--root", str(project), "--source", str(up), "--mode", "archive", "--check"],
+            capture_output=True, text=True, timeout=180,
+        )
+        out = p.stdout + p.stderr
+        check("та же версия, но новый коммит: обновление найдено",
+              p.returncode == 10, out[-300:])
+        check("причина названа (кеш версии)", "коммит" in out, out[-300:])
+
+
 def test_update_reports_bad_source():
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
@@ -354,6 +402,8 @@ def main() -> int:
     test_dirty_course_is_not_touched()
     print("[update: миграция старой записи]")
     test_legacy_record_is_migrated_once()
+    print("[update: проверка обновления]")
+    test_check_uses_commit_not_only_cached_version()
     test_update_reports_bad_source()
 
     print(f"\n{_passed} passed, {len(_failures)} failed")
