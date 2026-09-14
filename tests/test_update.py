@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -89,7 +90,8 @@ def install_from(src: Path, dest: Path):
     for runtime in ("courses", "progress", "dist", ".botai"):
         (dest / runtime).mkdir(parents=True, exist_ok=True)
     H.save_record(dest, {
-        "schema": 1, "version": H.read_version(src), "source": str(src),
+        # Как install.py: текущая схема записи.
+        "schema": H.RECORD_SCHEMA, "version": H.read_version(src), "source": str(src),
         "ref": "main", "mode": "install", "installed_at": H.now_iso(),
         "files": H.fingerprint(dest),
     })
@@ -287,6 +289,42 @@ def test_dirty_course_is_not_touched():
         check("работа студента цела", (cdir / "assignments" / "a.md").is_file())
 
 
+def test_legacy_record_is_migrated_once():
+    """Старая запись установки не должна блокировать новые каталоги обвязки.
+
+    Запись schema 1 (до scripts/harness.py) описывает другой набор путей:
+    каталога, добавленного позже, в ней нет. Синхронизация сочла бы такие
+    файлы «нетронутыми локальными», и они не доехали бы никогда. При этом
+    миграция обязана сохранить базу сравнения: иначе правка студента станет
+    «нетронутой» и будет затёрта.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        up1 = make_harness_tree(base, "1.0.0", prefix="up1")
+        project = base / "project"
+        project.mkdir()
+        install_from(up1, project)
+
+        record = H.load_record(project)
+        record["schema"] = 1                      # установка до scripts/harness.py
+        record["files"] = {k: v for k, v in record["files"].items()
+                           if not k.startswith("scripts/")}
+        H.save_record(project, record)
+        (project / "AGENTS.md").write_text("# policy 1.0.0\n\nмоя заметка\n", encoding="utf-8")
+
+        up2 = make_harness_tree(base, "2.0.0", prefix="up2")
+        rc, out = run_update(project, up2)
+        check("обновление со старой записью проходит", rc == 0, out[-300:])
+        check("запись миграции называет причину", "старого образца" in out)
+        check("схема записи поднята до текущей",
+              H.load_record(project).get("schema") == H.RECORD_SCHEMA)
+        check("правка студента пережила миграцию",
+              "моя заметка" in (project / "AGENTS.md").read_text(encoding="utf-8"), out[-300:])
+        check("пути, отсутствовавшие в старой записи, записаны заново",
+              any(k.startswith("scripts/") for k in
+                  (H.load_record(project).get("files") or {})))
+
+
 def test_update_reports_bad_source():
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
@@ -314,6 +352,8 @@ def main() -> int:
     print("[course: отказы]")
     test_course_update_refuses_without_source()
     test_dirty_course_is_not_touched()
+    print("[update: миграция старой записи]")
+    test_legacy_record_is_migrated_once()
     test_update_reports_bad_source()
 
     print(f"\n{_passed} passed, {len(_failures)} failed")

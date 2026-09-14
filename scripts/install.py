@@ -180,7 +180,9 @@ def install(src, dest, init_git, dry_run):
     # "the student changed this".
     if not dry_run:
         H.save_record(dest, {
-            "schema": 1,
+            # Текущая схема записи (см. scripts/update.py): её понимает
+            # обновлятор, и по ней же он видит, что мигрировать нечего.
+            "schema": H.RECORD_SCHEMA,
             "version": H.read_version(src),
             "source": H.DEFAULT_SOURCE,
             "ref": H.DEFAULT_REF,

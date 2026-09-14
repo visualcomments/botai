@@ -68,6 +68,11 @@ FARM_DIRS = [".claude/skills", ".cursor/skills", ".opencode/skills"]
 # Student-owned runtime directories: never overwritten, never pruned.
 STUDENT_DIRS = ["courses", "progress", "dist", ".botai"]
 
+# Версия формата записи об установке (.botai/install.json). Поднимается,
+# когда меняется смысл полей — тогда обновлятор знает, что прежнюю запись
+# нужно мигрировать, а не доверять ей как есть.
+RECORD_SCHEMA = 2
+
 STATE_DIR = ".botai"
 INSTALL_RECORD = ".botai/install.json"
 COURSE_RECORD = ".botai-course.json"

@@ -272,8 +272,19 @@ def update_archive(root, source, ref, dry, overwrite, prune, record, log=print):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def write_record(root, old_record, source, ref, mode, version, revision, src_root=None):
-    """Record what is installed now, so the next update can detect local edits."""
+def write_record(root, old_record, source, ref, mode, version, revision, src_root=None,
+                 overwrite=False):
+    """Record what is installed now, so the next update can detect local edits.
+
+    `schema` is 2 from the version that introduced the shared harness path list
+    (`scripts/harness.py`): an older record describes a different file set, and
+    an update must not read its absences as the student's changes.
+
+    A locally edited file that is being kept is recorded with its *upstream*
+    hash, which is the whole point of a "previous" fingerprint: it is the
+    baseline a later update compares against. Recording the local hash instead
+    would make the next run see the edit as pristine upstream and overwrite it.
+    """
     files = H.fingerprint(root)
     if src_root is not None:
         upstream = H.fingerprint(src_root)
@@ -281,7 +292,7 @@ def write_record(root, old_record, source, ref, mode, version, revision, src_roo
         for rel in upstream:
             files[rel] = upstream[rel]
     record = {
-        "schema": 1,
+        "schema": H.RECORD_SCHEMA,
         "version": version or H.read_version(root),
         "source": source,
         "ref": ref,
@@ -311,6 +322,7 @@ def run(root=None, source=None, ref=None, mode="auto", check=False,
         return 2
 
     record = H.load_record(root) or {}
+    legacy_record = record.get("schema", 0) < H.RECORD_SCHEMA
     source = (source or os.environ.get("BOTAI_UPDATE_REPO")
               or record.get("source") or H.DEFAULT_SOURCE)
     ref = (ref or os.environ.get("BOTAI_UPDATE_REF")
@@ -328,9 +340,21 @@ def run(root=None, source=None, ref=None, mode="auto", check=False,
     log("  установлено  : %s%s" % (local_version,
                                    (" (%s)" % local_rev[:8]) if local_rev else ""))
     log("  записано     : %s" % (record.get("updated_at") or record.get("installed_at") or "нет записи"))
-
     if check:
         return check_only(root, source, ref, local_version, mode, log=log)
+
+    if legacy_record and not dry_run:
+        # Запись старого образца описывает ДРУГОЙ набор файлов обвязки: каталог,
+        # добавленный позже (например tests/), в ней отсутствует.
+        #
+        # Мигрируется ТОЛЬКО схема; хэши файлов остаются прежними — это база
+        # сравнения. Переписав её текущими локальными хэшами, мы объявили бы
+        # любую правку студента «нетронутой», и обновление затёрло бы её.
+        # Отсутствие пути в базе sync_tree трактует как «локальное изменение»,
+        # то есть ошибается в безопасную сторону.
+        log("  запись установки старого образца: обновляю схему перед сверкой")
+        record = dict(record)
+        record["schema"] = H.RECORD_SCHEMA
 
     if mode == "git":
         rc, reason = update_git(root, source, ref, dry_run, log=log)
