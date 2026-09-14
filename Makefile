@@ -66,7 +66,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 # ============================================================================
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
-.PHONY: help doctor install \
+.PHONY: help doctor install test \
         setup new-course \
         progress review courses course-set active \
         corpus \
@@ -110,6 +110,7 @@ help:
 	@echo ""
 	@echo "Hygiene:"
 	@echo "  make doctor                Show detected OS, helpers, courses, progress"
+	@echo "  make test                  Run the harness tests (update and course safety)"
 	@echo "  make lint                  Markdown lint the policy, docs, and skills (if markdownlint-cli2 present)"
 	@echo "  make clean                 Remove temporary files (DRY=1 to preview)"
 	@echo ""
@@ -231,6 +232,12 @@ education-club:
 # ============================================================================
 # Hygiene
 # ============================================================================
+# Тесты обвязки. Проверяют правила, ради которых обновление существует:
+# обновление не трогает студенческие каталоги, локальная правка сохраняется,
+# архив с выходом за каталог отвергается, грязный курс не обновляется.
+test:
+	@python3 tests/test_update.py
+
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \
 	  markdownlint-cli2 '*.md' 'docs/**/*.md' '.agents/skills/**/*.md'; \

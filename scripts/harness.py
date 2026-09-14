@@ -54,8 +54,10 @@ MANAGED_FILES = [
     "opencode.json",
 ]
 
-# Directories the installer copies wholesale.
-MANAGED_DIRS = [".agents", "docs", "scripts"]
+# Directories the installer copies wholesale. `tests` travels with the harness
+# so that `make test` works in an installed project, not only in a checkout:
+# a test suite that exists only upstream cannot be run where it matters.
+MANAGED_DIRS = [".agents", "docs", "scripts", "tests"]
 
 # Directories copied wholesale EXCEPT their `skills/` subdirectory, which is a
 # symlink farm regenerated on install and on every update.
@@ -176,7 +178,12 @@ def managed_files(root):
 
 
 def fingerprint(root, files=None):
-    """Map of relative path -> sha256 for the harness files of a project."""
+    """Map of relative path -> sha256 for the harness files of a project.
+
+    Scoped to the harness on purpose: this is what the updater compares against,
+    and a hash of the student's own files must never be treated as something an
+    update owns. For a whole tree use `fingerprint_tree()`.
+    """
     root = Path(root)
     files = managed_files(root) if files is None else files
     fp = {}
@@ -184,6 +191,37 @@ def fingerprint(root, files=None):
         p = root / rel
         if p.is_file() and not p.is_symlink():
             fp[rel] = sha256_file(p)
+    return fp
+
+
+def fingerprint_tree(root, skip_prefixes=()):
+    """Map of relative path -> sha256 for every regular file under `root`.
+
+    Used for course checkouts, whose content is arbitrary (lectures/, tools/,
+    docs/, data/…) and has nothing to do with the harness file list. VCS
+    metadata and caches are skipped; symlinks are skipped (their targets are
+    hashed through the files themselves). `skip_prefixes` drops subtrees that
+    must never enter the record, such as a tool's own provenance file.
+    """
+    root = Path(root)
+    skip = tuple(p.replace("\\", "/").strip("/") for p in skip_prefixes)
+    fp = {}
+    for dirpath, dirnames, filenames in os.walk(str(root)):
+        dirnames[:] = sorted(
+            d for d in dirnames
+            if d not in IGNORED_DIR_NAMES and not os.path.islink(os.path.join(dirpath, d))
+        )
+        rel_dir = os.path.relpath(dirpath, str(root)).replace("\\", "/")
+        rel_dir = "" if rel_dir == "." else rel_dir
+        for name in sorted(filenames):
+            full = os.path.join(dirpath, name)
+            if os.path.islink(full):
+                continue
+            rel = ("%s/%s" % (rel_dir, name)) if rel_dir else name
+            rel = os.path.normpath(rel).replace("\\", "/")
+            if any(rel == p or rel.startswith(p + "/") for p in skip):
+                continue
+            fp[rel] = sha256_file(full)
     return fp
 
 

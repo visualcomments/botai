@@ -219,8 +219,13 @@ def fetch_course(root, url, name=None, ref=None, force=False, log=print):
 
 
 def write_course_record(cdir, url, ref):
-    """Record provenance + a fingerprint, the baseline for later updates."""
-    files = H.fingerprint(cdir)
+    """Record provenance + a fingerprint, the baseline for later updates.
+
+    The fingerprint covers the whole course tree: a course is arbitrary content,
+    not the harness file list, and the provenance file itself is excluded so the
+    record does not hash itself.
+    """
+    files = H.fingerprint_tree(cdir, skip_prefixes=(H.COURSE_RECORD,))
     rec = {
         "schema": 1,
         "source": url,
@@ -285,9 +290,13 @@ def sync_upstream_files(cdir, record, ref, take_upstream, dry, log=print):
             return 0
         new_rec = dict(record)
         new_rec.update({"revision": ref, "updated_at": H.now_iso(),
-                        "files": H.fingerprint(cdir)})
-        upstream = H.fingerprint(src)
-        for rel, h in upstream.items():
+                        "files": dict(record.get("files") or {})})
+        # `fingerprint()` из harness.py охватывает только файлы *обвязки* botai,
+        # а курс — произвольное дерево (lectures/, tools/, docs/, capstone/…).
+        # Записываем в отпечаток ровно то, что пришло из upstream: иначе
+        # следующий --check считает свежескачанные файлы чужими правками, а
+        # обновление теряет базу сравнения.
+        for rel, h in H.fingerprint_tree(src).items():
             new_rec["files"][rel] = h
         H.save_json_atomic(Path(cdir) / H.COURSE_RECORD, new_rec)
         return 0

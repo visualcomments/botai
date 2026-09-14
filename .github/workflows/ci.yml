@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2026 botai contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: botai
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Тесты обвязки
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Синтаксис скриптов
+        run: python3 -m py_compile scripts/*.py
+
+      - name: Тесты обновления
+        # Проверяют правила, ради которых обновление существует: студенческие
+        # каталоги не трогаются, локальная правка сохраняется, архив с выходом
+        # за каталог отвергается, грязный курс не обновляется.
+        run: python3 tests/test_update.py
+
+      - name: Установка в отдельный проект и самообновление
+        # Сквозная проверка: установщик → обновление → предпросмотр. Ломается,
+        # если обвязка перестала быть самоустанавливаемой и самообновляемой.
+        run: |
+          set -e
+          python3 scripts/install.py --dest /tmp/botai-ci --no-git >/dev/null
+          test -f /tmp/botai-ci/VERSION
+          test -f /tmp/botai-ci/.botai/install.json
+          python3 /tmp/botai-ci/scripts/cli.py doctor >/dev/null
+          # Источник — сам чекаут: локальный каталог читается без сети.
+          python3 /tmp/botai-ci/scripts/cli.py update --source "$PWD" --dry-run >/dev/null
+          echo "install → update --dry-run: ok"
+
+      - name: Проверка отпечатка установки
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          sys.path.insert(0, "scripts")
+          import harness as H
+          rec = json.load(open("/tmp/botai-ci/.botai/install.json", encoding="utf-8"))
+          current = H.fingerprint(pathlib.Path("/tmp/botai-ci"))
+          missing = [r for r in rec["files"] if r not in current]
+          assert not missing, "файлы обвязки пропали после установки: %s" % missing[:5]
+          print("отпечаток установки согласован: %d файлов" % len(rec["files"]))
+          PY
+
+      - name: Makefile и CLI отвечают
+        run: |
+          set -e
+          make help >/dev/null
+          python3 scripts/cli.py --help >/dev/null
+          python3 scripts/courses.py --help >/dev/null
+
+      - name: Проверка, что отчёт обновления не пуст
+        # Обновление обязано перечислить, что произошло: молчаливое обновление
+        # нельзя ни проверить, ни откатить.
+        run: |
+          set -e
+          mkdir -p /tmp/up-src/.agents/skills/s
+          cp -r scripts docs .agents .opencode AGENTS.md README.md Makefile VERSION /tmp/up-src/
+          sed -i 's/^1\./2./' /tmp/up-src/VERSION
+          out="$(python3 /tmp/botai-ci/scripts/cli.py update --source /tmp/up-src --dry-run)"
+          echo "$out"
+          echo "$out" | grep -q "версия в источнике" || { echo "отчёт об обновлении не описывает источник"; exit 1; }
