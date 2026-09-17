@@ -74,13 +74,21 @@ jobs:
 
       - name: Приватное состояние не попадает в git
         # .botai/ содержит записи установки и резервные копии правок студента;
-        # оно обязано быть исключено ДО первого git add -A.
+        # оно обязано быть исключено ДО первого git add -A. Правила привязаны к
+        # корню проекта (`/.botai/`), поэтому и проверяем через git, а не
+        # сравнением строк: вопрос в том, игнорируется ли путь, а не в том,
+        # как именно записано правило.
         run: |
           set -e
-          python3 scripts/install.py --dest /tmp/botai-git --no-git >/dev/null
-          # Установщик с git: проверяем именно первый коммит.
-          rm -rf /tmp/botai-git && python3 scripts/install.py --dest /tmp/botai-git >/dev/null
-          grep -q '^\.botai/$' /tmp/botai-git/.gitignore
+          rm -rf /tmp/botai-git
+          python3 scripts/install.py --dest /tmp/botai-git >/dev/null
+          for probe in .botai/install.json courses/x/y.md progress/x.md; do
+            if ! git -C /tmp/botai-git check-ignore -q "$probe"; then
+              echo "путь не игнорируется: $probe"
+              git -C /tmp/botai-git status --porcelain | head
+              exit 1
+            fi
+          done
           tracked="$(git -C /tmp/botai-git ls-files)"
           if echo "$tracked" | grep -qE '^(\.botai|courses|progress|dist)/'; then
             echo "приватные каталоги попали в индекс:"; echo "$tracked" | grep -E '^(\.botai|courses|progress|dist)/'

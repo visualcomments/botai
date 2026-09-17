@@ -33,6 +33,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+# The workspace CLI prints Russian diagnostics. A Windows console defaults to a
+# legacy code page (cp1252/cp866), where those characters are unmappable and
+# printing raises UnicodeEncodeError — the tool would crash while explaining an
+# error, which is the worst moment to lose the message. Reconfigure the streams
+# to UTF-8 with replacement so output survives any terminal.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable stream
+        pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import courses as C  # noqa: E402

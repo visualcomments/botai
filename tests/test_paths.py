@@ -29,6 +29,17 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Windows consoles default to a legacy code page (cp1252/cp866), so printing
+# Russian test names raises UnicodeEncodeError and the suite dies before
+# checking anything. The output is a diagnostic, so reconfiguring it is the fix;
+# the alternative — ASCII-only test names — would make failures harder to read
+# for the audience this project is written for.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable stream
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))

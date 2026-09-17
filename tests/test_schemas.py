@@ -24,6 +24,15 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Windows consoles default to a legacy code page (cp1252/cp866), where the
+# Russian test names below are unmappable and printing raises
+# UnicodeEncodeError — the suite would die before checking anything.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 

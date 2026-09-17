@@ -42,6 +42,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Русские сообщения об отказах должны доходить до пользователя и в консоли
+# Windows с кодовой страницей cp1252/cp866 (см. тот же приём в cli.py).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover
+        pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import harness as H  # noqa: E402
