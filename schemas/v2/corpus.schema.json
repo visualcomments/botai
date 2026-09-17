@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/corpus.schema.json",
+  "title": "botai corpus manifest",
+  "description": "A declarative description of a course corpus: what to download, what the bytes must hash to, and how a retrieved fragment maps back to a coordinate in a source. Declarative on purpose — the v1 harness ran a Python fetcher shipped inside the course, which made every safety check the course's decision rather than ours. Nothing here executes: the manifest is data, and the downloader is ours.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "corpus_id", "version", "artifacts", "files", "index"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "corpus_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "source_revision": {
+      "type": ["string", "null"],
+      "maxLength": 200,
+      "description": "The author's publication revision this corpus was built from. Not the local Git HEAD: a corpus describes a published artifact, and tying it to whatever a student happens to have checked out would make the manifest meaningless."
+    },
+    "description": { "type": ["string", "null"], "maxLength": 2000 },
+    "artifacts": {
+      "type": "array",
+      "description": "Downloadable units. An artifact may be an archive (unpacked with limits) or a single file.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_id", "url", "sha256", "media_type", "unpack"],
+        "properties": {
+          "artifact_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "url": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 2048,
+            "description": "https only. The downloader additionally refuses loopback, link-local, private and metadata addresses, and re-checks every redirect."
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/sha256",
+            "description": "Hash of the bytes as served. A mismatch is a hard stop: the artifact is corrupt or the source changed under us."
+          },
+          "compressed_bytes": { "type": ["integer", "null"], "minimum": 1 },
+          "unpacked_bytes_max": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Declared ceiling for what this artifact expands to. The downloader enforces it while writing, not only from headers — a zip bomb lies in its headers."
+          },
+          "media_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "unpack": { "enum": ["none", "zip", "tar.gz", "tar"] },
+          "auth_required": {
+            "type": "boolean",
+            "description": "True when the URL is a private link. The original URL is stored locally only; exports carry a cleaned form."
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "description": "The files the corpus must contain after unpacking. Verification is per file: an archive hash proves the archive, not that the file the index refers to is the right one.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "byte_size", "role", "artifact_id"],
+        "properties": {
+          "path": { "$ref": "common.schema.json#/$defs/relative_path" },
+          "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+          "byte_size": { "type": "integer", "minimum": 0 },
+          "role": { "enum": ["text", "chunks", "index", "metadata", "mapping"] },
+          "artifact_id": { "$ref": "common.schema.json#/$defs/slug" }
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["none", "annoy", "text"],
+          "description": "`none` means text search over the files is the only retrieval method, and the answer says so. It is a legitimate value, not a degraded one."
+        },
+        "config_path": { "type": ["string", "null"] },
+        "chunks_path": { "type": ["string", "null"] },
+        "text_mapping_path": { "type": ["string", "null"] },
+        "embedding_model_id": { "type": ["string", "null"], "maxLength": 200 },
+        "embedding_revision": { "type": ["string", "null"], "maxLength": 200 }
+      }
+    },
+    "license": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": ["string", "null"], "maxLength": 128 },
+        "url": { "type": ["string", "null"], "maxLength": 512 },
+        "redistributable": {
+          "type": ["boolean", "null"],
+          "description": "null means the manifest does not say. Downloads are still allowed for local study when the learner has legitimate access; redistribution is a separate question."
+        }
+      }
+    }
+  }
+}
