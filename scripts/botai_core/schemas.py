@@ -46,6 +46,8 @@ CONTRACTS = {
     "contribution": "contribution.schema.json",
     "persona": "persona.schema.json",
     "achievement": "achievement.schema.json",
+    "packet": "packet.schema.json#/$defs/packet",
+    "issue_draft": "packet.schema.json#/$defs/issue_draft",
     "plan": "plan.schema.json#/$defs/plan",
     "approval": "plan.schema.json#/$defs/approval",
     "operation": "plan.schema.json#/$defs/operation",

@@ -73,6 +73,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         env-plan action-approve env-apply env-status operation-reconcile \
         contribute-start contribute-status contribute-draft contribute-rehearsal \
         persona-set achievements \
+        privacy-preview privacy-export privacy-delete teacher-import teacher-summary \
         course-inspect course-accept course-status policy-check \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
@@ -124,6 +125,13 @@ help:
 	@echo "  make persona-set LIST=1                  List the available personas"
 	@echo "  make persona-set PERSONA=expedition COURSE=slug [GAME=1] [QUIET=1]"
 	@echo "  make achievements COURSE=slug            Show personal badges (off by default)"
+	@echo ""
+	@echo "Privacy and teacher mode (a packet is data, never a command):"
+	@echo "  make privacy-preview COURSE=slug OBJECTIVE=id [RECIPIENT=label]  Show the exact contents first"
+	@echo "  make privacy-export COURSE=slug OBJECTIVE=id [OUT=dir] [DRY=1]   Write the packet locally"
+	@echo "  make privacy-delete COURSE=slug          Plan a deletion, then confirm it"
+	@echo "  make teacher-import PACKET=file.json     Import into a teacher workspace"
+	@echo "  make teacher-summary COURSE=slug [QUEUE=1]  Aggregate with a stated denominator"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -321,6 +329,31 @@ persona-set:
 achievements:
 	@python3 scripts/cli.py achievements --course "$(COURSE)"
 
+# ============================================================================
+# Приватность и режим преподавателя.
+# ----------------------------------------------------------------------------
+# Экспорт требует записанного согласия на teacher_export; предпросмотр
+# показывает точный состав и получателя ДО создания файла. Пустой выбор
+# экспортирует НИЧЕГО, а не всё подряд. Контрольная сумма выявляет повреждение
+# и не удостоверяет личность. Сводка называет знаменатель («N из N
+# предоставивших данные») и при малой группе скрывает разрезы. Удаление сначала
+# показывает план и честно перечисляет, чего оно не обещает.
+# ============================================================================
+privacy-preview:
+	@python3 scripts/cli.py privacy-preview --course "$(COURSE)" $(if $(OBJECTIVE),--objective "$(OBJECTIVE)",) $(if $(RECIPIENT),--recipient "$(RECIPIENT)",) $(foreach i,$(INCLUDE),--include $(i))
+
+privacy-export:
+	@python3 scripts/cli.py privacy-export --course "$(COURSE)" $(if $(OBJECTIVE),--objective "$(OBJECTIVE)",) $(if $(OUT),--out-dir "$(OUT)",) $(if $(DRY),--dry-run,)
+
+privacy-delete:
+	@python3 scripts/cli.py privacy-delete --course "$(COURSE)" --plan
+
+teacher-import:
+	@python3 scripts/cli.py teacher-import --packet "$(PACKET)"
+
+teacher-summary:
+	@python3 scripts/cli.py teacher-summary --course "$(COURSE)" $(if $(QUEUE),--queue,)
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -400,6 +433,7 @@ test:
 	@python3 tests/test_environment.py
 	@python3 tests/test_contribution.py
 	@python3 tests/test_personas.py
+	@python3 tests/test_exports.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

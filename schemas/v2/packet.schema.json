@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/packet.schema.json",
+  "title": "botai learning packet",
+  "description": "What one learner hands to a teacher, and nothing else. The packet is the only path by which a student's workspace reaches a teacher's, so its shape is the privacy boundary: raw chat, full submissions and contact details are not fields here, which means they cannot be exported by accident. A checksum detects damage; it does not authenticate a person, and a packet from a student's machine is not trusted for grading.",
+  "$defs": {
+    "packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "packet_id", "pseudonymous_learner_id", "course_id",
+        "course_revision", "generated_at", "selection", "objective_states",
+        "selected_evidence", "questions", "environment_issues",
+        "provenance", "checksum"
+      ],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "packet_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "pseudonymous_learner_id": {
+          "$ref": "common.schema.json#/$defs/uuid",
+          "description": "The learner's own id, not their name. The binding from id to person is kept by whoever needs it, outside this file."
+        },
+        "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "course_revision": { "$ref": "common.schema.json#/$defs/course_revision" },
+        "generated_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "consent_id": {
+          "type": ["string", "null"],
+          "description": "Which consent permitted this export. null means none was recorded, and the export path refuses that case."
+        },
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["objective_ids", "include_evidence", "include_questions", "include_environment"],
+          "properties": {
+            "objective_ids": {
+              "type": "array",
+              "items": { "$ref": "common.schema.json#/$defs/slug" },
+              "description": "Exactly which objectives the learner chose to disclose. An empty list exports nothing about progress."
+            },
+            "include_evidence": { "type": "boolean" },
+            "include_questions": { "type": "boolean" },
+            "include_environment": { "type": "boolean" },
+            "text_excerpts": {
+              "type": ["boolean", "null"],
+              "description": "Short excerpts of the learner's own writing. Off unless explicitly chosen: the default packet carries states, not prose."
+            }
+          }
+        },
+        "objective_states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["objective_id", "stage"],
+            "properties": {
+              "objective_id": { "$ref": "common.schema.json#/$defs/slug" },
+              "stage": { "$ref": "common.schema.json#/$defs/mastery_stage" },
+              "reliability": {
+                "type": ["string", "null"],
+                "description": "How the state was established, so a teacher can tell a forming check from a human-reviewed one."
+              },
+              "assistance_max": {
+                "oneOf": [
+                  { "$ref": "common.schema.json#/$defs/assistance_max" },
+                  { "type": "null" }
+                ]
+              },
+              "note_ru": { "type": ["string", "null"], "maxLength": 500 }
+            }
+          }
+        },
+        "selected_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["evidence_id", "kind"],
+            "properties": {
+              "evidence_id": { "$ref": "common.schema.json#/$defs/uuid" },
+              "kind": { "enum": ["check", "attempt", "artifact"] },
+              "excerpt": {
+                "type": ["string", "null"],
+                "maxLength": 2000,
+                "description": "A bounded excerpt the learner chose to include. The full submission is not part of a packet."
+              },
+              "verdict": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["question_id", "text_ru", "category"],
+            "properties": {
+              "question_id": { "$ref": "common.schema.json#/$defs/uuid" },
+              "text_ru": {
+                "type": "string",
+                "maxLength": 2000,
+                "description": "Free text the learner wrote. It is data: the importer never treats it as an instruction, and never executes anything it contains."
+              },
+              "category": {
+                "enum": ["environment", "source_missing", "policy_unknown",
+                         "misconception", "course_gap", "review_requested"]
+              },
+              "objective_id": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "environment_issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["issue_id", "summary_ru"],
+            "properties": {
+              "issue_id": { "type": "string", "maxLength": 200 },
+              "summary_ru": { "type": "string", "maxLength": 1000 },
+              "check_id": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "ai_assistance_summary": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "levels_used": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/assistance_level" } },
+            "counts": { "type": "object" },
+            "note_ru": { "type": ["string", "null"], "maxLength": 1000 }
+          },
+          "description": "How much help was received, per level. Deliberately not a transcript: a teacher needs to know whether the work was unaided, not what was said."
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "exported_by"],
+          "properties": {
+            "source": { "enum": ["student_workspace"] },
+            "exported_by": {
+              "enum": ["learner_cli"],
+              "description": "Only a human CLI exports. There is no model-facing export tool, and the field records which channel produced the file."
+            },
+            "tool_version": { "type": ["string", "null"] }
+          }
+        },
+        "checksum": {
+          "$ref": "common.schema.json#/$defs/sha256",
+          "description": "SHA-256 over the packet with this field removed. It detects corruption in transit. It does not authenticate the sender: a student's machine can produce any packet it likes."
+        }
+      }
+    },
+    "issue_draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "course_id", "category", "reproduction",
+                   "impact_on_learning", "proposed_action", "evidence_status",
+                   "contains_student_data"],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "revision": { "type": ["string", "null"] },
+        "category": {
+          "enum": ["environment", "source_missing", "policy_unknown",
+                   "misconception", "course_gap", "review_requested"]
+        },
+        "source_refs": { "type": "array" },
+        "reproduction": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "impact_on_learning": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "proposed_action": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "evidence_status": {
+          "enum": ["observed", "reported_by_learner", "not_verified"],
+          "description": "Whether the problem was reproduced here or only reported. A guess is not written as an observation."
+        },
+        "contains_student_data": {
+          "type": "boolean",
+          "description": "False by default. When it cannot be false, the draft is not publishable and only goes to a private channel."
+        }
+      }
+    }
+  }
+}

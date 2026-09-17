@@ -2132,6 +2132,319 @@ def cmd_achievements(root, course, learner, as_json):
         store.close()
 
 
+def _selection(args):
+    """The objectives named on the command line, from either flag.
+
+    `--objective` (singular, repeatable) and `--objectives` (the session-start
+    list) are two spellings a caller will reasonably reach for. Accepting both
+    costs one merge here; rejecting one silently would export nothing and look
+    like a bug in the learner's own command.
+    """
+    selected = list(args.objectives or [])
+    if getattr(args, "objective", None):
+        selected.append(args.objective)
+    # Preserve order, drop duplicates.
+    seen = set()
+    ordered = []
+    for item in selected:
+        if item and item not in seen:
+            seen.add(item)
+            ordered.append(item)
+    return ordered
+
+
+def cmd_privacy_preview(root, course, learner, objectives, recipient, include):
+    """Show exactly what an export would contain, before anything is written."""
+    try:
+        from botai_core import course as core_course, exports as core_exports
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("usage: cli.py privacy-preview --course <slug> "
+              "[--objective <id> ...] [--recipient <метка>]")
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3
+
+    # A preview is a read-only explanation, so it must work before anything has
+    # been recorded. Failing here would make the first thing a new learner sees
+    # a traceback instead of an account of what an export would contain.
+    learner_id = learner or default_learner_id(root)
+    try:
+        store = core_store.Store.open(root, learner_id, create=False)
+    except core_store.StoreError as e:
+        if e.code != "STORE_MISSING":
+            raise
+        print("== что попадёт в пакет ==")
+        print("  Записей ещё нет: экспортировать нечего.")
+        print()
+        print("  Чего в пакете не будет никогда:")
+        for item in ("полные тексты попыток и сырой чат",
+                     "имя, контакты и любые прямые идентификаторы личности",
+                     "секреты, токены и переменные окружения",
+                     "работы других обучающихся"):
+            print("    - %s" % item)
+        print()
+        print("  Согласие на передачу преподавателю тоже не записано.")
+        return 3
+    try:
+        preview = core_exports.preview(
+            store, accepted, course_revision=accepted.revision, selection={},
+            objective_ids=objectives, recipient_label=recipient,
+            include_evidence="evidence" in include,
+            include_questions="questions" in include,
+            include_environment="environment" in include,
+            text_excerpts="excerpts" in include,
+        )
+        print("== что попадёт в пакет ==")
+        print("  курс        : %s" % preview["course_id"])
+        print("  получатель  : %s" % preview["recipient_label"])
+        print("  согласие    : %s" % preview["consent"]["message_ru"])
+        print()
+        print("  Состав:")
+        print("    цели           : %s"
+              % (", ".join(preview["will_include"]["objective_states"]) or "(ничего)"))
+        print("    доказательств  : %d" % preview["will_include"]["evidence_items"])
+        print("    выдержек текста: %d" % preview["will_include"]["text_excerpts"])
+        print("    вопросов       : %d" % preview["will_include"]["questions"])
+        print()
+        print("  Чего в пакете не будет никогда:")
+        for item in preview["never_included"]:
+            print("    - %s" % item)
+        print()
+        print("  %s" % preview["note_ru"])
+        if not preview["consent"]["found"]:
+            print()
+            print("  Согласие на передачу не записано, поэтому создание пакета")
+            print("  будет отклонено. Оформить:")
+            print("    python scripts/cli.py consent-set --course %s "
+                  "--purpose teacher_export" % course)
+            return 3
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_privacy_export(root, course, learner, objectives, out_dir, include,
+                       dry):
+    """Create the packet file. A human operation; nothing is sent anywhere."""
+    try:
+        from botai_core import course as core_course, exports as core_exports
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("usage: cli.py privacy-export --course <slug> [--objective <id> ...] "
+              "[--out <каталог>]")
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3
+
+    store = core_store.Store.open(root, learner or default_learner_id(root),
+                                  create=False)
+    try:
+        if not objectives:
+            print("нужен хотя бы один --objective: пустой выбор не экспортирует "
+                  "ничего, а «всё подряд» здесь не предусмотрено")
+            return 2
+        try:
+            packet = core_exports.build_packet(
+                store, accepted, course_revision=accepted.revision, selection={},
+                objective_ids=objectives,
+                include_evidence="evidence" in include,
+                include_questions="questions" in include,
+                include_environment="environment" in include,
+                text_excerpts="excerpts" in include,
+                generated_at=core_store.now_iso(),
+            )
+        except core_exports.ExportError as e:
+            print("  отказ (%s): %s" % (e.code, e.message))
+            return 3
+
+        print("== пакет собран ==")
+        print("  packet_id   : %s" % packet["packet_id"])
+        print("  контрольная сумма: %s" % packet["checksum"][:32])
+        print("  целей       : %d" % len(packet["objective_states"]))
+        print("  доказательств: %d" % len(packet["selected_evidence"]))
+        if dry:
+            print()
+            print("  ничего не записано (--dry-run)")
+            return 0
+
+        directory = Path(out_dir) if out_dir else (root / ".botai" / "exports")
+        target = core_exports.write_packet(packet, directory)
+        print("  файл        : %s" % target)
+        print()
+        print("  Пакет лежит локально. Отправку выполняет человек: автоматической")
+        print("  рассылки в 2.0 нет. Контрольная сумма выявляет повреждение и")
+        print("  не удостоверяет личность отправителя.")
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_privacy_delete(root, course, learner, plan_only):
+    """Plan a deletion, then apply it when the human confirms."""
+    try:
+        from botai_core import exports as core_exports
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+
+    store = core_store.Store.open(root, learner or default_learner_id(root),
+                                  create=False)
+    try:
+        plan = core_exports.deletion_plan(store, course_id=course)
+        print("== план удаления ==")
+        print("  курс        : %s" % (course or "весь workspace"))
+        print("  будет удалено:")
+        for kind, count in (plan["would_delete"]["entities"] or {}).items():
+            print("    %-24s %d" % (kind, count))
+        print("    %-24s %d" % ("события", plan["would_delete"]["events"]))
+        print("    %-24s %d" % ("ссылки на артефакты", plan["would_delete"]["artifact_refs"]))
+        print("  останется:")
+        print("    %s" % plan["would_keep"]["reason_ru"])
+        print()
+        print("  Также затронуто:")
+        for item in plan["also_affected"]:
+            print("    - %s" % item)
+        print()
+        print("  Чего план НЕ обещает:")
+        for item in plan["not_promised"]:
+            print("    - %s" % item)
+
+        if plan_only:
+            print()
+            print("  ничего не удалено (--plan)")
+            return 0
+
+        answer = input("Удалить перечисленные записи? [y/N] ").strip().lower()
+        if answer not in ("y", "yes", "д", "да"):
+            print("не подтверждено: ничего не удалено")
+            return 0
+
+        result = core_exports.apply_deletion(store, course_id=course, plan=plan)
+        print()
+        print("== удалено ==")
+        for table in ("entities", "events", "artifact_refs", "artifacts"):
+            print("  %-16s %s" % (table, result.get(table)))
+        print("  файлов артефактов: %s" % result.get("artifact_files"))
+        print()
+        print("  Журнал событий удалён вместе с данными: запись, которую нельзя")
+        print("  исправить, хуже пробела в журнале.")
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_teacher_import(root, learner, packet_path):
+    """Import a packet into the teacher workspace."""
+    try:
+        from botai_core import store as core_store, teacher as core_teacher
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not packet_path:
+        print("usage: cli.py teacher-import --packet <файл.json>")
+        return 2
+    path = Path(packet_path)
+    if not path.is_file():
+        print("файл пакета не найден: %s" % path)
+        return 2
+    try:
+        document = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as e:
+        print("не удалось прочитать пакет: %s" % e)
+        return 2
+
+    store = core_store.Store.open(root, learner or default_learner_id(root))
+    try:
+        try:
+            record, version, replayed = core_teacher.import_packet(
+                store, document, source_label=path.name)
+        except core_teacher.TeacherError as e:
+            print("  отказ (%s): %s" % (e.code, e.message))
+            return 3
+        except Exception as e:  # noqa: BLE001
+            print("  отказ (%s): %s" % (getattr(e, "code", type(e).__name__), e))
+            return 3
+
+        print("== пакет импортирован ==")
+        print("  packet_id   : %s" % record["packet_id"])
+        print("  курс        : %s" % record["course_id"])
+        print("  целей       : %d" % len(record.get("objective_states") or []))
+        print("  вопросов    : %d" % len(record.get("questions") or []))
+        if replayed:
+            print("  (этот пакет уже был импортирован: повтор не создал второй записи)")
+        print()
+        print("  Содержимое пакета — данные. Инструкции внутри вопроса не")
+        print("  исполняются, ссылки не открываются, Markdown не запускается.")
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_teacher_summary(root, course, learner, as_json, queue_only):
+    """Aggregate imported packets, stating the denominator."""
+    try:
+        from botai_core import store as core_store, teacher as core_teacher
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("usage: cli.py teacher-summary --course <slug> [--queue]")
+        return 2
+
+    learner_id = learner or default_learner_id(root)
+    try:
+        store = core_store.Store.open(root, learner_id, create=False)
+    except core_store.StoreError as e:
+        if e.code != "STORE_MISSING":
+            raise
+        # A teacher workspace with nothing imported yet is a normal first state,
+        # not an error. Reporting it as a traceback would suggest the tool is
+        # broken at the moment it is first used.
+        if queue_only:
+            print("Очередь пуста: пакеты не импортированы.")
+            print("Импорт: python scripts/cli.py teacher-import --packet <файл.json>")
+            return 0
+        print("# Сводка по курсу `%s`" % course)
+        print()
+        print("> 0 из 0 предоставивших данные")
+        print("> Размер группы неизвестен: знаменатель — только те, кто передал пакет.")
+        print()
+        print("Пакеты не импортированы.")
+        print("Импорт: python scripts/cli.py teacher-import --packet <файл.json>")
+        return 0
+    try:
+        if queue_only:
+            document = core_teacher.queue(store, course)
+            if as_json:
+                print(json.dumps(document, ensure_ascii=False, indent=2))
+            else:
+                print(core_teacher.render_queue_markdown(document))
+            return 0
+
+        summary = core_teacher.group_summary(store, course)
+        if as_json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+        else:
+            print(core_teacher.render_summary_markdown(summary))
+        return 0
+    finally:
+        store.close()
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -2187,6 +2500,9 @@ def main():
                                         "contribute-start", "contribute-status",
                                         "contribute-draft", "contribute-rehearsal",
                                         "persona-set", "achievements",
+                                        "privacy-preview", "privacy-export",
+                                        "privacy-delete",
+                                        "teacher-import", "teacher-summary",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -2293,6 +2609,17 @@ def main():
                     help="persona-set: disable role insertions and badges")
     ap.add_argument("--gamification", action="store_true",
                     help="persona-set: opt in to personal badges")
+    ap.add_argument("--recipient", help="privacy-preview: label of the recipient")
+    ap.add_argument("--include", action="append", default=[],
+                    choices=["evidence", "questions", "environment", "excerpts"],
+                    help="privacy-*: what the packet should include (repeatable)")
+    ap.add_argument("--out-dir", dest="out_dir",
+                    help="privacy-export: directory for the packet file")
+    ap.add_argument("--plan", action="store_true",
+                    help="privacy-delete: show the plan and stop")
+    ap.add_argument("--packet", help="teacher-import: packet JSON file")
+    ap.add_argument("--queue", action="store_true",
+                    help="teacher-summary: show the triage queue instead of the summary")
     ap.add_argument("--wait", action="store_true",
                     help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
@@ -2458,6 +2785,20 @@ def main():
                                  args.low_stimulus, args.gamification, args.list))
     elif cmd == "achievements":
         sys.exit(cmd_achievements(root, args.course, args.learner, args.json))
+    elif cmd == "privacy-preview":
+        sys.exit(cmd_privacy_preview(root, args.course, args.learner,
+                                     _selection(args), args.recipient, args.include))
+    elif cmd == "privacy-export":
+        sys.exit(cmd_privacy_export(root, args.course, args.learner,
+                                    _selection(args), args.out_dir, args.include,
+                                    args.dry_run))
+    elif cmd == "privacy-delete":
+        sys.exit(cmd_privacy_delete(root, args.course, args.learner, args.plan))
+    elif cmd == "teacher-import":
+        sys.exit(cmd_teacher_import(root, args.learner, args.packet))
+    elif cmd == "teacher-summary":
+        sys.exit(cmd_teacher_summary(root, args.course, args.learner, args.json,
+                                     args.queue))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":
