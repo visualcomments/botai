@@ -1,5 +1,10 @@
-courses/
-progress/
+# Student-owned material of an INSTALLED workspace. Anchored to this
+# repository's root on purpose: an unanchored `progress/` also matches
+# `examples/legacy-course/progress/`, which is a test fixture that must be
+# committed — a local run would pass while CI failed on the missing file.
+/courses/
+/progress/
+/dist/
 
 __pycache__/
 *.py[cod]
@@ -8,11 +13,12 @@ __pycache__/
 # locally edited files, the local database and caches. A developer checkout
 # normally has none of this, but an in-place install or update would otherwise
 # create it inside the source tree and invite an accidental commit.
-.botai/
-dist/
-.venv/
-venv/
-.core-venv/
+/.botai/
+
+# Local environments.
+/.venv/
+/venv/
+/.core-venv/
 
 # Secrets and machine-local configuration.
 .env

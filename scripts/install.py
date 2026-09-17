@@ -53,9 +53,13 @@ DIST_GITIGNORE_CONTENT = "*\n!.gitignore\n"
 # runtime directory never enters the project's history. The harness's own
 # .gitignore is copied too, but it describes the botai source repository, not
 # an installed workspace.
-PROJECT_GITIGNORE = """# Student-owned course material and progress.
-courses/
-progress/
+PROJECT_GITIGNORE = """# Student-owned course material and progress. Anchored to the project root:
+# without the leading slash these patterns would also ignore a same-named
+# directory nested inside a course (for example a course that keeps its own
+# `progress/` notes), which is course material, not workspace state.
+/courses/
+/progress/
+/dist/
 
 # Python caches.
 __pycache__/
@@ -63,13 +67,12 @@ __pycache__/
 
 # Private runtime state: install record, backups of locally edited files,
 # local databases and caches. Never published, never reused as course material.
-.botai/
-dist/
+/.botai/
 
 # Local course environments (created by the environment profile).
-.venv/
-venv/
-.core-venv/
+/.venv/
+/venv/
+/.core-venv/
 
 # Secrets and machine-local configuration.
 .env
@@ -93,7 +96,7 @@ def ensure_project_gitignore(dest, dry_run=False):
         if not dry_run:
             addition = "" if current.endswith("\n") else "\n"
             addition += "\n# Added by botai: private runtime state must never be committed.\n"
-            addition += "\n".join(missing or [".botai/", "dist/", ".venv/", "venv/", ".core-venv/"]) + "\n"
+            addition += "\n".join(missing or ["/.botai/", "/dist/", "/.venv/", "/venv/", "/.core-venv/"]) + "\n"
             path.write_text(current + addition, encoding="utf-8", newline="\n")
         return True
     if not dry_run:

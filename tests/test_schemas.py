@@ -243,6 +243,41 @@ def test_legacy_course_fixture_is_present():
     check("в фикстуре миграции есть legacy-дневник", bool(md), str(list(legacy.iterdir())))
 
 
+def test_fixtures_are_not_excluded_from_git():
+    """Every fixture file must be committable.
+
+    A file that exists locally but is excluded by `.gitignore` passes here and
+    fails in CI, which is exactly how the migration fixture was lost once: an
+    unanchored `progress/` pattern swallowed `examples/legacy-course/progress/`.
+    The check asks git directly, so it catches the whole class of defect rather
+    than the one instance.
+    """
+    import subprocess
+
+    required = [
+        "examples/legacy-course/progress/python-101.md",
+        "examples/legacy-course/courses/python-101/syllabus.md",
+        "examples/minimal-course/botai/course.json",
+        "examples/minimal-course/botai/track.json",
+        "schemas/v2/course.schema.json",
+        "requirements-core.lock",
+    ]
+    for rel in required:
+        path = ROOT / rel
+        check(f"фикстура на месте: {rel}", path.is_file())
+        ignored = subprocess.run(["git", "check-ignore", "-q", rel], cwd=ROOT,
+                                 capture_output=True, text=True)
+        check(f"фикстура не исключена из git: {rel}", ignored.returncode != 0,
+              "путь игнорируется правилом из .gitignore")
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", rel], cwd=ROOT,
+                                 capture_output=True, text=True)
+        # `git ls-files --error-unmatch` fails for an untracked file; that is
+        # only a defect once the file has been committed, so report it as a
+        # distinct signal rather than a failure of the ignore rule.
+        if tracked.returncode != 0:
+            print(f"       note: {rel} ещё не в индексе (будет добавлен этим коммитом)")
+
+
 def main() -> int:
     print("[schemas: контракты загружаются локально]")
     test_all_contracts_load_offline()
@@ -259,6 +294,7 @@ def main() -> int:
     test_track_graph_is_consistent()
     test_progress_contract_requires_evidence_for_states()
     test_legacy_course_fixture_is_present()
+    test_fixtures_are_not_excluded_from_git()
 
     print(f"\n{_passed} passed, {len(_failures)} failed")
     for f in _failures:
