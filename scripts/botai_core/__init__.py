@@ -25,7 +25,10 @@ true of the tools rather than of the prompt:
 * `actions` — the restricted executor: no inherited secrets, bounded output,
   whole process tree killed on timeout;
 * `operation`— the lifecycle: approval bound to one plan hash, spent once, and
-  a lease that stops two workers running the same install.
+  a lease that stops two workers running the same install;
+* `contribution`— the first-contribution flow: read-only Git, checks bound to a
+  diff hash, a self-report kept distinct from an observation, and no path to
+  commit, push or open a pull request.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -34,6 +37,6 @@ from __future__ import annotations
 
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
            "tutoring", "session", "progress", "corpus", "retrieval",
-           "environment", "actions", "operation"]
+           "environment", "actions", "operation", "contribution"]
 
 SCHEMA_VERSION = 2

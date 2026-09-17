@@ -1715,6 +1715,291 @@ def cmd_operation_cancel(root, operation_id, learner, reason, reconcile):
         service.close()
 
 
+def _open_contribution(root, learner=None, *, create=True):
+    try:
+        from botai_core import contribution as core_contribution
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return None
+    learner_id = learner or default_learner_id(root)
+    store = core_store.Store.open(root, learner_id, create=create)
+    return store, core_contribution
+
+
+CONTRIBUTION_KIND = "contribution"
+
+
+def cmd_contribute_start(root, course, session, role, task, repo, publish, learner):
+    """Open a contribution record. Nothing is committed or published."""
+    opened = _open_contribution(root, learner)
+    if opened is None:
+        return 2
+    store, core_contribution = opened
+    try:
+        import uuid as _uuid
+        contribution_id = str(_uuid.uuid4())
+        accepts_private = True
+        try:
+            from botai_core import course as core_course
+            accepted = core_course.load_accepted(root, course)
+            contribution_cfg = accepted.contract.get("contribution") or {}
+            accepts_private = bool(contribution_cfg.get("private_submission_allowed", True))
+            disclosure_required = bool(contribution_cfg.get("ai_disclosure_required", False))
+            if not contribution_cfg.get("enabled"):
+                print("  контракт курса не включает вклад: %s" % course)
+                print("  это не ошибка агента, а условие курса")
+                return 3
+        except Exception as e:  # noqa: BLE001
+            print("  отказ (%s): %s" % (getattr(e, "code", type(e).__name__), e))
+            return 3
+
+        if publish == "private_package" and not accepts_private:
+            print("  контракт курса не разрешает непубличную сдачу")
+            return 3
+
+        document = core_contribution.new_contribution(
+            contribution_id=contribution_id, session_id=session, course_id=course,
+            role=role, task_ref=task, publication_choice=publish or "undecided",
+            ai_disclosure_required=disclosure_required,
+            repository_root=repo,
+        )
+        document = core_contribution.select_task(document, task_ref=task, role=role)
+        core_contribution.validate(document)
+        store.apply(
+            kind=CONTRIBUTION_KIND, entity_id=contribution_id,
+            events=["contribution.started"], course_id=course,
+            new_body=document,
+            event_payloads=[{"role": role, "task_ref": task,
+                             "publication_choice": document["publication_choice"],
+                             "_actor": "learner_cli", "_provenance": "human_input"}],
+        )
+        print("== вклад открыт ==")
+        print("  contribution_id : %s" % contribution_id)
+        print("  роль            : %s" % role)
+        print("  состояние       : %s" % document["state"])
+        print("  задача          : %s" % task)
+        print("  путь сдачи      : %s" % document["publication_choice"])
+        print()
+        print("  Публикацию выполняет ученик. Агент не делает commit, push и не")
+        print("  открывает PR — он наблюдает состояние и готовит черновик текста.")
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_contribute_status(root, course, contribution_id, learner, as_json):
+    """Show a contribution, its observed Git state, and what blocks the draft."""
+    opened = _open_contribution(root, learner, create=False)
+    if opened is None:
+        return 2
+    store, core_contribution = opened
+    try:
+        if not contribution_id:
+            items = store.list_entities(CONTRIBUTION_KIND, course_id=course) if course else []
+            if as_json:
+                print(json.dumps(items, ensure_ascii=False, indent=2))
+                return 0
+            if not items:
+                print("вкладов не заведено")
+                print("начать: python scripts/cli.py contribute-start --course <slug> "
+                      "--task <ссылка>")
+                return 0
+            print("== вклады ==")
+            for item in items:
+                print("  %s  %-24s %s"
+                      % (item["contribution_id"][:8], item["state"],
+                         item.get("task_ref") or "—"))
+            return 0
+
+        document, _version = store.get(CONTRIBUTION_KIND, contribution_id,
+                                       course_id=course)
+        if document is None:
+            print("вклад не найден: %s" % contribution_id)
+            return 2
+
+        snapshot = None
+        repo = document.get("repository_root")
+        if repo and Path(repo).is_dir():
+            try:
+                snapshot = core_contribution.working_diff(repo)
+            except core_contribution.ContributionError as e:
+                snapshot = {"error": e.message, "code": e.code}
+
+        if as_json:
+            print(json.dumps({"contribution": document, "git": snapshot},
+                             ensure_ascii=False, indent=2))
+            return 0
+
+        print("== вклад %s ==" % contribution_id[:8])
+        print("  состояние   : %s" % document["state"])
+        print("  роль        : %s" % document["role"])
+        print("  путь сдачи  : %s" % document["publication_choice"])
+        print("  статус прав : %s" % document["rights_status"])
+        print("  задача      : %s" % (document.get("task_ref") or "—"))
+        if document.get("diff_hash"):
+            print("  отпечаток   : %s" % document["diff_hash"][:32])
+        if document.get("checks"):
+            print("  проверки    :")
+            for check in document["checks"]:
+                print("    %-20s %s" % (check["check_id"], check["status"]))
+
+        if snapshot and snapshot.get("error"):
+            print()
+            print("  Git: %s" % snapshot["error"])
+        elif snapshot:
+            print()
+            print("== рабочая копия ==")
+            print("  ветка       : %s" % (snapshot.get("branch") or "—"))
+            print("  голова      : %s" % str(snapshot.get("head_oid"))[:16])
+            print("  файлов в diff: %d" % len(snapshot.get("files_changed") or []))
+            for path in (snapshot.get("files_changed") or [])[:10]:
+                print("    %s" % path)
+            if document.get("diff_hash") and snapshot.get("diff_hash") != document["diff_hash"]:
+                print()
+                print("  ВНИМАНИЕ: изменение изменилось после проверки.")
+                print("  Записанные проверки относятся к другой ревизии.")
+
+        ok, blocking, advisory = core_contribution.validate_draft(document, snapshot=snapshot)
+        print()
+        print("== готовность к публикации: %s ==" % ("да" if ok else "нет"))
+        for item in blocking:
+            print("  БЛОКИРУЕТ: %s" % item)
+        if advisory and not ok:
+            print("  Заполняет ученик:")
+            for item in advisory[:4]:
+                print("    - %s" % item)
+        return 0 if ok else 0
+    finally:
+        store.close()
+
+
+def cmd_contribute_draft(root, course, contribution_id, learner, out_path):
+    """Render the draft description the student reviews and publishes."""
+    opened = _open_contribution(root, learner, create=False)
+    if opened is None:
+        return 2
+    store, core_contribution = opened
+    try:
+        document, _ = store.get(CONTRIBUTION_KIND, contribution_id, course_id=course)
+        if document is None:
+            print("вклад не найден: %s" % contribution_id)
+            return 2
+
+        snapshot = None
+        if document.get("repository_root") and Path(document["repository_root"]).is_dir():
+            try:
+                snapshot = core_contribution.working_diff(document["repository_root"])
+            except core_contribution.ContributionError:
+                snapshot = None
+
+        text = core_contribution.render_draft(document, snapshot=snapshot)
+        if out_path:
+            target = Path(out_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8", newline="\n")
+            print("черновик записан: %s" % target)
+            print()
+            print("Это ЧЕРНОВИК. Прочитайте, исправьте и опубликуйте сами:")
+            print("агент не делает commit, push и не открывает PR.")
+        else:
+            print(text)
+        return 0
+    finally:
+        store.close()
+
+
+def cmd_contribute_rehearsal(root, target_dir, dry):
+    """Create a throwaway repository for practising Git without touching anything.
+
+    The design asks for a local fixture where staged-vs-unstaged and a conflict
+    are reproduced deliberately. Practising in a real course repository is how a
+    learner loses work while following instructions they have not yet met.
+    """
+    try:
+        from botai_core import contribution as core_contribution
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+
+    target = Path(target_dir or (Path(root) / ".botai" / "git-practice"))
+    if target.exists() and any(target.iterdir()):
+        print("каталог для репетиции уже существует и не пуст: %s" % target)
+        print("укажите другой: --dest <путь>")
+        return 2
+
+    steps = [
+        ("Создать учебный репозиторий", ["init", "-q"]),
+        ("Настроить локальную идентичность",
+         ["config", "user.email", "student@example.invalid"]),
+        ("Настроить имя", ["config", "user.name", "Учебный ученик"]),
+        ("Создать первый файл и коммит",
+         ["commit", "--allow-empty", "-qm", "initial"]),
+    ]
+    if dry:
+        print("== репетиция (предпросмотр) ==")
+        print("  каталог: %s" % target)
+        for title, args in steps:
+            print("  будет выполнено: %s (%s)" % (title, " ".join(args)))
+        print("  ничего не создано (--dry-run)")
+        return 0
+
+    target.mkdir(parents=True, exist_ok=True)
+    git = core_contribution.git_executable()
+    if git is None:
+        print("git не найден: репетиция невозможна")
+        return 2
+
+    # The rehearsal fixture is the one place the harness legitimately creates a
+    # repository, and it is empty by construction: nothing of the learner's is
+    # ever inside it.
+    def setup_git(*args):
+        """Run git for the fixture with an explicit identity.
+
+        The fixture is created *by the harness*, not by the student, so it may
+        set its own author here. That is the opposite of the rule for a real
+        contribution: a commit in the student's repository must carry the
+        student's identity, which is why the agent never makes one.
+        """
+        import subprocess as sp
+        env = dict(os.environ)
+        env.update({"GIT_AUTHOR_NAME": "Учебный ученик",
+                    "GIT_AUTHOR_EMAIL": "student@example.invalid",
+                    "GIT_COMMITTER_NAME": "Учебный ученик",
+                    "GIT_COMMITTER_EMAIL": "student@example.invalid"})
+        return sp.run([git, *args], cwd=str(target), capture_output=True,
+                      text=True, env=env, timeout=30)
+
+    setup_git("init", "-q")
+    setup_git("config", "user.email", "student@example.invalid")
+    setup_git("config", "user.name", "Учебный ученик")
+
+    (target / "hello.txt").write_text("первая строка\n", encoding="utf-8")
+    setup_git("add", "hello.txt")
+    setup_git("commit", "-qm", "initial: hello.txt")
+
+    (target / "hello.txt").write_text("первая строка\nвторая строка\n", encoding="utf-8")
+    (target / "notes.txt").write_text("новый файл\n", encoding="utf-8")
+    setup_git("add", "notes.txt")
+
+    print("== репетиционный репозиторий ==")
+    print("  каталог: %s" % target)
+    print()
+    print("В рабочей копии нарочно воспроизведено различие:")
+    print("  hello.txt — изменён, но НЕ в индексе (unstaged)")
+    print("  notes.txt — в индексе (staged), но не в коммите")
+    print()
+    print("Попробуйте по порядку и объясните каждый шаг:")
+    print("  1. git status                     что видно и почему")
+    print("  2. git diff                       что попадёт в коммит СЕЙЧАС")
+    print("  3. git diff --staged              что уже подготовлено")
+    print("  4. git add hello.txt              что изменилось после этого")
+    print("  5. git diff --staged              проверьте ещё раз перед коммитом")
+    print()
+    print("Этот репозиторий ничей: работа в нём ничего не сломает.")
+    return 0
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -1767,6 +2052,8 @@ def main():
                                         "source-search", "quote-verify",
                                         "env-plan", "action-approve", "env-apply",
                                         "env-status", "operation-cancel",
+                                        "contribute-start", "contribute-status",
+                                        "contribute-draft", "contribute-rehearsal",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -1857,6 +2144,15 @@ def main():
                     help="action-approve: record a refusal instead of a grant")
     ap.add_argument("--reconcile", action="store_true",
                     help="operation-cancel: inspect state instead of cancelling")
+    ap.add_argument("--role", choices=["expert", "researcher", "developer"],
+                    default="developer", help="contribute-start: kind of contribution")
+    ap.add_argument("--task", help="contribute-start: link or description of the task")
+    ap.add_argument("--repo", help="contribute-start: path to the course repository")
+    ap.add_argument("--publish", choices=["public_pr", "private_package", "undecided"],
+                    default="undecided", help="contribute-start: how the student will submit")
+    ap.add_argument("--contribution", help="contribution id (contribute-status/draft)")
+    ap.add_argument("--dest", help="contribute-rehearsal: where to build the practice repo")
+    ap.add_argument("--out", help="contribute-draft: write the draft to this file")
     ap.add_argument("--wait", action="store_true",
                     help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
@@ -1999,6 +2295,24 @@ def main():
     elif cmd == "operation-cancel":
         sys.exit(cmd_operation_cancel(root, args.operation, args.learner,
                                       args.reason, args.reconcile))
+    elif cmd == "contribute-start":
+        if not (args.course and args.task):
+            sys.exit("usage: cli.py contribute-start --course <slug> --task <ссылка> "
+                     "--session <id> [--role developer] [--repo <путь>] "
+                     "[--publish public_pr|private_package]")
+        sys.exit(cmd_contribute_start(root, args.course, args.session, args.role,
+                                      args.task, args.repo, args.publish, args.learner))
+    elif cmd == "contribute-status":
+        sys.exit(cmd_contribute_status(root, args.course, args.contribution,
+                                       args.learner, args.json))
+    elif cmd == "contribute-draft":
+        if not (args.course and args.contribution):
+            sys.exit("usage: cli.py contribute-draft --course <slug> "
+                     "--contribution <id> [--out <файл>]")
+        sys.exit(cmd_contribute_draft(root, args.course, args.contribution,
+                                      args.learner, args.out))
+    elif cmd == "contribute-rehearsal":
+        sys.exit(cmd_contribute_rehearsal(root, args.dest, args.dry_run))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":
