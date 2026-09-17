@@ -74,6 +74,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         contribute-start contribute-status contribute-draft contribute-rehearsal \
         persona-set achievements \
         privacy-preview privacy-export privacy-delete teacher-import teacher-summary \
+        adapter-check adapter-install catalog-check \
         course-inspect course-accept course-status policy-check \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
@@ -132,6 +133,11 @@ help:
 	@echo "  make privacy-delete COURSE=slug          Plan a deletion, then confirm it"
 	@echo "  make teacher-import PACKET=file.json     Import into a teacher workspace"
 	@echo "  make teacher-summary COURSE=slug [QUEUE=1]  Aggregate with a stated denominator"
+	@echo ""
+	@echo "Host profile (managed only on evidence; otherwise compatibility):"
+	@echo "  make adapter-check HOST=opencode [CONFIG=file] [HOSTVER=1.18.18]  Inspect the final config"
+	@echo "  make adapter-install HOST=opencode [DRY=1]  Write a profile into THIS project only"
+	@echo "  make catalog-check CATALOG=/path            Verify an optional external catalogue"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -354,6 +360,24 @@ teacher-import:
 teacher-summary:
 	@python3 scripts/cli.py teacher-summary --course "$(COURSE)" $(if $(QUEUE),--queue,)
 
+# ============================================================================
+# Хост и профиль.
+# ----------------------------------------------------------------------------
+# `adapter-check` проверяет ИТОГОВЫЙ конфиг и выдаёт managed только по
+# доказательству: шаблон в разрешениях, default=allow, подагент с bash или
+# включённый внешний плагин дают HOST_UNVERIFIED с названной причиной. Хост без
+# адаптера получает compatibility, а не managed. `adapter-install` пишет профиль
+# только в этот проект: глобальные настройки не трогаются.
+# ============================================================================
+adapter-check:
+	@python3 scripts/cli.py adapter-check --host "$(HOST)" $(if $(CONFIG),--config "$(CONFIG)",) $(if $(HOSTVER),--version "$(HOSTVER)",)
+
+adapter-install:
+	@python3 scripts/cli.py adapter-install --host "$(HOST)" $(if $(DRY),--dry-run,)
+
+catalog-check:
+	@python3 scripts/cli.py catalog-check --catalog "$(CATALOG)"
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -434,6 +458,7 @@ test:
 	@python3 tests/test_contribution.py
 	@python3 tests/test_personas.py
 	@python3 tests/test_exports.py
+	@python3 tests/test_adapters.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \
