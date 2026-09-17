@@ -27,6 +27,7 @@ as the harness, and why that list is defined in exactly one place.
 """
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -747,6 +748,478 @@ def cmd_policy_check(root, course, assignment, level, preference):
     return 0 if decision["decision"] == "allow" else 3
 
 
+def _open_session(root, course, learner=None, *, create=True):
+    """Open a session service, or explain precisely what is missing."""
+    try:
+        from botai_core import course as core_course, session as core_session
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        print("установите зависимости: python3 -m pip install --require-hashes "
+              "-r requirements-core.lock")
+        return None, None
+    if not course:
+        print("нужен --course <slug>")
+        return None, None
+    learner_id = learner or default_learner_id(root)
+    try:
+        service = core_session.SessionService.open(root, learner_id, course,
+                                                   create=create)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return None, None
+    except Exception as e:  # noqa: BLE001 - store errors keep their own codes
+        code = getattr(e, "code", type(e).__name__)
+        print("  отказ (%s): %s" % (code, e))
+        return None, None
+    return service, learner_id
+
+
+def cmd_session_start(root, course, learner, objectives, minutes, modes, dry):
+    """Open a learning session for an accepted course."""
+    service, learner_id = _open_session(root, course, learner, create=not dry)
+    if service is None:
+        return 2
+    try:
+        if dry:
+            accepted = service.course
+            print("== начало занятия (предпросмотр) ==")
+            print("  курс        : %s" % accepted.course_id)
+            print("  ревизия     : %s" % accepted.revision["id"][:16])
+            print("  цели занятия: %s" % (", ".join(objectives) or "(будут выбраны)"))
+            print("  режим       : %s" % ", ".join(modes))
+            print("  длительность: %d мин" % minutes)
+            print("  согласие    : %s" % (learner_id if learner else "будет запрошено"))
+            print("  ничего не записано (--dry-run)")
+            return 0
+
+        # Consent comes from the store, not from a flag: a session that teaches
+        # without recorded consent would be a session nobody agreed to.
+        consent_version = None
+        for consent in service.store.list_entities("consent"):
+            if consent.get("withdrawn_at") is None:
+                consent_version = consent.get("consent_id")
+                break
+
+        body, result, replayed = service.start(
+            objective_ids=objectives, modes=tuple(modes), session_minutes=minutes,
+            consent_version=consent_version,
+        )
+        print("== занятие открыто ==")
+        print("  session_id  : %s" % body["session_id"])
+        print("  состояние   : %s" % body["state"])
+        if replayed:
+            print("  (повтор запроса: возвращён прежний результат)")
+        if consent_version is None:
+            print()
+            print("  Записано согласие на обработку данных не найдено, поэтому")
+            print("  занятие не начинается. Оформите согласие отдельно:")
+            print("    python scripts/cli.py consent-set --course %s" % course)
+        print("  следующий шаг: python scripts/cli.py session-next "
+              "--session %s" % body["session_id"])
+        return 0
+    finally:
+        service.close()
+
+
+def cmd_session_next(root, course, session, learner):
+    """Print the teaching directive. A pure read — nothing is written."""
+    service, _ = _open_session(root, course, learner)
+    if service is None:
+        return 2
+    try:
+        from botai_core import tutoring as core_tutoring
+        body, directive = service.next_step(session)
+        print("== следующий шаг ==")
+        print("  сессия      : %s" % session)
+        print("  состояние   : %s" % directive["state"])
+        print("  действие    : %s" % directive["next_action"])
+        print("  цель        : %s" % (directive["objective_id"] or "—"))
+        print("  предел помощи: %s" % (directive["assistance_ceiling"] or "помощь не выдаётся"))
+        print("  допустимые намерения: %s"
+              % (", ".join(directive["allowed_intents"]) or "(нет)"))
+        if directive["needed_inputs"]:
+            print("  требуется   : %s" % ", ".join(directive["needed_inputs"]))
+        print("  причина     : %s" % directive["reason"])
+        print()
+        print("  (session-next ничего не записывает: рекомендация — не прогресс)")
+        return 0
+    except core_tutoring.TutoringError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+    finally:
+        service.close()
+
+
+def cmd_session_goal(root, course, session, objective, assignment, learner, confirm):
+    """Choose the objective for a session (and optionally start work on it)."""
+    service, _ = _open_session(root, course, learner)
+    if service is None:
+        return 2
+    try:
+        from botai_core import tutoring as core_tutoring
+        _, version = service.get_session(session)
+        if version == 0:
+            print("сессия не найдена: %s" % session)
+            return 2
+        body, _, _ = service.configure_goal(
+            session, objective, expected_version=version,
+            assignment_id=assignment, confirm=confirm,
+        )
+        print("== цель занятия ==")
+        print("  цель        : %s" % objective)
+        print("  задание     : %s" % (assignment or "—"))
+        print("  оцениваемость: %s" % body["assessment"])
+        print("  состояние   : %s" % body["state"])
+        if not confirm:
+            print()
+            print("  Цель выбрана. Начать работу по ней:")
+            print("    python scripts/cli.py session-goal --session %s "
+                  "--objective %s --confirm" % (session, objective))
+        return 0
+    except core_tutoring.TutoringError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+    finally:
+        service.close()
+
+
+def cmd_session_attempt(root, course, session, objective, assignment, learner, text_file):
+    """Record the learner's own attempt."""
+    service, _ = _open_session(root, course, learner)
+    if service is None:
+        return 2
+    try:
+        from botai_core import tutoring as core_tutoring
+        if text_file:
+            path = Path(text_file)
+            if not path.is_file():
+                print("файл попытки не найден: %s" % path)
+                return 2
+            text = path.read_text(encoding="utf-8-sig")
+            print("  попытка прочитана из %s (%d символов)" % (path, len(text)))
+        else:
+            if sys.stdin.isatty():
+                print("Введите текст попытки, затем Ctrl+Z (Windows) или Ctrl+D:")
+            text = sys.stdin.read()
+        if not text.strip():
+            print("попытка пуста: ничего не записано")
+            return 2
+
+        document, _, _ = service.record_attempt(
+            session, objective_id=objective, assignment_id=assignment,
+            text_excerpt=text[:65536], source="learner_report",
+        )
+        print("== попытка записана ==")
+        print("  attempt_id  : %s" % document["attempt_id"])
+        print("  помощь в цикле: %s" % document["assistance_max"])
+        print("  источник    : %s" % document["source"])
+        print()
+        print("  Попытка принята как ваше собственное сообщение о работе —")
+        print("  это не доказательство авторства, а основа для обратной связи.")
+        return 0
+    except core_tutoring.TutoringError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+    finally:
+        service.close()
+
+
+def cmd_session_check(root, course, session, attempt, kind, verdict, criterion, learner):
+    """Record a check result and let the reducer update mastery."""
+    service, _ = _open_session(root, course, learner)
+    if service is None:
+        return 2
+    try:
+        from botai_core import tutoring as core_tutoring
+        results = []
+        for item in criterion or []:
+            # criterion_id=pass|partial|fail|unknown[:evidence,evidence]
+            head, _, evidence = item.partition(":")
+            criterion_id, _, outcome = head.partition("=")
+            refs = [e for e in evidence.split(",") if e.strip()]
+            if outcome == "pass" and not refs:
+                print("критерий %r зачтён без доказательства: укажите "
+                      "criterion_id=pass:attempt_id" % criterion_id)
+                return 2
+            results.append({"criterion_id": criterion_id.strip(),
+                            "result": outcome.strip() or "unknown",
+                            "evidence_refs": refs, "required": True})
+        if not results:
+            print("нужен хотя бы один --criterion criterion_id=pass|partial|fail")
+            return 2
+
+        document, state, reasoning, _, _ = service.record_check(
+            session, attempt_id=attempt, kind=kind, verdict=verdict,
+            criterion_results=results,
+        )
+        print("== проверка записана ==")
+        print("  check_id    : %s" % document["check_id"])
+        print("  вид         : %s" % kind)
+        print("  вердикт     : %s (%s)" % (verdict, document["reliability"]))
+        print()
+        print("== освоение ==")
+        print("  цель        : %s" % state["objective_id"])
+        print("  стадия      : %s" % state["stage"])
+        print("  причина     : %s" % reasoning[1])
+        if state["stage"] == "demonstrated":
+            print()
+            print("  Это формирующая проверка бота, а не официальная оценка:")
+            print("  человек может её исправить.")
+        return 0
+    except core_tutoring.TutoringError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+    finally:
+        service.close()
+
+
+def cmd_session_pause(root, course, session, learner, target, reason, resume):
+    """pause / block / close / cancel, or resume a stopped session.
+
+    Resuming is expressed by naming the state to return to (`--resume`), not by
+    a `--target`: the target of a resume is by definition where the session
+    stopped, and letting a caller name an arbitrary state there would be the
+    one way to skip work the automaton exists to protect.
+    """
+    service, _ = _open_session(root, course, learner)
+    if service is None:
+        return 2
+    try:
+        from botai_core import tutoring as core_tutoring
+        body, version = service.get_session(session)
+        if body is None:
+            print("сессия не найдена: %s" % session)
+            return 2
+
+        if body["state"] in ("PAUSED", "BLOCKED"):
+            saved = body.get("resume_state")
+            if resume and resume != saved:
+                print("  отказ (RESUME_STATE_MISMATCH): сессия остановлена в "
+                      "состоянии %s, а не %s" % (saved, resume))
+                return 2
+            target_state = saved or resume
+            if not target_state:
+                print("  отказ (RESUME_STATE_MISSING): неизвестно, куда возвращать "
+                      "сессию: сохранённое состояние потеряно")
+                return 2
+            updated, _, _ = service.transition(session, target_state,
+                                               expected_version=version,
+                                               resume_state=target_state)
+            print("== состояние занятия ==")
+            print("  было        : %s" % body["state"])
+            print("  стало       : %s" % updated["state"])
+            print("  продолжено с: %s" % updated["resume_state"] or "—")
+            return 0
+
+        if not target:
+            print("usage: cli.py session-pause --session <id> "
+                  "--target PAUSED|BLOCKED|COMPLETED|CANCELLED [--reason ...]")
+            print("       (для продолжения остановленного занятия: без --target,")
+            print("        необязательно --resume <состояние>)")
+            return 2
+
+        updated, _, _ = service.transition(
+            session, target, expected_version=version, resume_state=resume,
+            reason=reason,
+        )
+        print("== состояние занятия ==")
+        print("  было        : %s" % body["state"])
+        print("  стало       : %s" % updated["state"])
+        if updated.get("resume_state"):
+            print("  возврат в   : %s" % updated["resume_state"])
+        return 0
+    except core_tutoring.TutoringError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+    finally:
+        service.close()
+
+
+def cmd_progress_v2(root, course, learner, as_json):
+    """Progress from the v2 store, or the legacy document when there is none."""
+    service, learner_id = _open_session(root, course, learner, create=False)
+    if service is None:
+        # Fall back to the legacy view rather than pretending v2 has nothing.
+        print("(записи v2 нет: показан прежний дневник)")
+        legacy_file = safe_progress_file(root, course)
+        if legacy_file.is_file():
+            print(legacy_file.read_text(encoding="utf-8", errors="replace"))
+        else:
+            print("дневника нет: %s" % legacy_file)
+        return 0
+    try:
+        from botai_core import progress as core_progress
+        document = core_progress.build_progress(
+            course=service.course, learner_id=learner_id,
+            sessions=service.store.list_entities("session", course_id=course),
+            objective_states=service.objective_states(),
+            attempts=service.store.list_entities("attempt", course_id=course),
+            checks=service.store.list_entities("check", course_id=course),
+        )
+        if as_json:
+            print(json.dumps(document, ensure_ascii=False, indent=2))
+        else:
+            print(core_progress.render_markdown(document))
+        return 0
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  отказ (%s): %s" % (code, e))
+        return 1
+    finally:
+        service.close()
+
+
+def cmd_consent_set(root, course, learner, purposes, provider, retention, dry):
+    """Record the learner's consent. A human operation, never a tool call.
+
+    Consent is the precondition for the whole cycle, so it is deliberately not
+    reachable from the tutoring surface: a model that could record consent
+    could manufacture the agreement it is supposed to be operating under. The
+    command prints exactly what is being agreed to before writing it.
+    """
+    try:
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("нужен --course <slug>")
+        return 2
+
+    learner_id = learner or default_learner_id(root)
+    valid = {"learning_storage", "model_processing", "teacher_export", "publication"}
+    selected = sorted({p.strip() for p in (purposes or []) if p.strip()}) or ["learning_storage"]
+    unknown = [p for p in selected if p not in valid]
+    if unknown:
+        print("неизвестные назначения обработки: %s" % ", ".join(unknown))
+        print("допустимые: %s" % ", ".join(sorted(valid)))
+        return 2
+
+    print("== согласие на обработку данных ==")
+    print("  обучающийся : %s" % learner_id)
+    print("  курс        : %s" % course)
+    print("  назначения  : %s" % ", ".join(selected))
+    print("  поставщик   : %s" % (provider or "не указан"))
+    print("  хранение    : %s дн." % retention)
+    print()
+    print("  Что это значит:")
+    for purpose in selected:
+        if purpose == "learning_storage":
+            print("    - учебные записи сохраняются локально в .botai/state.sqlite3")
+        elif purpose == "model_processing":
+            print("    - содержимое занятия передаётся выбранному поставщику модели")
+        elif purpose == "teacher_export":
+            print("    - вы сможете отдельно подготовить пакет для преподавателя")
+        elif purpose == "publication":
+            print("    - публикация вклада возможна; её всё равно выполняет человек")
+
+    if dry:
+        print()
+        print("  ничего не записано (--dry-run)")
+        return 0
+
+    try:
+        with core_store.Store.open(root, learner_id) as store:
+            consent_id = core_store.new_id()
+            body = {
+                "schema_version": 2,
+                "consent_id": consent_id,
+                "learner_id": learner_id,
+                "course_id": course,
+                "version": "v2.0",
+                "purposes": selected,
+                "provider_label": provider,
+                "data_categories": ["attempts", "checks", "objective_states"],
+                "recipients": [],
+                "retention_days": int(retention),
+                "granted_at": core_store.now_iso(),
+                "withdrawn_at": None,
+            }
+            result, replayed = store.apply(
+                kind="consent", entity_id=consent_id,
+                events=["consent.changed"], course_id=course,
+                new_body=body,
+                event_payloads=[{
+                    "consent_id": consent_id,
+                    "purposes": selected,
+                    "decision": "granted",
+                    "human_channel": "cli",
+                    "_actor": "learner_cli",
+                    "_provenance": "human_input",
+                }],
+            )
+            print()
+            print("  согласие записано: %s" % consent_id)
+            print("  отозвать: python scripts/cli.py consent-withdraw "
+                  "--course %s --consent %s" % (course, consent_id))
+            return 0
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  отказ (%s): %s" % (code, e))
+        return 1
+
+
+def cmd_consent_withdraw(root, course, learner, consent_id, dry):
+    """Withdraw consent and report what it stops.
+
+    Withdrawing does not silently delete anything: it blocks the purposes it
+    names, tells the learner what a deletion would cover, and leaves the
+    decision to delete as a separate, explicit act.
+    """
+    try:
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not (course and consent_id):
+        print("usage: cli.py consent-withdraw --course <slug> --consent <id>")
+        return 2
+
+    learner_id = learner or default_learner_id(root)
+    try:
+        with core_store.Store.open(root, learner_id, create=False) as store:
+            body, version = store.get("consent", consent_id, course_id=course)
+            if body is None:
+                print("согласие не найдено: %s" % consent_id)
+                return 2
+            if body.get("withdrawn_at"):
+                print("согласие уже отозвано: %s" % body["withdrawn_at"])
+                return 0
+
+            print("== отзыв согласия ==")
+            print("  назначения  : %s" % ", ".join(body.get("purposes") or []))
+            if dry:
+                print("  ничего не записано (--dry-run)")
+                return 0
+
+            updated = dict(body)
+            updated["withdrawn_at"] = core_store.now_iso()
+            store.apply(
+                kind="consent", entity_id=consent_id,
+                events=["consent.changed"], course_id=course,
+                expected_version=version, new_body=updated,
+                event_payloads=[{
+                    "consent_id": consent_id,
+                    "purposes": body.get("purposes") or [],
+                    "decision": "withdrawn",
+                    "human_channel": "cli",
+                    "_actor": "learner_cli",
+                    "_provenance": "human_input",
+                }],
+            )
+            print("  отозвано    : %s" % updated["withdrawn_at"])
+            print()
+            print("  Новые занятия по этим назначениям не начнутся.")
+            print("  Уже сохранённые записи не удалены: удаление — отдельное")
+            print("  решение. План удаления:")
+            print("    python scripts/cli.py privacy-delete --course %s --plan" % course)
+            return 0
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  отказ (%s): %s" % (code, e))
+        return 1
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -792,6 +1265,9 @@ def main():
                                         "update", "course-add", "course-update",
                                         "course-inspect", "course-accept", "course-status",
                                         "policy-check",
+                                        "session-start", "session-next", "session-goal",
+                                        "session-attempt", "session-check", "session-pause",
+                                        "consent-set", "consent-withdraw",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -822,9 +1298,10 @@ def main():
     ap.add_argument("--confirm-split", action="append", default=[],
                     metavar="LEGACY_ID=LEARNER_ID",
                     help="state-migrate: explicit attribution for a multi-student file")
-    ap.add_argument("--assignment", help="policy-check: assignment id from the accepted contract")
+    ap.add_argument("--assignment",
+                    help="policy-check / session-attempt: assignment id from the accepted contract")
     ap.add_argument("--level", choices=["HINT", "EXAMPLE", "SOLUTION"], default="HINT",
-                    help="policy-check: level of help being considered")
+                    help="policy-check / session: level of help being considered")
     ap.add_argument("--preference", default="prefer-ask",
                     choices=["hints", "hints-then-solution", "solution-first", "prefer-ask"],
                     help="policy-check: the learner's recorded feedback preference")
@@ -834,6 +1311,44 @@ def main():
     ap.add_argument("--teaching-branch", help="course-accept: branch course updates come from")
     ap.add_argument("--contribution-remote",
                     help="course-accept: the student's fork, when there is one")
+    ap.add_argument("--session", help="session id for the session-* commands")
+    ap.add_argument("--objective", help="objective id (session-goal/session-attempt)")
+    ap.add_argument("--objectives", action="append", default=[],
+                    metavar="OBJECTIVE_ID", help="session-start: objective for this sitting")
+    ap.add_argument("--minutes", type=int, default=30,
+                    help="session-start: agreed length of the sitting (5-120)")
+    ap.add_argument("--modes", action="append", default=[],
+                    help="session-start: tutoring/co-learning/supplement/contributor")
+    ap.add_argument("--confirm", action="store_true",
+                    help="session-goal: start work on the chosen objective")
+    ap.add_argument("--attempt", help="session-check: attempt id being checked")
+    # Named `--check-kind` rather than `--kind`: `--kind` is already the
+    # acceptance kind for `course-accept`, and two meanings for one flag is how
+    # a CLI starts silently doing the wrong thing.
+    ap.add_argument("--check-kind",
+                    choices=["explain", "predict", "apply", "transfer", "critique",
+                             "diagnostic"],
+                    help="session-check: kind of check being recorded")
+    ap.add_argument("--attempt-file", help="session-attempt: read the attempt text from a file")
+    ap.add_argument("--criterion", action="append", default=[],
+                    metavar="ID=RESULT[:EVIDENCE,...]",
+                    help="session-check: criterion result (pass needs evidence)")
+    ap.add_argument("--verdict", choices=["pass", "partial", "fail", "uncertain"],
+                    help="session-check: overall verdict")
+    ap.add_argument("--target", choices=["PAUSED", "BLOCKED", "COMPLETED", "CANCELLED"],
+                    help="session-pause: where the session moves to")
+    ap.add_argument("--reason", help="session-pause: why (required for BLOCKED)")
+    ap.add_argument("--resume", help="session-pause: state to return to on resume")
+    ap.add_argument("--purpose", action="append", default=[],
+                    metavar="PURPOSE",
+                    help="consent-set: learning_storage/model_processing/"
+                         "teacher_export/publication")
+    ap.add_argument("--provider", help="consent-set: which model provider sees the data")
+    ap.add_argument("--retention", type=int, default=180,
+                    help="consent-set: how many days learning data is kept")
+    ap.add_argument("--consent", help="consent-withdraw: consent id to withdraw")
+    ap.add_argument("--json", action="store_true",
+                    help="progress: emit one JSON object instead of Markdown")
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -850,7 +1365,10 @@ def main():
     elif cmd == "progress":
         if not args.course:
             sys.exit("usage: cli.py progress --course <slug>")
-        cmd_progress(root, args.course, args.dry_run)
+        # The v2 store is checked first: if the workspace has recorded sessions,
+        # the projection is the real answer, and the v1 Markdown is only a
+        # fallback for a workspace that was never migrated.
+        sys.exit(cmd_progress_v2(root, args.course, args.learner, args.json))
     elif cmd == "review":
         if not args.course:
             sys.exit("usage: cli.py review --course <slug>")
@@ -904,6 +1422,49 @@ def main():
     elif cmd == "policy-check":
         sys.exit(cmd_policy_check(root, args.course, args.assignment, args.level,
                                   args.preference))
+    elif cmd == "session-start":
+        sys.exit(cmd_session_start(root, args.course, args.learner, args.objectives,
+                                   args.minutes, args.modes or ["tutoring"],
+                                   args.dry_run))
+    elif cmd == "session-next":
+        if not args.session:
+            sys.exit("usage: cli.py session-next --session <id> --course <slug>")
+        sys.exit(cmd_session_next(root, args.course, args.session, args.learner))
+    elif cmd == "session-goal":
+        if not (args.session and args.objective):
+            sys.exit("usage: cli.py session-goal --session <id> --objective <id> "
+                     "[--assignment <id>] [--confirm]")
+        sys.exit(cmd_session_goal(root, args.course, args.session, args.objective,
+                                  args.assignment, args.learner, args.confirm))
+    elif cmd == "session-attempt":
+        if not args.session:
+            sys.exit("usage: cli.py session-attempt --session <id> [--attempt-file <path>]")
+        sys.exit(cmd_session_attempt(root, args.course, args.session, args.objective,
+                                     args.assignment, args.learner, args.attempt_file))
+    elif cmd == "session-check":
+        if not (args.session and args.attempt and args.verdict and args.check_kind):
+            sys.exit("usage: cli.py session-check --session <id> --attempt <id> "
+                     "--check-kind explain|predict|apply|transfer|critique "
+                     "--verdict pass|partial|fail|uncertain "
+                     "--criterion <criterion_id>=<result>[:<evidence>]")
+        sys.exit(cmd_session_check(root, args.course, args.session, args.attempt,
+                                   args.check_kind, args.verdict, args.criterion,
+                                   args.learner))
+    elif cmd == "session-pause":
+        if not args.session:
+            sys.exit("usage: cli.py session-pause --session <id> "
+                     "--target PAUSED|BLOCKED|COMPLETED|CANCELLED [--reason ...]")
+        if args.target == "BLOCKED" and not args.reason:
+            sys.exit("session-pause --target BLOCKED требует --reason: "
+                     "блокировка без причины не сообщает, что устранять")
+        sys.exit(cmd_session_pause(root, args.course, args.session, args.learner,
+                                   args.target, args.reason, args.resume))
+    elif cmd == "consent-set":
+        sys.exit(cmd_consent_set(root, args.course, args.learner, args.purpose,
+                                 args.provider, args.retention, args.dry_run))
+    elif cmd == "consent-withdraw":
+        sys.exit(cmd_consent_withdraw(root, args.course, args.learner, args.consent,
+                                      args.dry_run))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

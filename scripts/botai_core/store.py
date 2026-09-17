@@ -256,6 +256,14 @@ class Store:
         return [json.loads(r["body_json"]) for r in self._conn.execute(sql, args)]
 
     def events(self, course_id=None, limit=None):
+        """Events in sequence order, with the stored envelope parsed.
+
+        Each row carries `payload_json` — the complete validated envelope, kept
+        whole so a stored event is self-describing. It is parsed here and also
+        exposed as `payload`, because every caller so far wants the envelope's
+        fields and re-parsing the column at each call site is how one of them
+        ends up reading the raw JSON string by mistake.
+        """
         sql = "SELECT * FROM events WHERE learner_id=?"
         args = [self.learner_id]
         if course_id is not None:
@@ -265,7 +273,23 @@ class Store:
         if limit:
             sql += " LIMIT ?"
             args.append(limit)
-        return [dict(r) for r in self._conn.execute(sql, args)]
+
+        rows = []
+        for row in self._conn.execute(sql, args):
+            record = dict(row)
+            try:
+                envelope = json.loads(record.get("payload_json") or "{}")
+            except ValueError:
+                # A stored event that cannot be parsed is a real problem, but
+                # raising here would make the whole log unreadable. The raw
+                # column stays visible so the damage is reportable rather than
+                # fatal.
+                envelope = {}
+            record["envelope"] = envelope
+            record["payload"] = envelope.get("payload", {})
+            record["type"] = envelope.get("type", record.get("event_type"))
+            rows.append(record)
+        return rows
 
     def version_of(self, kind, entity_id, course_id=WORKSPACE_COURSE_ID):
         row = self._conn.execute(

@@ -15,13 +15,17 @@ true of the tools rather than of the prompt:
 * `store`   — the SQLite record with transactions, evidence and idempotency;
 * `legacy`  — import a v1 Markdown progress file without inventing facts;
 * `course`  — the accepted contract: binding, objective graph, assessment lookup;
-* `policy`  — allow/deny/needs_confirmation for help, effects and reading.
+* `policy`  — allow/deny/needs_confirmation for help, effects and reading;
+* `tutoring`— the teaching cycle: state machine, mastery, review, response checks;
+* `session` — the cycle bound to the store, one command per transition;
+* `progress`— the Markdown view, rendered from the store and never authoritative.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
 
 from __future__ import annotations
 
-__all__ = ["paths", "schemas", "store", "legacy", "course", "policy"]
+__all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
+           "tutoring", "session", "progress"]
 
 SCHEMA_VERSION = 2

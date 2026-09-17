@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/session.schema.json",
+  "title": "botai learning session",
+  "description": "One sitting with one course, and the state it is in. The session pins the course revision so a course that changes mid-sitting cannot change the rules the sitting is being taught under; and it records the assessment in force so help is capped by what the course declares rather than by what the conversation drifted into.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "course_id", "contract_hash", "course_revision",
+    "learner_id", "modes", "state", "session_minutes", "objective_ids",
+    "started_at"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "session_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "contract_hash": {
+      "$ref": "common.schema.json#/$defs/sha256",
+      "description": "The accepted contract this session runs under. A session is never silently re-pointed at a newer revision."
+    },
+    "course_revision": { "$ref": "common.schema.json#/$defs/course_revision" },
+    "learner_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["co-learning", "tutoring", "supplement", "contributor"] }
+    },
+    "state": { "$ref": "common.schema.json#/$defs/session_state" },
+    "session_minutes": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 120,
+      "description": "How long the learner agreed to work. A real limit, not a hint: the session offers to stop rather than pushing past it."
+    },
+    "objective_ids": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/slug" },
+      "description": "The agreed plan for this sitting. A session works on one objective at a time; this is the shortlist it may draw from."
+    },
+    "current_objective_id": { "type": ["string", "null"] },
+    "current_assignment_id": { "type": ["string", "null"] },
+    "assessment": { "$ref": "common.schema.json#/$defs/assessment" },
+    "consent_version": {
+      "type": ["string", "null"],
+      "description": "null means no recorded consent: the session stays in CONSENT_PENDING and does not teach."
+    },
+    "resume_state": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/session_state" },
+        { "type": "null" }
+      ],
+      "description": "Where a paused or blocked session returns to. null outside PAUSED/BLOCKED."
+    },
+    "blocked_reason": { "type": ["string", "null"], "maxLength": 500 },
+    "assistance_max": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/assistance_max" },
+        { "type": "null" }
+      ],
+      "description": "Highest level reached in this session's cycle. null means no attempt has happened yet — which is a different statement from NONE (\"an attempt was made with no help\"), and the two must not be conflated."
+    },
+    "independence_claim": {
+      "enum": ["claimed_unaided", "assisted", "unknown"],
+      "description": "What the learner says about how they worked. A self-report, never treated as proof of independent work."
+    },
+    "started_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "ended_at": { "type": ["string", "null"] },
+    "next_step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action"],
+          "properties": {
+            "action": {
+              "enum": [
+                "resume_attempt", "review_prerequisite", "do_check",
+                "read_source", "prepare_environment", "ask_teacher",
+                "choose_goal", "rest"
+              ]
+            },
+            "objective_id": { "type": ["string", "null"] },
+            "reason_ru": { "type": "string", "maxLength": 500 }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "version": { "type": "integer", "minimum": 0 }
+  }
+}
