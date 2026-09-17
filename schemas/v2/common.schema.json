@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/common.schema.json",
+  "title": "botai v2 shared definitions",
+  "description": "Reusable definitions for every botai v2 contract. Referenced locally only: the loader resolves $ref against files in this directory and never fetches a schema from the network.",
+  "$defs": {
+    "schema_version": {
+      "const": 2,
+      "description": "Unknown major versions are an error, never best-effort reading."
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex SHA-256. Never a truncated or placeholder digest."
+    },
+    "git_oid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$",
+      "description": "Full Git object id (SHA-1 or SHA-256 repositories). Short ids are never stored."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$",
+      "description": "UTC RFC 3339 with a trailing Z."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,62}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "POSIX-style path relative to a registered root. Absolute paths, drive letters, backslashes, NUL and any `..` segment are rejected.",
+      "not": {
+        "anyOf": [
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "\\\\" },
+          { "pattern": "\\u0000" }
+        ]
+      },
+      "allOf": [
+        {
+          "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+        }
+      ]
+    },
+    "source_locator": {
+      "type": "object",
+      "description": "Exactly one coordinate form. Coordinates are never invented: a locator that does not exist in the accepted source is a mismatch, not a guess.",
+      "additionalProperties": false,
+      "properties": {
+        "lines": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "integer", "minimum": 1 },
+            "end": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "pdf_page": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["physical_page"],
+          "properties": {
+            "physical_page": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "notebook_cell": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cell_id"],
+          "properties": {
+            "cell_id": { "type": "string", "minLength": 1 }
+          }
+        },
+        "chunk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chunk_id", "index_hash"],
+          "properties": {
+            "chunk_id": { "type": "integer", "minimum": 0 },
+            "index_hash": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      },
+      "oneOf": [
+        { "required": ["lines"] },
+        { "required": ["pdf_page"] },
+        { "required": ["notebook_cell"] },
+        { "required": ["chunk"] }
+      ]
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "locator"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relative_path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "locator": { "$ref": "#/$defs/source_locator" }
+      }
+    },
+    "course_revision": {
+      "type": "object",
+      "description": "A git course pins a commit; a course without its own git history is pinned by snapshot digest. A commit id is never invented for a local snapshot.",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["git", "local_snapshot"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "accepted_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "assessment": {
+      "enum": ["graded", "practice", "unknown"],
+      "description": "`unknown` is the strict state: an assignment whose status is not established by the accepted course contract is never treated as practice."
+    },
+    "assistance_level": {
+      "enum": ["HINT", "EXAMPLE", "SOLUTION"],
+      "description": "How much a piece of help reveals. SIZE ordering is defined in AGENTS.md, not by this enum."
+    },
+    "assistance_max": {
+      "enum": ["NONE", "HINT", "EXAMPLE", "SOLUTION", "UNKNOWN"],
+      "description": "Highest level actually reached in this attempt's cycle. UNKNOWN means the record does not establish it (imports); NONE means no help was given in this cycle."
+    },
+    "mastery_stage": {
+      "enum": ["new", "learning", "practising", "demonstrated", "review_due", "blocked"]
+    },
+    "check_kind": {
+      "enum": ["explain", "predict", "apply", "transfer", "critique", "diagnostic"]
+    },
+    "verdict": {
+      "enum": ["pass", "partial", "fail", "uncertain"]
+    },
+    "provenance": {
+      "enum": ["human_input", "host_observed", "model_reported", "core_computed", "legacy_import"]
+    },
+    "actor": {
+      "enum": ["learner_cli", "teacher_cli", "model_proposal", "runner", "core"]
+    },
+    "observation_source": {
+      "enum": ["local_git", "remote_api", "human_teacher", "learner_report"]
+    },
+    "feedback_preference": {
+      "enum": ["hints", "hints-then-solution", "solution-first", "prefer-ask"]
+    },
+    "pace": { "enum": ["slow", "normal", "fast"] },
+    "role": { "enum": ["expert", "researcher", "developer"] },
+    "contribution_state": {
+      "enum": [
+        "DISCOVERY", "TASK_SELECTED", "GIT_PRACTICE", "WORKING", "LOCAL_CHECKED",
+        "DRAFT_READY", "AWAITING_STUDENT_PUBLICATION", "SUBMITTED",
+        "UNDER_REVIEW", "REVISED", "ACCEPTED", "CLOSED", "PRIVATE_PACKAGE_READY"
+      ]
+    },
+    "session_state": {
+      "enum": [
+        "CREATED", "CONSENT_PENDING", "DIAGNOSIS", "GOAL_SELECTED",
+        "ATTEMPT_PENDING", "FEEDBACK", "UNDERSTANDING_CHECK", "REMEDIATION",
+        "REFLECTION", "COMPLETED", "PAUSED", "BLOCKED", "CANCELLED"
+      ]
+    },
+    "result_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "ok", "code", "message_ru"],
+      "properties": {
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "ok": { "type": "boolean" },
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "message_ru": { "type": "string", "minLength": 1 },
+        "data": { "type": ["object", "null"] },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "effects": { "type": "array", "items": { "type": "string" } },
+        "next_actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": { "enum": ["human_approval", "learner_action", "manual_command", "retry", "none"] },
+              "command": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

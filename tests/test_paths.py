@@ -155,6 +155,29 @@ def test_traversal_is_refused_at_every_entry_point():
               rc == 0 and (ws / "courses" / "fine" / "syllabus.md").is_file(), out[-200:])
 
 
+def test_drive_letter_is_refused_not_renamed():
+    """`C:win` names a volume, so it is refused rather than made into `c-win`.
+
+    Silently renaming it would create a differently-named course than the one
+    the caller asked for, and would hide that the name addressed another drive.
+    A harmless title with a colon (e.g. `Python: основы`) is a different case
+    and is normalised, so the two must be told apart rather than both rejected.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        ws = workspace(Path(tmp))
+        for name in ("C:win", "c:win", "Z:temp"):
+            rc, out = run_cli(ws, "new-course", "--name", name)
+            check(f"имя диска {name!r} отвергается", rc != 0, out[-160:])
+            check(f"каталог {name!r} не создан",
+                  not any(p.name.lower().startswith(name[0].lower() + "-")
+                          for p in (ws / "courses").iterdir()))
+
+        rc, out = run_cli(ws, "new-course", "--name", "Мой курс")
+        check("человеческое название нормализуется в slug",
+              rc == 0 and (ws / "courses" / "мой-курс" / "syllabus.md").is_file(),
+              out[-200:])
+
+
 def test_containment_helper_own_checks():
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
@@ -293,6 +316,7 @@ def main() -> int:
     print("[paths: удержание внутри workspace]")
     test_symlink_escape_is_refused()
     test_traversal_is_refused_at_every_entry_point()
+    test_drive_letter_is_refused_not_renamed()
     test_containment_helper_own_checks()
     print("[cli: предпросмотр ничего не пишет]")
     test_course_add_dry_run_writes_nothing()

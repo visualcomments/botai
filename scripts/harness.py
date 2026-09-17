@@ -41,7 +41,9 @@ DEFAULT_REF = "main"
 VERSION_FILE = "VERSION"
 
 # Files the installer copies. VERSION is included: an update must be able to
-# tell which version the project is on.
+# tell which version the project is on. The lock files travel with the harness
+# so an installed project can rebuild its core environment without network
+# guesswork.
 MANAGED_FILES = [
     ".gitignore",
     "AGENTS.md",
@@ -52,12 +54,18 @@ MANAGED_FILES = [
     "TUTORIAL.md",
     "VERSION",
     "opencode.json",
+    "requirements-core.lock",
 ]
 
 # Directories the installer copies wholesale. `tests` travels with the harness
 # so that `make test` works in an installed project, not only in a checkout:
 # a test suite that exists only upstream cannot be run where it matters.
-MANAGED_DIRS = [".agents", "docs", "scripts", "tests"]
+#
+# `schemas` and `examples` are contracts and fixtures, not documentation: an
+# installed project cannot validate a course or run a migration without them,
+# and a fixity check that only exists upstream cannot be run where it matters
+# either.
+MANAGED_DIRS = [".agents", "docs", "examples", "schemas", "scripts", "tests"]
 
 # Directories copied wholesale EXCEPT their `skills/` subdirectory, which is a
 # symlink farm regenerated on install and on every update.

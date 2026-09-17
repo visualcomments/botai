@@ -74,10 +74,17 @@ def list_courses(root):
 def slugify(name):
     """Normalise a human name into a safe slug, or raise PathError.
 
-    Traversal attempts are REFUSED, not silently rewritten. Turning `../outside`
-    into `outside` would hide an attempt to escape the workspace and quietly
-    create a differently-named course — the caller asked for something that
-    cannot be honoured, and must be told so.
+    Two kinds of input are REFUSED rather than rewritten, because rewriting
+    would hide an attempt to address something outside `courses/`:
+
+    * path separators and `.`/`..` — `../outside` must not silently become the
+      harmless-looking `outside`;
+    * a Windows drive prefix (`C:win`) — colon is a normal character in a course
+      title, but here it names a volume, and a name that addresses another
+      volume must never be accepted and quietly renamed.
+
+    Everything else (spaces, punctuation, mixed case) is normalised: a title
+    like `История науки` becomes a usable slug instead of an error.
     """
     text = str(name)
     if any(sep in text for sep in ("/", "\\")) or text in (".", ".."):
@@ -85,11 +92,21 @@ def slugify(name):
             "SLUG_SEPARATOR",
             "имя курса не может быть путём: %r" % text,
         )
+    if len(text) >= 2 and text[1] == ":":
+        raise P.PathError(
+            "SLUG_DRIVE",
+            "имя курса не может содержать букву диска: %r" % text,
+        )
     out = []
     for ch in text.strip().lower():
         out.append(ch if (ch.isalnum() or ch in "-_.") else "-")
     candidate = "".join(out).strip("-.") or "course"
-    return P.validate_slug(candidate)
+    # `allow_legacy=True`: a human title is normalised, and a name that is safe
+    # but non-ASCII (e.g. `Мой курс` -> `мой-курс`) is a legitimate directory
+    # name on every platform the workspace supports. The strict slug pattern
+    # applies to names the CALLER supplies as identifiers; separators, drives
+    # and traversal were already refused above, which is what containment needs.
+    return P.validate_slug(candidate, allow_legacy=True)
 
 
 def course_record(cdir):

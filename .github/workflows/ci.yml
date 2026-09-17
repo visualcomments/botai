@@ -34,6 +34,23 @@ jobs:
         # курса не удаляется ради переустановки; что .botai/ не попадает в git.
         run: python3 tests/test_paths.py
 
+      - name: Зависимости ядра по зафиксированному lock-файлу
+        # Контракты валидируются jsonschema из lock-файла: проверяем, что
+        # закреплённые версии и хеши действительно устанавливаются, иначе
+        # проверки контрактов молча деградируют до «недоступно».
+        run: |
+          set -e
+          python3 -m venv /tmp/botai-core-venv
+          /tmp/botai-core-venv/bin/python -m pip install --quiet --require-hashes \
+            -r requirements-core.lock
+          /tmp/botai-core-venv/bin/python -c "import jsonschema; print('jsonschema ok')"
+
+      - name: Тесты контрактов v2
+        run: /tmp/botai-core-venv/bin/python tests/test_schemas.py
+
+      - name: Тесты записи состояния и миграции
+        run: /tmp/botai-core-venv/bin/python tests/test_store.py
+
       - name: Установка в отдельный проект, git и самообновление
         # Сквозная проверка: установщик → git-гигиена → обновление → предпросмотр.
         # Ломается, если обвязка перестала быть самоустанавливаемой и

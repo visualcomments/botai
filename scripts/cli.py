@@ -326,11 +326,143 @@ def cmd_clean(root, dry):
     print("removed temporary files (kept courses/ and progress/)")
 
 
+def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False):
+    """Import a v1 Markdown progress record into the v2 store.
+
+    `--dry-run` reports exactly what would be imported and stops. Preview is the
+    default behaviour in spirit as well as in flags: importing a record is a
+    decision about someone's study history, so `--apply` is required, and a
+    record that cannot be attributed to one learner is refused rather than
+    guessed at.
+    """
+    try:
+        from botai_core import legacy, store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        print("установите зависимости: python3 -m pip install --require-hashes "
+              "-r requirements-core.lock")
+        return 2
+
+    if not course:
+        print("usage: cli.py state-migrate --course <slug> [--learner <id>] "
+              "[--confirm-split stu-01=<id>] [--apply]")
+        return 2
+
+    try:
+        legacy_file = P.progress_path(root, course)
+    except P.PathError as e:
+        print("путь дневника отклонён (%s): %s" % (e.code, e.message))
+        return 2
+    if not legacy_file.is_file():
+        print("запись v1 не найдена: %s" % legacy_file)
+        print("ничего не изменено")
+        return 2
+
+    parsed = legacy.read_legacy_progress(legacy_file)
+    report = parsed.as_report()
+
+    print("== миграция записи прогресса: %s ==" % course)
+    print("  источник      : %s" % legacy_file)
+    print("  sha256        : %s" % parsed.source_sha256)
+    print("  строк         : %d (распознано %d)" % (parsed.total_lines, parsed.parsed_lines))
+    print("  обучающихся   : %d" % len(parsed.students))
+    for student in report["students"]:
+        print("    %s %s" % (student["legacy_id"],
+                             ("(%s)" % student["name"]) if student["name"] else ""))
+        if student["legacy_claim"]:
+            print("      заявлено: %s -> импортируется как %s (%s)"
+                  % (student["legacy_claim"], student["imported_stage"], student["stage_basis"]))
+        if student["module_hint"]:
+            print("      привязка: %s" % student["module_hint"])
+        else:
+            print("      привязка: не указана — цель не угадывается, запись останется на проверку")
+    print("  оцениваемые   : %s" % (", ".join(parsed.graded) or "(не указаны)"))
+    print("  тренировочные : %s" % (", ".join(parsed.practice) or "(не указаны)"))
+    print("  тупиков       : %d" % len(parsed.dead_ends))
+    print("  на проверку   : %d строк (догадки не подставляются)"
+          % len(parsed.pending_review))
+    for warning in report["warnings"]:
+        print("  ВНИМАНИЕ: %s" % warning)
+
+    if parsed.multi_student and not confirm_split:
+        print()
+        print("  файл описывает нескольких обучающихся. Автоматический импорт")
+        print("  запрещён: приписать одному человеку чужие строки нельзя.")
+        print("  Разделите записи и укажите соответствие, например:")
+        print("    --confirm-split stu-01=<id-обучающегося>")
+        print("  ничего не изменено")
+        return 2
+
+    if dry or not apply:
+        print()
+        print("  предпросмотр: ничего не записано.")
+        print("  для импорта повторите с --apply (исходный файл сохраняется целиком)")
+        return 0
+
+    learner_id = learner_id or default_learner_id(root)
+    try:
+        with core_store.Store.open(root, learner_id) as st:
+            result = legacy.import_into_store(
+                st, parsed, course_id=course,
+                course_revision={"kind": "local_snapshot", "id": parsed.source_sha256},
+                confirm_split=confirm_split,
+            )
+    except core_store.StoreError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        print("  ничего не изменено")
+        return 1
+
+    print()
+    print("  импортировано: %d заявленных состояний" % len(result["claims_written"]))
+    print("  исходник сохранён как артефакт: %s" % result["preserved_artifact"][:16])
+    print("  запись состояния: .botai/state.sqlite3")
+    return 0
+
+
+def parse_confirm_split(values):
+    """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
+    mapping = {}
+    for item in values or []:
+        if "=" not in item:
+            sys.exit("--confirm-split ожидает вид stu-01=<id-обучающегося>, получено: %r" % item)
+        legacy_id, _, learner_id = item.partition("=")
+        legacy_id, learner_id = legacy_id.strip(), learner_id.strip()
+        if not legacy_id or not learner_id:
+            sys.exit("--confirm-split: пустое значение в %r" % item)
+        mapping[legacy_id] = learner_id
+    return mapping
+
+
+def default_learner_id(root):
+    """The workspace's learner id, created once and then stable.
+
+    A local workspace serves one learner; the id exists so records can be
+    exported, merged or deleted without relying on a person's name.
+    """
+    import json as _json
+    import uuid as _uuid
+
+    marker = root / ".botai" / "workspace.json"
+    if marker.is_file():
+        try:
+            data = _json.loads(marker.read_text(encoding="utf-8"))
+            if data.get("learner_id"):
+                return data["learner_id"]
+        except (OSError, ValueError):
+            pass
+    learner_id = str(_uuid.uuid4())
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(_json.dumps({"schema_version": 2, "learner_id": learner_id},
+                                  ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return learner_id
+
+
 def main():
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
     ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
                                         "courses", "course-set", "active", "corpus",
                                         "update", "course-add", "course-update",
+                                        "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
@@ -354,6 +486,12 @@ def main():
     ap.add_argument("--force", action="store_true",
                     help="corpus: refetch even when installed; course-add: replace the directory")
     ap.add_argument("--dry-run", action="store_true", help="preview, change nothing")
+    ap.add_argument("--apply", action="store_true",
+                    help="state-migrate: actually import (without it the command only reports)")
+    ap.add_argument("--learner", help="state-migrate: learner id the record belongs to")
+    ap.add_argument("--confirm-split", action="append", default=[],
+                    metavar="LEGACY_ID=LEARNER_ID",
+                    help="state-migrate: explicit attribution for a multi-student file")
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -409,6 +547,9 @@ def main():
         sys.exit(C.update_course(root, args.course, check=args.check, dry=args.dry_run,
                                  take_upstream=args.take_upstream, ref=args.ref,
                                  commit=args.commit))
+    elif cmd == "state-migrate":
+        sys.exit(cmd_state_migrate(root, args.course, args.dry_run, args.learner,
+                                   parse_confirm_split(args.confirm_split), apply=args.apply))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":
