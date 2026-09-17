@@ -12,6 +12,7 @@ __pycache__/
 dist/
 .venv/
 venv/
+.core-venv/
 
 # Secrets and machine-local configuration.
 .env

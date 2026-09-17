@@ -242,6 +242,20 @@ def test_course_add_refuses_destructive_reinstall():
 # ---------------------------------------------------------------------------
 # Git root ownership
 # ---------------------------------------------------------------------------
+def _git_ready(path, env):
+    """True when `git` can operate in `path` under this environment.
+
+    Windows refuses repositories in temp directories owned by a different
+    principal unless `safe.directory` allows them, and a mapped drive or an
+    unusual mount can fail the same way. That is a property of the machine, not
+    of the code under test: the caller skips rather than reporting a false
+    defect. On Linux and macOS this is always true.
+    """
+    probe = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=path,
+                           capture_output=True, text=True, env=env)
+    return probe.returncode == 0
+
+
 def test_course_inside_workspace_repo_is_not_its_own_repo():
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
@@ -250,6 +264,9 @@ def test_course_inside_workspace_repo_is_not_its_own_repo():
                    GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@l",
                    GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@l")
         subprocess.run(["git", "init", "-q"], cwd=ws, check=True, env=env)
+        if not _git_ready(ws, env):
+            print("  skip git недоступен для этого каталога на этой платформе")
+            return
         (ws / "README.md").write_text("ws\n", encoding="utf-8")
         subprocess.run(["git", "add", "-A"], cwd=ws, check=True, env=env)
         subprocess.run(["git", "commit", "-qm", "init"], cwd=ws, check=True, env=env)
@@ -276,6 +293,9 @@ def test_real_course_repo_is_detected():
         course = ws / "courses" / "own"
         course.mkdir(parents=True)
         subprocess.run(["git", "init", "-q"], cwd=course, check=True, env=env)
+        if not _git_ready(course, env):
+            print("  skip git недоступен для этого каталога на этой платформе")
+            return
         check("собственный репозиторий курса распознаётся",
               H.is_git_worktree(course))
         check("workspace без git не считается репозиторием",
@@ -299,11 +319,21 @@ def test_install_ignores_private_runtime_state():
         check("courses/ и progress/ исключены",
               "courses/" in gitignore and "progress/" in gitignore)
 
-        tracked = subprocess.run(["git", "ls-files"], cwd=dest,
-                                 capture_output=True, text=True).stdout.splitlines()
-        leaked = [f for f in tracked
-                  if f.startswith((".botai/", "courses/", "progress/", "dist/"))]
-        check("приватные каталоги не попали в индекс", not leaked, str(leaked[:5]))
+        # Run git with the SAME isolated environment as the installer. On
+        # Windows a temp directory can otherwise be refused by `safe.directory`
+        # (the owning user differs, or the path is a mapped drive), which would
+        # make this check fail for a reason unrelated to .botai/ being ignored.
+        listed = subprocess.run(["git", "ls-files"], cwd=dest, capture_output=True,
+                                text=True, env=env)
+        if listed.returncode != 0:
+            # Report the real reason rather than a confusing "leak" failure.
+            check("git ls-files доступен для проверки", False,
+                  (listed.stderr or listed.stdout or "")[-200:])
+        else:
+            tracked = listed.stdout.splitlines()
+            leaked = [f for f in tracked
+                      if f.startswith((".botai/", "courses/", "progress/", "dist/"))]
+            check("приватные каталоги не попали в индекс", not leaked, str(leaked[:5]))
 
         # The install record must exist on disk but stay untracked.
         check("запись установки существует", (dest / ".botai" / "install.json").is_file())

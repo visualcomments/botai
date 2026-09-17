@@ -69,6 +69,7 @@ dist/
 # Local course environments (created by the environment profile).
 .venv/
 venv/
+.core-venv/
 
 # Secrets and machine-local configuration.
 .env
@@ -92,7 +93,7 @@ def ensure_project_gitignore(dest, dry_run=False):
         if not dry_run:
             addition = "" if current.endswith("\n") else "\n"
             addition += "\n# Added by botai: private runtime state must never be committed.\n"
-            addition += "\n".join(missing or [".botai/", "dist/", ".venv/", "venv/"]) + "\n"
+            addition += "\n".join(missing or [".botai/", "dist/", ".venv/", "venv/", ".core-venv/"]) + "\n"
             path.write_text(current + addition, encoding="utf-8", newline="\n")
         return True
     if not dry_run:
