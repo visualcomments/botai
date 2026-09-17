@@ -21,7 +21,10 @@ Copy-Item -Recurse examples\minimal-course (Join-Path $tmp "courses\minimal-diff
 
 function Invoke-Cli {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-    python scripts/cli.py @Args --root $tmp
+    $global:LastCliExit = 0
+    $output = python scripts/cli.py @Args --root $tmp
+    $global:LastCliExit = $LASTEXITCODE
+    return $output
 }
 
 function Step {
@@ -84,10 +87,14 @@ Assert "attempt id parsed" ($aid.Length -eq 36) "got '$aid'"
 
 Write-Output ""
 Write-Output "### 9. check claimed pass with NO evidence (must be refused)"
+# Assert on the exit code, not on the Russian message: Windows PowerShell 5.1
+# decodes a script as ANSI unless it has a UTF-8 BOM, which silently corrupts
+# Cyrillic literals used as match patterns -- the assertion then fails while the
+# behaviour is correct. An exit code cannot be mangled by an encoding.
 $bad = Invoke-Cli session-check --course minimal-diff --session $sid --attempt $aid `
     --check-kind explain --verdict pass --criterion k1=pass
-$bad | Select-String "::\s|отказ" | ForEach-Object { $_.Line }
-Assert "pass without evidence refused" (($bad -join "`n") -match "без доказательства|отказ")
+$bad | Select-Object -First 2 | ForEach-Object { Write-Output "       $_" }
+Assert "pass without evidence refused" ($LASTEXITCODE -ne 0) "exit=$LASTEXITCODE"
 
 Step "10. check with evidence -> practising" {
     Invoke-Cli session-check --course minimal-diff --session $sid --attempt $aid `
