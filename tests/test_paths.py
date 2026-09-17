@@ -62,12 +62,20 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 
 
 def run_cli(ws: Path, *args):
-    """Run the workspace CLI against `ws`, returning (rc, combined output)."""
+    """Run the workspace CLI against `ws`, returning (rc, combined output).
+
+    `encoding="utf-8"` is explicit because the child now prints UTF-8 Russian
+    diagnostics while the parent's default text decoding on Windows is cp1252:
+    the reader would raise UnicodeDecodeError on output the child wrote
+    correctly, turning a passing command into a test error.
+    """
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1",
+               PYTHONIOENCODING="utf-8",
                GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     p = subprocess.run(
         [sys.executable, str(SCRIPTS / "cli.py"), *args, "--root", str(ws)],
-        capture_output=True, text=True, timeout=120, env=env,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=120, env=env,
     )
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
@@ -263,7 +271,7 @@ def _git_ready(path, env):
     defect. On Linux and macOS this is always true.
     """
     probe = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=path,
-                           capture_output=True, text=True, env=env)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
     return probe.returncode == 0
 
 
@@ -322,7 +330,8 @@ def test_install_ignores_private_runtime_state():
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1",
                    GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
         p = subprocess.run([sys.executable, str(SCRIPTS / "install.py"), "--dest", str(dest)],
-                           capture_output=True, text=True, timeout=300, env=env, cwd=ROOT)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=300, env=env, cwd=ROOT)
         check("установка проходит", p.returncode == 0,
               (p.stdout[-300:] + p.stderr[-300:]))
 
@@ -342,7 +351,7 @@ def test_install_ignores_private_runtime_state():
             return
 
         listed = subprocess.run(["git", "ls-files"], cwd=dest, capture_output=True,
-                                text=True, env=env)
+                                text=True, encoding="utf-8", errors="replace", env=env)
         if listed.returncode != 0:
             check("индекс читается для проверки", False,
                   (listed.stderr or listed.stdout or "")[-200:])
@@ -354,7 +363,7 @@ def test_install_ignores_private_runtime_state():
             # `git check-ignore` is the direct question: is this path ignored?
             for probe in (".botai/install.json", "courses/x/y.md"):
                 res = subprocess.run(["git", "check-ignore", "-q", probe],
-                                     cwd=dest, capture_output=True, text=True, env=env)
+                                     cwd=dest, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
                 check(f"git считает {probe} игнорируемым", res.returncode == 0,
                       "check-ignore вернул %d" % res.returncode)
 
