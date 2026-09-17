@@ -53,6 +53,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import harness as H  # noqa: E402
 
+# Русские сообщения обновления должны доходить и в консоли Windows с кодовой
+# страницей cp1252/cp866: иначе инструмент падает с UnicodeEncodeError в
+# момент, когда объясняет, что именно не стал менять.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Remote queries
