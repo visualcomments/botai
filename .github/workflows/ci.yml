@@ -34,14 +34,15 @@ jobs:
         # курса не удаляется ради переустановки; что .botai/ не попадает в git.
         run: python3 tests/test_paths.py
 
-      - name: Зависимости ядра по зафиксированному lock-файлу
+      - name: Зависимости ядра и тесты контрактов, записи и миграции
         # Контракты валидируются jsonschema из lock-файла: проверяем, что
         # закреплённые версии и хеши действительно устанавливаются, иначе
         # проверки контрактов молча деградируют до «недоступно».
         #
-        # Платформо-независимо: путь к интерпретатору внутри venv различается
-        # (bin/python против Scripts/python.exe), поэтому путь вычисляется, а
-        # не задаётся жёстко.
+        # Всё в одном шаге: интерпретатор venv передаётся через переменную
+        # внутри шага, а не через GITHUB_ENV, чтобы шаг не зависел от порядка
+        # и от платформы. Путь к интерпретатору внутри venv различается
+        # (bin/python против Scripts/python.exe), поэтому он вычисляется.
         shell: bash
         run: |
           set -e
@@ -51,16 +52,11 @@ jobs:
           else
             VPY="$PWD/.core-venv/Scripts/python.exe"
           fi
+          echo "venv python: $VPY"
           "$VPY" -m pip install --quiet --require-hashes -r requirements-core.lock
           "$VPY" -c "import jsonschema; print('jsonschema ok')"
-          echo "CORE_PY=$VPY" >> "$GITHUB_ENV"
-
-      - name: Тесты контрактов v2, записи состояния и миграции
-        shell: bash
-        run: |
-          set -e
-          "$CORE_PY" tests/test_schemas.py
-          "$CORE_PY" tests/test_store.py
+          "$VPY" tests/test_schemas.py
+          "$VPY" tests/test_store.py
 
       - name: Установка в отдельный проект, git и самообновление
         # Сквозная проверка: установщик → git-гигиена → обновление → предпросмотр.

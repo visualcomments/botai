@@ -312,28 +312,40 @@ def test_install_ignores_private_runtime_state():
                    GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
         p = subprocess.run([sys.executable, str(SCRIPTS / "install.py"), "--dest", str(dest)],
                            capture_output=True, text=True, timeout=300, env=env, cwd=ROOT)
-        check("установка проходит", p.returncode == 0, p.stdout[-300:])
+        check("установка проходит", p.returncode == 0,
+              (p.stdout[-300:] + p.stderr[-300:]))
 
         gitignore = (dest / ".gitignore").read_text(encoding="utf-8")
         check(".botai/ исключён из git до первого коммита", ".botai/" in gitignore)
         check("courses/ и progress/ исключены",
               "courses/" in gitignore and "progress/" in gitignore)
 
-        # Run git with the SAME isolated environment as the installer. On
-        # Windows a temp directory can otherwise be refused by `safe.directory`
-        # (the owning user differs, or the path is a mapped drive), which would
-        # make this check fail for a reason unrelated to .botai/ being ignored.
+        # The rule that matters is `.gitignore`, not whether this particular
+        # machine could complete the installer's convenience commit: a
+        # repository with no git identity still has a correct ignore file, and
+        # the next `git add` honours it. So the ignore file is authoritative and
+        # the index check is additional evidence when git is usable here.
+        if not _git_ready(dest, env):
+            print("  skip git недоступен в этом каталоге; .gitignore проверен по содержимому")
+            check("запись установки существует", (dest / ".botai" / "install.json").is_file())
+            return
+
         listed = subprocess.run(["git", "ls-files"], cwd=dest, capture_output=True,
                                 text=True, env=env)
         if listed.returncode != 0:
-            # Report the real reason rather than a confusing "leak" failure.
-            check("git ls-files доступен для проверки", False,
+            check("индекс читается для проверки", False,
                   (listed.stderr or listed.stdout or "")[-200:])
         else:
             tracked = listed.stdout.splitlines()
             leaked = [f for f in tracked
                       if f.startswith((".botai/", "courses/", "progress/", "dist/"))]
             check("приватные каталоги не попали в индекс", not leaked, str(leaked[:5]))
+            # `git check-ignore` is the direct question: is this path ignored?
+            for probe in (".botai/install.json", "courses/x/y.md"):
+                res = subprocess.run(["git", "check-ignore", "-q", probe],
+                                     cwd=dest, capture_output=True, text=True, env=env)
+                check(f"git считает {probe} игнорируемым", res.returncode == 0,
+                      "check-ignore вернул %d" % res.returncode)
 
         # The install record must exist on disk but stay untracked.
         check("запись установки существует", (dest / ".botai" / "install.json").is_file())
