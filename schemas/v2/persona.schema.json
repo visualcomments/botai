@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/persona.schema.json",
+  "title": "botai learning persona",
+  "description": "A presentation style for teaching, and nothing else. The point of this schema is what it *refuses*: a persona may not carry tools, permissions, a system-prompt override, secret paths, scoring rules or grading policy. Those fields would let a stylistic choice change what a learner is allowed to do, which is exactly the line the design draws. `additionalProperties: false` is doing the real work here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "persona_id", "title", "description_ru", "tone", "framing"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "persona_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description_ru": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "What this style does to the experience, in Russian, for the learner to read before choosing it."
+    },
+    "tone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "How the assistant sounds. Stylistic only — it changes wording, never what is allowed."
+    },
+    "framing": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "How the work is framed (a lesson, a shared study, an expedition). Framing may not invent facts about sources: an expedition metaphor must not claim a document says something it does not."
+    },
+    "permitted_metaphors": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 },
+      "description": "Images this persona may use. Listed so a persona's flavour is bounded and reviewable rather than improvised per response."
+    },
+    "forbidden_patterns": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 },
+      "description": "Things this persona must never do — claiming to be a real person, simulating hurt or dependence, pressuring through authority, or promising a grade."
+    },
+    "verbosity_default": { "enum": ["terse", "normal", "detailed"] },
+    "examples": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["situation_ru", "response_ru"],
+        "properties": {
+          "situation_ru": { "type": "string", "maxLength": 500 },
+          "response_ru": { "type": "string", "maxLength": 2000 }
+        }
+      },
+      "description": "Worked examples of the style. They illustrate wording; they are not a place to smuggle policy, and a test checks that no example weakens the assistance ceiling."
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["shipped", "local"] },
+        "note_ru": { "type": ["string", "null"], "maxLength": 500 }
+      },
+      "description": "Third-party persona import is out of scope for 2.0; a local persona is one the learner wrote for themselves, and it is still style only."
+    }
+  }
+}

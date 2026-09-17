@@ -28,7 +28,9 @@ true of the tools rather than of the prompt:
   a lease that stops two workers running the same install;
 * `contribution`— the first-contribution flow: read-only Git, checks bound to a
   diff hash, a self-report kept distinct from an observation, and no path to
-  commit, push or open a pull request.
+  commit, push or open a pull request;
+* `personas`— presentation styles that cannot carry authority, and personal
+  badges derived from evidence and never part of a course grade.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -37,6 +39,6 @@ from __future__ import annotations
 
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
            "tutoring", "session", "progress", "corpus", "retrieval",
-           "environment", "actions", "operation", "contribution"]
+           "environment", "actions", "operation", "contribution", "personas"]
 
 SCHEMA_VERSION = 2
