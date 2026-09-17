@@ -49,6 +49,60 @@ RUNTIME_DIRS = ["courses", "progress", "dist"]
 
 DIST_GITIGNORE_CONTENT = "*\n!.gitignore\n"
 
+# Written into the new project BEFORE its initial `git add -A`, so the private
+# runtime directory never enters the project's history. The harness's own
+# .gitignore is copied too, but it describes the botai source repository, not
+# an installed workspace.
+PROJECT_GITIGNORE = """# Student-owned course material and progress. Anchored to the project root:
+# without the leading slash these patterns would also ignore a same-named
+# directory nested inside a course (for example a course that keeps its own
+# `progress/` notes), which is course material, not workspace state.
+/courses/
+/progress/
+/dist/
+
+# Python caches.
+__pycache__/
+*.py[cod]
+
+# Private runtime state: install record, backups of locally edited files,
+# local databases and caches. Never published, never reused as course material.
+/.botai/
+
+# Local course environments (created by the environment profile).
+/.venv/
+/venv/
+/.core-venv/
+
+# Secrets and machine-local configuration.
+.env
+.env.*
+!.env.example
+"""
+
+
+def ensure_project_gitignore(dest, dry_run=False):
+    """Make sure `.botai/` and friends are ignored before anything is committed.
+
+    Returns True when the file was (or would be) created or extended.
+    """
+    path = Path(dest) / ".gitignore"
+    if path.exists():
+        current = path.read_text(encoding="utf-8", errors="replace")
+        missing = [line for line in PROJECT_GITIGNORE.splitlines()
+                   if line and not line.startswith("#") and line not in current.splitlines()]
+        if not missing and ".botai/" in current:
+            return False
+        if not dry_run:
+            addition = "" if current.endswith("\n") else "\n"
+            addition += "\n# Added by botai: private runtime state must never be committed.\n"
+            addition += "\n".join(missing or ["/.botai/", "/dist/", "/.venv/", "/venv/", "/.core-venv/"]) + "\n"
+            path.write_text(current + addition, encoding="utf-8", newline="\n")
+        return True
+    if not dry_run:
+        path.write_text(PROJECT_GITIGNORE, encoding="utf-8", newline="\n")
+    return True
+
 
 def global_config_homes():
     home = Path.home()
@@ -175,6 +229,12 @@ def install(src, dest, init_git, dry_run):
     if not dry_run:
         (dest / "dist" / ".gitignore").write_text(DIST_GITIGNORE_CONTENT, encoding="utf-8")
 
+    # Before any `git add -A`: the private runtime directory must be ignored from
+    # the very first commit, otherwise the install record and backups of the
+    # student's edited files become published history.
+    if ensure_project_gitignore(dest, dry_run=dry_run):
+        print("  .gitignore: .botai/ and local environments excluded from git")
+
     # Where the harness came from, and what it looked like: the baseline every
     # later update compares against to tell "upstream changed this" apart from
     # "the student changed this".
@@ -207,9 +267,14 @@ def install(src, dest, init_git, dry_run):
             ["git", "commit", "-m", "botai initial install"],
             cwd=str(dest),
             capture_output=True,
+            text=True,
         )
         if commit.returncode != 0:
-            subprocess.run(
+            # No git identity configured is the common case on a fresh machine.
+            # This is the INSTALLER's own bookkeeping commit, not the student's
+            # work, so a clearly-labelled service identity is acceptable here —
+            # unlike course commits, which must always be the student's own.
+            commit = subprocess.run(
                 [
                     "git",
                     "-c",
@@ -221,9 +286,18 @@ def install(src, dest, init_git, dry_run):
                     "botai initial install",
                 ],
                 cwd=str(dest),
-                check=False,
+                capture_output=True,
+                text=True,
             )
-        print("  git initial commit created")
+        if commit.returncode == 0:
+            print("  git initial commit created")
+        else:
+            # Reporting success after a failed commit is how a workspace ends up
+            # with no baseline while its owner believes there is one.
+            reason = (commit.stderr or commit.stdout or "").strip().splitlines()
+            print("  ВНИМАНИЕ: git initial commit не создан (%s)"
+                  % (reason[-1] if reason else "неизвестная причина"))
+            print("  файлы на месте; закоммитьте вручную после настройки git identity")
 
     print()
     print("botai installed into its own project: %s" % dest)

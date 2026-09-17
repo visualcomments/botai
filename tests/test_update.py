@@ -29,6 +29,15 @@ import tarfile
 import tempfile
 from pathlib import Path
 
+# Windows consoles default to a legacy code page (cp1252/cp866), where the
+# Russian test names below are unmappable and printing raises
+# UnicodeEncodeError — the suite would die before checking anything.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -102,9 +111,9 @@ def run_update(project: Path, source: Path, *args):
     p = subprocess.run(
         [sys.executable, str(project / "scripts" / "update.py"),
          "--root", str(project), "--source", str(source), "--mode", "archive", *args],
-        capture_output=True, text=True, timeout=180,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
     )
-    return p.returncode, p.stdout + p.stderr
+    return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +248,9 @@ def test_course_update_refuses_without_source():
         p = subprocess.run(
             [sys.executable, str(SCRIPTS / "courses.py"), "update",
              "--course", "manual", "--root", str(project)],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
-        out = p.stdout + p.stderr
+        out = (p.stdout or "") + (p.stderr or "")
         check("курс без источника не обновляется", p.returncode == 2, out[-200:])
         check("отказ объяснён", "нет ни git-истории" in out or "источник" in out)
 
@@ -279,9 +288,9 @@ def test_dirty_course_is_not_touched():
         p = subprocess.run(
             [sys.executable, str(SCRIPTS / "courses.py"), "update",
              "--course", "c1", "--root", str(project)],
-            capture_output=True, text=True, timeout=180,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
         )
-        out = p.stdout + p.stderr
+        out = (p.stdout or "") + (p.stderr or "")
         check("грязный курс: обновление отказано", p.returncode == 1, out[-300:])
         check("отказ называет незакоммиченные файлы", "незакоммиченные" in out)
         check("конспект студента цел",
@@ -365,9 +374,9 @@ def test_check_uses_commit_not_only_cached_version():
         p = subprocess.run(
             [sys.executable, str(project / "scripts" / "update.py"),
              "--root", str(project), "--source", str(up), "--mode", "archive", "--check"],
-            capture_output=True, text=True, timeout=180,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
         )
-        out = p.stdout + p.stderr
+        out = (p.stdout or "") + (p.stderr or "")
         check("та же версия, но новый коммит: обновление найдено",
               p.returncode == 10, out[-300:])
         check("причина названа (кеш версии)", "коммит" in out, out[-300:])

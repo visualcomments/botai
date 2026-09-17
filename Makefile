@@ -69,7 +69,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 .PHONY: help doctor install test \
         setup new-course \
         progress review courses course-set active \
-        corpus \
+        corpus state-migrate \
         update update-check update-dry-run \
         course-add course-update course-update-check course-update-commit detect-courses \
         education-club \
@@ -96,6 +96,7 @@ help:
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
 	@echo "  make review COURSE=slug    Open the review workflow for a student's submission"
 	@echo "  make corpus COURSE=slug    Acquire the course corpus (index + texts, verified)"
+	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
 	@echo "Keeping things current:"
@@ -110,7 +111,7 @@ help:
 	@echo ""
 	@echo "Hygiene:"
 	@echo "  make doctor                Show detected OS, helpers, courses, progress"
-	@echo "  make test                  Run the harness tests (update and course safety)"
+	@echo "  make test                  Run the harness tests (update, courses, path safety)"
 	@echo "  make lint                  Markdown lint the policy, docs, and skills (if markdownlint-cli2 present)"
 	@echo "  make clean                 Remove temporary files (DRY=1 to preview)"
 	@echo ""
@@ -176,6 +177,16 @@ corpus:
 	@python3 scripts/cli.py corpus --course "$(COURSE)" $(if $(FORCE),--force,)
 
 # ============================================================================
+# Migrating a v1 Markdown progress record into the v2 record.
+# ----------------------------------------------------------------------------
+# Reports first and writes only with APPLY=1. A file describing several
+# students is refused: attributing one person's lines to another is worse than
+# asking. The original file is preserved verbatim either way.
+# ============================================================================
+state-migrate:
+	@python3 scripts/cli.py state-migrate --course "$(COURSE)" $(if $(APPLY),--apply,) $(if $(LEARNER),--learner "$(LEARNER)",) $(if $(SPLIT),--confirm-split "$(SPLIT)",)
+
+# ============================================================================
 # Keeping the harness and the courses current
 # ----------------------------------------------------------------------------
 # `update` refreshes the harness itself (policy, skills, agents, scripts, docs)
@@ -232,11 +243,16 @@ education-club:
 # ============================================================================
 # Hygiene
 # ============================================================================
-# Тесты обвязки. Проверяют правила, ради которых обновление существует:
-# обновление не трогает студенческие каталоги, локальная правка сохраняется,
-# архив с выходом за каталог отвергается, грязный курс не обновляется.
+# Тесты обвязки. Проверяют правила, ради которых обновление и workspace
+# существуют: обновление не трогает студенческие каталоги, локальная правка
+# сохраняется, архив с выходом за каталог отвергается, грязный курс не
+# обновляется, имя курса не может стать путём, предпросмотр ничего не пишет,
+# контракты валидируются локально, миграция не выдумывает факты.
 test:
 	@python3 tests/test_update.py
+	@python3 tests/test_paths.py
+	@python3 tests/test_schemas.py
+	@python3 tests/test_store.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

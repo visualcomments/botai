@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/course.schema.json",
+  "title": "botai course contract",
+  "description": "The course's own declaration, accepted by a human before it governs anything. An assignment's graded/practice status comes from here, not from what a student says in chat.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "course_id", "title", "language",
+    "syllabus_path", "track_path", "student_material_roots", "assignments"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "language": { "type": "string", "pattern": "^[a-z]{2}(-[A-Za-z]{2,8})?$" },
+    "syllabus_path": { "$ref": "common.schema.json#/$defs/relative_path" },
+    "track_path": { "$ref": "common.schema.json#/$defs/relative_path" },
+    "student_material_roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "common.schema.json#/$defs/relative_path" },
+      "description": "Roots the agent may read course material from. Exclusions always win over these."
+    },
+    "excluded_material_roots": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/relative_path" },
+      "description": "Solutions, teacher notes, answer keys. Never readable by the student-facing agent, even indirectly through search."
+    },
+    "licenses": {
+      "type": ["object", "null"],
+      "description": "null blocks public redistribution until terms are clarified; it does not block locally studying material the student legitimately has.",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": ["string", "null"], "maxLength": 64 },
+        "materials": { "type": ["string", "null"], "maxLength": 64 },
+        "notes": { "type": ["string", "null"], "maxLength": 2000 }
+      }
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "private_submission_allowed", "ai_disclosure_required"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "guide_path": { "type": ["string", "null"] },
+        "private_submission_allowed": { "type": "boolean" },
+        "ai_disclosure_required": { "type": "boolean" }
+      }
+    },
+    "corpus_manifest_path": { "type": ["string", "null"] },
+    "environment_path": { "type": ["string", "null"] },
+    "assignments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assignment_id", "path", "objective_ids", "assessment"],
+        "properties": {
+          "assignment_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "path": { "$ref": "common.schema.json#/$defs/relative_path" },
+          "objective_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "common.schema.json#/$defs/slug" }
+          },
+          "assessment": { "$ref": "common.schema.json#/$defs/assessment" },
+          "assessment_source": {
+            "description": "Where the graded/practice decision comes from. Required for graded and practice: an unsourced policy claim is exactly what must not govern help.",
+            "oneOf": [
+              { "$ref": "common.schema.json#/$defs/source_ref" },
+              { "type": "null" }
+            ]
+          },
+          "rubric_path": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

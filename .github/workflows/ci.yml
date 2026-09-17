@@ -28,9 +28,40 @@ jobs:
         # за каталог отвергается, грязный курс не обновляется.
         run: python3 tests/test_update.py
 
-      - name: Установка в отдельный проект и самообновление
-        # Сквозная проверка: установщик → обновление → предпросмотр. Ломается,
-        # если обвязка перестала быть самоустанавливаемой и самообновляемой.
+      - name: Тесты путей, предпросмотра и границ workspace
+        # Проверяют, что имя курса — имя, а не путь; что симлинк за пределы
+        # workspace отвергается; что --dry-run ничего не пишет; что каталог
+        # курса не удаляется ради переустановки; что .botai/ не попадает в git.
+        run: python3 tests/test_paths.py
+
+      - name: Зависимости ядра и тесты контрактов, записи и миграции
+        # Контракты валидируются jsonschema из lock-файла: проверяем, что
+        # закреплённые версии и хеши действительно устанавливаются, иначе
+        # проверки контрактов молча деградируют до «недоступно».
+        #
+        # Всё в одном шаге: интерпретатор venv передаётся через переменную
+        # внутри шага, а не через GITHUB_ENV, чтобы шаг не зависел от порядка
+        # и от платформы. Путь к интерпретатору внутри venv различается
+        # (bin/python против Scripts/python.exe), поэтому он вычисляется.
+        shell: bash
+        run: |
+          set -e
+          python3 -m venv .core-venv
+          if [ -x .core-venv/bin/python ]; then
+            VPY="$PWD/.core-venv/bin/python"
+          else
+            VPY="$PWD/.core-venv/Scripts/python.exe"
+          fi
+          echo "venv python: $VPY"
+          "$VPY" -m pip install --quiet --require-hashes -r requirements-core.lock
+          "$VPY" -c "import jsonschema; print('jsonschema ok')"
+          "$VPY" tests/test_schemas.py
+          "$VPY" tests/test_store.py
+
+      - name: Установка в отдельный проект, git и самообновление
+        # Сквозная проверка: установщик → git-гигиена → обновление → предпросмотр.
+        # Ломается, если обвязка перестала быть самоустанавливаемой и
+        # самообновляемой, или если приватное состояние попало в историю.
         run: |
           set -e
           python3 scripts/install.py --dest /tmp/botai-ci --no-git >/dev/null
@@ -40,6 +71,30 @@ jobs:
           # Источник — сам чекаут: локальный каталог читается без сети.
           python3 /tmp/botai-ci/scripts/cli.py update --source "$PWD" --dry-run >/dev/null
           echo "install → update --dry-run: ok"
+
+      - name: Приватное состояние не попадает в git
+        # .botai/ содержит записи установки и резервные копии правок студента;
+        # оно обязано быть исключено ДО первого git add -A. Правила привязаны к
+        # корню проекта (`/.botai/`), поэтому и проверяем через git, а не
+        # сравнением строк: вопрос в том, игнорируется ли путь, а не в том,
+        # как именно записано правило.
+        run: |
+          set -e
+          rm -rf /tmp/botai-git
+          python3 scripts/install.py --dest /tmp/botai-git >/dev/null
+          for probe in .botai/install.json courses/x/y.md progress/x.md; do
+            if ! git -C /tmp/botai-git check-ignore -q "$probe"; then
+              echo "путь не игнорируется: $probe"
+              git -C /tmp/botai-git status --porcelain | head
+              exit 1
+            fi
+          done
+          tracked="$(git -C /tmp/botai-git ls-files)"
+          if echo "$tracked" | grep -qE '^(\.botai|courses|progress|dist)/'; then
+            echo "приватные каталоги попали в индекс:"; echo "$tracked" | grep -E '^(\.botai|courses|progress|dist)/'
+            exit 1
+          fi
+          echo "git-гигиена установки: ok ($(echo "$tracked" | wc -l) файлов, приватных нет)"
 
       - name: Проверка отпечатка установки
         run: |
@@ -72,3 +127,26 @@ jobs:
           out="$(python3 /tmp/botai-ci/scripts/cli.py update --source /tmp/up-src --dry-run)"
           echo "$out"
           echo "$out" | grep -q "версия в источнике" || { echo "отчёт об обновлении не описывает источник"; exit 1; }
+
+  cross-platform:
+    name: Пути и workspace (${{ matrix.os }})
+    # Path handling is exactly what differs between Windows, macOS and Linux:
+    # drive letters, junctions, case-insensitive names, device names and
+    # symlink rules. Running only on Ubuntu would leave that untested.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Тесты путей и предпросмотра
+        run: python3 tests/test_paths.py
+
+      - name: Тесты обновления
+        run: python3 tests/test_update.py

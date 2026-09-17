@@ -1,0 +1,43 @@
+# botai core dependencies — pinned, hash-verified.
+#
+# Install with:
+#   python3 -m pip install --require-hashes -r requirements-core.lock
+#
+# Why a lock file instead of a version range: the core validates the contracts
+# that decide what help a student may receive. A dependency that changes
+# resolution behaviour between installs can turn a refused document into an
+# accepted one, and "it worked yesterday" is not a property a study record can
+# be built on. `--require-hashes` makes an unexpected artefact a hard failure.
+#
+# Scope: only `jsonschema` and its transitive runtime dependencies. The MCP
+# adapter has its own lock file and is optional — the core must remain usable
+# without it, and the workspace CLI must remain usable without any of this
+# (stdlib only), so that a missing dependency can be diagnosed rather than
+# crashing the tool that would explain how to install it.
+#
+# Wheels are pinned per platform where the artefact is platform-specific
+# (rpds-py). Adding a platform means adding its hash here, deliberately.
+
+attrs==26.1.0 \
+    --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309
+
+jsonschema==4.26.0 \
+    --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
+
+jsonschema-specifications==2025.9.1 \
+    --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
+
+referencing==0.37.0 \
+    --hash=sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
+
+# Platform-specific wheel: this hash is for the CPython 3.12 manylinux x86_64
+# build. Installing on another platform requires appending that platform's
+# wheel hash here — the correct response is a second recorded hash, never a
+# loosened pin. `pip install --require-hashes` fails loudly when no recorded
+# artefact matches the platform, which is the intended outcome: an unverified
+# wheel must not silently take its place.
+rpds-py==2026.6.3 \
+    --hash=sha256:ecabd69db66de867690f9797f2f8fa27ba501bbc24540cbdbdc649cd15888ba6
+
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

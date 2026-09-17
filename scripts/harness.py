@@ -41,7 +41,9 @@ DEFAULT_REF = "main"
 VERSION_FILE = "VERSION"
 
 # Files the installer copies. VERSION is included: an update must be able to
-# tell which version the project is on.
+# tell which version the project is on. The lock files travel with the harness
+# so an installed project can rebuild its core environment without network
+# guesswork.
 MANAGED_FILES = [
     ".gitignore",
     "AGENTS.md",
@@ -52,12 +54,18 @@ MANAGED_FILES = [
     "TUTORIAL.md",
     "VERSION",
     "opencode.json",
+    "requirements-core.lock",
 ]
 
 # Directories the installer copies wholesale. `tests` travels with the harness
 # so that `make test` works in an installed project, not only in a checkout:
 # a test suite that exists only upstream cannot be run where it matters.
-MANAGED_DIRS = [".agents", "docs", "scripts", "tests"]
+#
+# `schemas` and `examples` are contracts and fixtures, not documentation: an
+# installed project cannot validate a course or run a migration without them,
+# and a fixity check that only exists upstream cannot be run where it matters
+# either.
+MANAGED_DIRS = [".agents", "docs", "examples", "schemas", "scripts", "tests"]
 
 # Directories copied wholesale EXCEPT their `skills/` subdirectory, which is a
 # symlink farm regenerated on install and on every update.
@@ -67,6 +75,31 @@ FARM_DIRS = [".claude/skills", ".cursor/skills", ".opencode/skills"]
 
 # Student-owned runtime directories: never overwritten, never pruned.
 STUDENT_DIRS = ["courses", "progress", "dist", ".botai"]
+
+# Private runtime state: bookkeeping, backups, future databases, corpus and
+# environment caches. It is never part of the harness, never committed, and
+# must be excluded from git BEFORE the project's first `git add -A` — otherwise
+# an operator's backups and edit records quietly become published history.
+GITIGNORE_LINES = [
+    "courses/",
+    "progress/",
+    "",
+    "__pycache__/",
+    "*.py[cod]",
+    "",
+    "# Private runtime state: never published, never reused as course material.",
+    ".botai/",
+    "dist/",
+    "",
+    "# Local course environments created by the v2 environment profile.",
+    ".venv/",
+    "venv/",
+    "",
+    "# Secrets and local configuration are never part of the harness.",
+    ".env",
+    ".env.*",
+    "!.env.example",
+]
 
 # Версия формата записи об установке (.botai/install.json). Поднимается,
 # когда меняется смысл полей — тогда обновлятор знает, что прежнюю запись
@@ -322,8 +355,27 @@ def git(args, cwd=None, timeout=180):
 
 
 def is_git_worktree(root):
+    """True only for a directory that is the ROOT of its own git worktree.
+
+    `rev-parse --is-inside-work-tree` is not enough: a course scaffolded inside
+    an already-versioned workspace answers "true" through its parent repository.
+    Treating that as "the course has its own history" makes course bookkeeping
+    operate on the workspace repository instead — reading its remote, refusing
+    updates for the wrong reason, and staging unrelated files.
+
+    The caller must therefore own the top level of its worktree.
+    """
+    root = Path(root).resolve()
     rc, out = git(["rev-parse", "--is-inside-work-tree"], cwd=root)
-    return rc == 0 and out.lower() == "true"
+    if rc != 0 or out.lower() != "true":
+        return False
+    rc, top = git(["rev-parse", "--show-toplevel"], cwd=root)
+    if rc != 0 or not top:
+        return False
+    try:
+        return Path(top).resolve() == root
+    except OSError:
+        return False
 
 
 def git_origin(root):

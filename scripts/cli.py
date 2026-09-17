@@ -33,10 +33,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+# The workspace CLI prints Russian diagnostics. A Windows console defaults to a
+# legacy code page (cp1252/cp866), where those characters are unmappable and
+# printing raises UnicodeEncodeError — the tool would crash while explaining an
+# error, which is the worst moment to lose the message. Reconfigure the streams
+# to UTF-8 with replacement so output survives any terminal.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable stream
+        pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import courses as C  # noqa: E402
 import harness as H  # noqa: E402
+import pathsafe as P  # noqa: E402
 import update as U  # noqa: E402
 
 RUNTIME_DIRS = ["courses", "progress", "dist"]
@@ -62,15 +74,32 @@ def cmd_setup(root, dry):
 
 
 def slugify(name):
-    out = []
-    for ch in name.strip().lower():
-        out.append(ch if (ch.isalnum() or ch in "-_.") else "-")
-    return "".join(out).strip("-") or "course"
+    """Normalise a human name into a safe slug, or exit with a clear reason."""
+    try:
+        return C.slugify(name)
+    except P.PathError as e:
+        sys.exit("имя курса отклонено: %s" % e.message)
+
+
+def safe_course_dir(root, slug):
+    """`courses/<slug>` through the shared containment check, or exit."""
+    try:
+        return P.course_path(root, slug)
+    except P.PathError as e:
+        sys.exit("путь курса отклонён (%s): %s" % (e.code, e.message))
+
+
+def safe_progress_file(root, slug):
+    """`progress/<slug>.md` through the shared containment check, or exit."""
+    try:
+        return P.progress_path(root, slug)
+    except P.PathError as e:
+        sys.exit("путь дневника отклонён (%s): %s" % (e.code, e.message))
 
 
 def cmd_new_course(root, name, title, dry):
     slug = slugify(name)
-    d = root / "courses" / slug
+    d = safe_course_dir(root, slug)
     if d.exists():
         sys.exit("course already exists: %s" % d)
     print("scaffold %s" % d)
@@ -94,7 +123,7 @@ def cmd_new_course(root, name, title, dry):
 
 
 def cmd_progress(root, course, dry):
-    f = root / "progress" / ("%s.md" % course)
+    f = safe_progress_file(root, course)
     if not f.exists():
         print("no progress record yet: %s" % f)
         print("hint: the agent writes it with the maintaining-course-progress skill")
@@ -111,8 +140,12 @@ def cmd_progress(root, course, dry):
 
 
 def cmd_review(root, course, dry):
+    # Resolve through the shared check even though this command only prints:
+    # the course name is interpolated into paths shown to the agent, and a
+    # traversal string must be refused rather than echoed back as guidance.
+    d = safe_course_dir(root, course)
     print("review workflow for %s:" % course)
-    print("  - locate the student's submission under courses/%s/assignments/" % course)
+    print("  - locate the student's submission under %s/assignments/" % d)
     print("  - run the giving-feedback skill (rubric + least-assistance-first)")
     print("  - never reveal the answer to a graded task before the attempt")
     print("route to the agent: 'review my submission for %s with the rubric'" % course)
@@ -143,7 +176,7 @@ def cmd_courses(root, dry):
 
 
 def cmd_course_set(root, course, dry):
-    d = root / "courses" / course
+    d = safe_course_dir(root, course)
     if not d.is_dir():
         print("no such course: %s" % d)
         print("list: python scripts/cli.py courses")
@@ -248,7 +281,7 @@ def cmd_corpus(root, course, dry, force):
     """Acquire (or report on) a course corpus. Run by deploy/setup, not by hand."""
     if not course:
         sys.exit("usage: cli.py corpus --course <slug> [--force] [--dry-run]")
-    cdir = root / "courses" / course
+    cdir = safe_course_dir(root, course)
     if not cdir.is_dir():
         print("no such course: %s" % cdir)
         print("list: python scripts/cli.py courses")
@@ -304,11 +337,143 @@ def cmd_clean(root, dry):
     print("removed temporary files (kept courses/ and progress/)")
 
 
+def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False):
+    """Import a v1 Markdown progress record into the v2 store.
+
+    `--dry-run` reports exactly what would be imported and stops. Preview is the
+    default behaviour in spirit as well as in flags: importing a record is a
+    decision about someone's study history, so `--apply` is required, and a
+    record that cannot be attributed to one learner is refused rather than
+    guessed at.
+    """
+    try:
+        from botai_core import legacy, store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        print("установите зависимости: python3 -m pip install --require-hashes "
+              "-r requirements-core.lock")
+        return 2
+
+    if not course:
+        print("usage: cli.py state-migrate --course <slug> [--learner <id>] "
+              "[--confirm-split stu-01=<id>] [--apply]")
+        return 2
+
+    try:
+        legacy_file = P.progress_path(root, course)
+    except P.PathError as e:
+        print("путь дневника отклонён (%s): %s" % (e.code, e.message))
+        return 2
+    if not legacy_file.is_file():
+        print("запись v1 не найдена: %s" % legacy_file)
+        print("ничего не изменено")
+        return 2
+
+    parsed = legacy.read_legacy_progress(legacy_file)
+    report = parsed.as_report()
+
+    print("== миграция записи прогресса: %s ==" % course)
+    print("  источник      : %s" % legacy_file)
+    print("  sha256        : %s" % parsed.source_sha256)
+    print("  строк         : %d (распознано %d)" % (parsed.total_lines, parsed.parsed_lines))
+    print("  обучающихся   : %d" % len(parsed.students))
+    for student in report["students"]:
+        print("    %s %s" % (student["legacy_id"],
+                             ("(%s)" % student["name"]) if student["name"] else ""))
+        if student["legacy_claim"]:
+            print("      заявлено: %s -> импортируется как %s (%s)"
+                  % (student["legacy_claim"], student["imported_stage"], student["stage_basis"]))
+        if student["module_hint"]:
+            print("      привязка: %s" % student["module_hint"])
+        else:
+            print("      привязка: не указана — цель не угадывается, запись останется на проверку")
+    print("  оцениваемые   : %s" % (", ".join(parsed.graded) or "(не указаны)"))
+    print("  тренировочные : %s" % (", ".join(parsed.practice) or "(не указаны)"))
+    print("  тупиков       : %d" % len(parsed.dead_ends))
+    print("  на проверку   : %d строк (догадки не подставляются)"
+          % len(parsed.pending_review))
+    for warning in report["warnings"]:
+        print("  ВНИМАНИЕ: %s" % warning)
+
+    if parsed.multi_student and not confirm_split:
+        print()
+        print("  файл описывает нескольких обучающихся. Автоматический импорт")
+        print("  запрещён: приписать одному человеку чужие строки нельзя.")
+        print("  Разделите записи и укажите соответствие, например:")
+        print("    --confirm-split stu-01=<id-обучающегося>")
+        print("  ничего не изменено")
+        return 2
+
+    if dry or not apply:
+        print()
+        print("  предпросмотр: ничего не записано.")
+        print("  для импорта повторите с --apply (исходный файл сохраняется целиком)")
+        return 0
+
+    learner_id = learner_id or default_learner_id(root)
+    try:
+        with core_store.Store.open(root, learner_id) as st:
+            result = legacy.import_into_store(
+                st, parsed, course_id=course,
+                course_revision={"kind": "local_snapshot", "id": parsed.source_sha256},
+                confirm_split=confirm_split,
+            )
+    except core_store.StoreError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        print("  ничего не изменено")
+        return 1
+
+    print()
+    print("  импортировано: %d заявленных состояний" % len(result["claims_written"]))
+    print("  исходник сохранён как артефакт: %s" % result["preserved_artifact"][:16])
+    print("  запись состояния: .botai/state.sqlite3")
+    return 0
+
+
+def parse_confirm_split(values):
+    """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
+    mapping = {}
+    for item in values or []:
+        if "=" not in item:
+            sys.exit("--confirm-split ожидает вид stu-01=<id-обучающегося>, получено: %r" % item)
+        legacy_id, _, learner_id = item.partition("=")
+        legacy_id, learner_id = legacy_id.strip(), learner_id.strip()
+        if not legacy_id or not learner_id:
+            sys.exit("--confirm-split: пустое значение в %r" % item)
+        mapping[legacy_id] = learner_id
+    return mapping
+
+
+def default_learner_id(root):
+    """The workspace's learner id, created once and then stable.
+
+    A local workspace serves one learner; the id exists so records can be
+    exported, merged or deleted without relying on a person's name.
+    """
+    import json as _json
+    import uuid as _uuid
+
+    marker = root / ".botai" / "workspace.json"
+    if marker.is_file():
+        try:
+            data = _json.loads(marker.read_text(encoding="utf-8"))
+            if data.get("learner_id"):
+                return data["learner_id"]
+        except (OSError, ValueError):
+            pass
+    learner_id = str(_uuid.uuid4())
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(_json.dumps({"schema_version": 2, "learner_id": learner_id},
+                                  ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return learner_id
+
+
 def main():
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
     ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
                                         "courses", "course-set", "active", "corpus",
                                         "update", "course-add", "course-update",
+                                        "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
@@ -332,6 +497,12 @@ def main():
     ap.add_argument("--force", action="store_true",
                     help="corpus: refetch even when installed; course-add: replace the directory")
     ap.add_argument("--dry-run", action="store_true", help="preview, change nothing")
+    ap.add_argument("--apply", action="store_true",
+                    help="state-migrate: actually import (without it the command only reports)")
+    ap.add_argument("--learner", help="state-migrate: learner id the record belongs to")
+    ap.add_argument("--confirm-split", action="append", default=[],
+                    metavar="LEGACY_ID=LEARNER_ID",
+                    help="state-migrate: explicit attribution for a multi-student file")
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -370,13 +541,26 @@ def main():
     elif cmd == "course-add":
         if not args.url:
             sys.exit("usage: cli.py course-add --url <git-url> [--name <slug>] [--ref <ref>]")
-        sys.exit(C.fetch_course(root, args.url, args.name, args.ref, args.force))
+        # --dry-run must reach fetch_course: a preview that still clones is not
+        # a preview, and the previous wiring dropped the flag on the floor.
+        if args.force:
+            sys.exit(
+                "course-add --force больше не удаляет существующий курс: в нём\n"
+                "может лежать работа обучающегося. Обновите его\n"
+                "  python scripts/cli.py course-update --course <slug>\n"
+                "или получите рядом другую копию: --name <slug>-2"
+            )
+        sys.exit(C.fetch_course(root, args.url, args.name, args.ref,
+                                force=False, dry=args.dry_run))
     elif cmd == "course-update":
         if not args.course:
             sys.exit("usage: cli.py course-update --course <slug> [--check|--dry-run]")
         sys.exit(C.update_course(root, args.course, check=args.check, dry=args.dry_run,
                                  take_upstream=args.take_upstream, ref=args.ref,
                                  commit=args.commit))
+    elif cmd == "state-migrate":
+        sys.exit(cmd_state_migrate(root, args.course, args.dry_run, args.learner,
+                                   parse_confirm_split(args.confirm_split), apply=args.apply))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":
