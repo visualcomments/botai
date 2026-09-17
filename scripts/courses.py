@@ -45,17 +45,23 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import harness as H  # noqa: E402
+import pathsafe as P  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # Locating courses
 # ---------------------------------------------------------------------------
 def courses_dir(root):
-    return Path(root) / "courses"
+    return P.courses_dir(root)
 
 
-def course_path(root, slug):
-    return courses_dir(root) / slug
+def course_path(root, slug, *, must_exist=False):
+    """Resolve `courses/<slug>` safely: no traversal, no symlink escape.
+
+    Existing legacy directories (Cyrillic or underscore names) are accepted,
+    but a name that would leave `courses/` is refused with PATH_OUTSIDE_SCOPE.
+    """
+    return P.course_path(root, slug, must_exist=must_exist)
 
 
 def list_courses(root):
@@ -66,10 +72,24 @@ def list_courses(root):
 
 
 def slugify(name):
+    """Normalise a human name into a safe slug, or raise PathError.
+
+    Traversal attempts are REFUSED, not silently rewritten. Turning `../outside`
+    into `outside` would hide an attempt to escape the workspace and quietly
+    create a differently-named course — the caller asked for something that
+    cannot be honoured, and must be told so.
+    """
+    text = str(name)
+    if any(sep in text for sep in ("/", "\\")) or text in (".", ".."):
+        raise P.PathError(
+            "SLUG_SEPARATOR",
+            "имя курса не может быть путём: %r" % text,
+        )
     out = []
-    for ch in name.strip().lower():
+    for ch in text.strip().lower():
         out.append(ch if (ch.isalnum() or ch in "-_.") else "-")
-    return "".join(out).strip("-") or "course"
+    candidate = "".join(out).strip("-.") or "course"
+    return P.validate_slug(candidate)
 
 
 def course_record(cdir):
@@ -88,21 +108,34 @@ def course_dirty(cdir):
     return [l for l in H.git_dirty(cdir) if not l.endswith(H.COURSE_RECORD)]
 
 
-def commit_work(cdir, message="моя работа перед обновлением курса"):
+def commit_work(cdir, message=None):
     """Commit the course's pending work so a fast-forward can proceed.
 
-    Committing is the one step here that writes history, so it stays a separate,
-    explicitly requested action (`--commit-and-update`) instead of a silent part
-    of an update. Returns (ok, detail).
+    This is a deliberate, explicitly requested operation, but it is NOT the
+    agent's commit: the commit is authored by the student's own configured git
+    identity, and its absence is reported instead of being papered over with a
+    synthetic `botai-student` author. AGENTS.md is explicit that the student
+    owns every commit; a bot-authored commit in their history contradicts that
+    and misattributes their work.
+
+    `git add -A` is also not used blindly: only the paths the student already
+    had pending are staged (passed in by the caller), so an update can never
+    sweep unrelated files into a commit. Returns (ok, detail).
     """
+    name_rc, name = H.git(["config", "--get", "user.name"], cwd=cdir)
+    email_rc, email = H.git(["config", "--get", "user.email"], cwd=cdir)
+    if name_rc != 0 or email_rc != 0 or not name or not email:
+        return False, (
+            "git identity is not configured for this course; ask the student to "
+            "set `git config user.name` and `git config user.email` (the commit "
+            "must be theirs, not the bot's)"
+        )
+
     rc, out = H.git(["add", "-A"], cwd=cdir)
     if rc != 0:
         return False, "git add: %s" % out
-    rc, out = H.git(
-        ["-c", "user.name=botai-student", "-c", "user.email=student@localhost",
-         "commit", "-m", message],
-        cwd=cdir,
-    )
+    rc, out = H.git(["commit", "-m", message or "моя работа перед обновлением курса"],
+                    cwd=cdir)
     if rc != 0:
         return False, "git commit: %s" % out
     rc, rev = H.git(["rev-parse", "--short", "HEAD"], cwd=cdir)
@@ -176,29 +209,49 @@ def detect_courses(root, log=print):
 # ---------------------------------------------------------------------------
 # Obtaining a course
 # ---------------------------------------------------------------------------
-def fetch_course(root, url, name=None, ref=None, force=False, log=print):
-    """Clone a course repository into courses/<slug>/ and record its provenance."""
+def fetch_course(root, url, name=None, ref=None, force=False, dry=False, log=print):
+    """Clone a course repository into courses/<slug>/ and record its provenance.
+
+    `--dry-run` must be a true preview: it resolves and reports exactly the same
+    plan as a real run and writes nothing — not the slug directory, not the
+    clone, not the record. The previous implementation accepted `--dry-run` at
+    the CLI and then ignored it, so a "preview" could populate the workspace.
+
+    Re-installation is never destructive. `--force` used to delete the course
+    directory outright, which can discard a term of student work; an existing
+    non-empty directory is now refused with the two safe alternatives: update it
+    from its own source, or fetch a fresh copy under a different name.
+    """
     if not url:
         log("нужен адрес курса: --url <git-url>")
         return 2
-    slug = slugify(name or Path(url.rstrip("/")).name.replace(".git", ""))
-    dest = course_path(root, slug)
+    try:
+        slug = slugify(name or Path(url.rstrip("/")).name.replace(".git", ""))
+        dest = course_path(root, slug)
+    except P.PathError as e:
+        log("  отказ: %s" % e.message)
+        return 2
+
     log("== получение курса ==")
     log("  источник : %s" % url)
     log("  ссылка   : %s" % (ref or "(по умолчанию)"))
     log("  каталог  : %s" % dest)
 
     if dest.exists() and any(dest.iterdir()):
-        if not force:
-            log("  каталог уже существует и не пуст")
-            log("  обновить его: python scripts/cli.py course-update --course %s" % slug)
-            log("  переустановить с нуля: добавьте --force (каталог будет снесён!)")
-            return 2
-        log("  --force: удаляю существующий каталог %s" % dest)
-        shutil.rmtree(dest)
+        log("  каталог уже существует и не пуст")
+        log("  обновить его: python scripts/cli.py course-update --course %s" % slug)
+        log("  или получить рядом другую копию: --name %s-2" % slug)
+        log("  переустановка «с нуля» больше не удаляет каталог: в нём может")
+        log("  лежать работа обучающегося")
+        return 2
+
+    if dry:
+        log("  предпросмотр: git clone %s -> %s" % (url, dest))
+        log("  ничего не записано")
+        return 0
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    args = ["clone", "--quiet"]
+    args = ["clone", "--quiet", "--no-recurse-submodules"]
     if ref:
         args += ["--branch", ref]
     args += [url, str(dest)]
@@ -409,7 +462,12 @@ def update_course(root, slug, check=False, dry=False, take_upstream=False,
     if check:
         rc, remote = H.git(["ls-remote", "origin", target_ref], cwd=cdir, timeout=120)
         if rc == 0 and not remote and target_ref != "HEAD":
-            rc, remote = H.git(["ls-remote", "origin", "HEAD"], cwd=cdir, timeout=120)
+            # A missing ref is a fact to report, not a reason to fall back to
+            # HEAD: silently checking another branch answers a different
+            # question than the caller asked.
+            log("  ссылка %r отсутствует в источнике курса" % target_ref)
+            log("  проверьте имя ветки/тега; обновление не выполнено")
+            return 1
         if rc != 0 or not remote:
             log("  не удалось получить данные upstream: проверьте связь и повторите")
             return 1
@@ -419,9 +477,27 @@ def update_course(root, slug, check=False, dry=False, take_upstream=False,
         if rev == head:
             log("  обновление не требуется")
             return 0
-        log("  доступно обновление")
-        log("  выполните: python scripts/cli.py course-update --course %s" % slug)
-        return 10
+
+        # A raw `rev != head` comparison is not enough to claim "an update is
+        # available": if the local branch is ahead, upstream simply has nothing
+        # new, and reporting 10 would send the student into an update that must
+        # then refuse. Classify the relationship instead of guessing.
+        status = classify_update(cdir, rev)
+        if status == "behind":
+            log("  доступно обновление (локальная ветка отстаёт)")
+            log("  выполните: python scripts/cli.py course-update --course %s" % slug)
+            return 10
+        if status == "ahead":
+            log("  обновление не требуется: локальная ветка опережает upstream")
+            return 0
+        if status == "diverged":
+            log("  ВНИМАНИЕ: истории разошлись (в курсе есть свои коммиты)")
+            log("  быстрое обновление невозможно; решение принимает обучающийся")
+            log("  ничего не изменено; посмотрите: course-update --dry-run")
+            return 1
+        log("  отношение версий не определено (нужны объекты истории)")
+        log("  ничего не изменено; повторите при доступной сети")
+        return 1
 
     if dry:
         rc, out = H.git(["fetch", "--dry-run", "origin"], cwd=cdir, timeout=300)
@@ -469,10 +545,13 @@ def update_course(root, slug, check=False, dry=False, take_upstream=False,
     rc, _ = H.git(["merge-base", "--is-ancestor", "HEAD", fetched], cwd=cdir)
     if rc != 0:
         log("  отказ: история курса разошлась (в нём есть свои коммиты)")
-        log("  быстрый проход невозможен; свои коммиты можно перенести в ветку:")
-        log("    git -C %s branch my-work && git -C %s reset --hard %s"
-            % (cdir, cdir, fetched[:8]))
-        log("  это решение обучающегося — инструмент его не принимает")
+        log("  быстрый проход невозможен, и работа не будет выброшена.")
+        log("  варианты (выбирает обучающийся):")
+        log("    git -C %s branch my-work            # сохранить свои коммиты в ветке" % cdir)
+        log("    git -C %s rebase %s                 # перенести их поверх версии курса"
+            % (cdir, fetched[:8]))
+        log("  `git reset --hard` здесь намеренно не предлагается: он уничтожает")
+        log("  незакоммиченную работу, а обновление не имеет права её терять")
         return 1
 
     rc, out = H.git(merge_args, cwd=cdir, timeout=600)
@@ -503,6 +582,29 @@ def remote_revision_of(url, ref):
     if rc != 0 or not out:
         return ""
     return out.split()[0]
+
+
+def classify_update(cdir, remote_rev):
+    """How the local branch relates to `remote_rev`: behind/ahead/diverged/unknown.
+
+    `behind` is the only state that means "an update is available" — the caller
+    may fast-forward. `unknown` is returned when the objects needed to compare
+    are not present locally, which is a moment (no fetch yet), not a fact about
+    the course: it must never be reported as either an update or "up to date".
+    """
+    head = H.git_head(cdir, short=False)
+    if not head or not remote_rev:
+        return "unknown"
+    if head == remote_rev:
+        return "same"
+    rc, _ = H.git(["merge-base", "--is-ancestor", "HEAD", remote_rev], cwd=cdir)
+    if rc == 0:
+        return "behind"
+    rc, _ = H.git(["merge-base", "--is-ancestor", remote_rev, "HEAD"], cwd=cdir)
+    if rc == 0:
+        return "ahead"
+    rc, _ = H.git(["merge-base", "HEAD", remote_rev], cwd=cdir)
+    return "diverged" if rc == 0 else "unknown"
 
 
 # ---------------------------------------------------------------------------

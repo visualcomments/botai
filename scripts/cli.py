@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import courses as C  # noqa: E402
 import harness as H  # noqa: E402
+import pathsafe as P  # noqa: E402
 import update as U  # noqa: E402
 
 RUNTIME_DIRS = ["courses", "progress", "dist"]
@@ -62,15 +63,32 @@ def cmd_setup(root, dry):
 
 
 def slugify(name):
-    out = []
-    for ch in name.strip().lower():
-        out.append(ch if (ch.isalnum() or ch in "-_.") else "-")
-    return "".join(out).strip("-") or "course"
+    """Normalise a human name into a safe slug, or exit with a clear reason."""
+    try:
+        return C.slugify(name)
+    except P.PathError as e:
+        sys.exit("имя курса отклонено: %s" % e.message)
+
+
+def safe_course_dir(root, slug):
+    """`courses/<slug>` through the shared containment check, or exit."""
+    try:
+        return P.course_path(root, slug)
+    except P.PathError as e:
+        sys.exit("путь курса отклонён (%s): %s" % (e.code, e.message))
+
+
+def safe_progress_file(root, slug):
+    """`progress/<slug>.md` through the shared containment check, or exit."""
+    try:
+        return P.progress_path(root, slug)
+    except P.PathError as e:
+        sys.exit("путь дневника отклонён (%s): %s" % (e.code, e.message))
 
 
 def cmd_new_course(root, name, title, dry):
     slug = slugify(name)
-    d = root / "courses" / slug
+    d = safe_course_dir(root, slug)
     if d.exists():
         sys.exit("course already exists: %s" % d)
     print("scaffold %s" % d)
@@ -94,7 +112,7 @@ def cmd_new_course(root, name, title, dry):
 
 
 def cmd_progress(root, course, dry):
-    f = root / "progress" / ("%s.md" % course)
+    f = safe_progress_file(root, course)
     if not f.exists():
         print("no progress record yet: %s" % f)
         print("hint: the agent writes it with the maintaining-course-progress skill")
@@ -111,8 +129,12 @@ def cmd_progress(root, course, dry):
 
 
 def cmd_review(root, course, dry):
+    # Resolve through the shared check even though this command only prints:
+    # the course name is interpolated into paths shown to the agent, and a
+    # traversal string must be refused rather than echoed back as guidance.
+    d = safe_course_dir(root, course)
     print("review workflow for %s:" % course)
-    print("  - locate the student's submission under courses/%s/assignments/" % course)
+    print("  - locate the student's submission under %s/assignments/" % d)
     print("  - run the giving-feedback skill (rubric + least-assistance-first)")
     print("  - never reveal the answer to a graded task before the attempt")
     print("route to the agent: 'review my submission for %s with the rubric'" % course)
@@ -143,7 +165,7 @@ def cmd_courses(root, dry):
 
 
 def cmd_course_set(root, course, dry):
-    d = root / "courses" / course
+    d = safe_course_dir(root, course)
     if not d.is_dir():
         print("no such course: %s" % d)
         print("list: python scripts/cli.py courses")
@@ -248,7 +270,7 @@ def cmd_corpus(root, course, dry, force):
     """Acquire (or report on) a course corpus. Run by deploy/setup, not by hand."""
     if not course:
         sys.exit("usage: cli.py corpus --course <slug> [--force] [--dry-run]")
-    cdir = root / "courses" / course
+    cdir = safe_course_dir(root, course)
     if not cdir.is_dir():
         print("no such course: %s" % cdir)
         print("list: python scripts/cli.py courses")
@@ -370,7 +392,17 @@ def main():
     elif cmd == "course-add":
         if not args.url:
             sys.exit("usage: cli.py course-add --url <git-url> [--name <slug>] [--ref <ref>]")
-        sys.exit(C.fetch_course(root, args.url, args.name, args.ref, args.force))
+        # --dry-run must reach fetch_course: a preview that still clones is not
+        # a preview, and the previous wiring dropped the flag on the floor.
+        if args.force:
+            sys.exit(
+                "course-add --force больше не удаляет существующий курс: в нём\n"
+                "может лежать работа обучающегося. Обновите его\n"
+                "  python scripts/cli.py course-update --course <slug>\n"
+                "или получите рядом другую копию: --name <slug>-2"
+            )
+        sys.exit(C.fetch_course(root, args.url, args.name, args.ref,
+                                force=False, dry=args.dry_run))
     elif cmd == "course-update":
         if not args.course:
             sys.exit("usage: cli.py course-update --course <slug> [--check|--dry-run]")

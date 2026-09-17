@@ -4,3 +4,16 @@ progress/
 __pycache__/
 *.py[cod]
 
+# Private runtime state of an installed workspace: install record, backups of
+# locally edited files, the local database and caches. A developer checkout
+# normally has none of this, but an in-place install or update would otherwise
+# create it inside the source tree and invite an accidental commit.
+.botai/
+dist/
+.venv/
+venv/
+
+# Secrets and machine-local configuration.
+.env
+.env.*
+!.env.example

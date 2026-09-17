@@ -110,7 +110,7 @@ help:
 	@echo ""
 	@echo "Hygiene:"
 	@echo "  make doctor                Show detected OS, helpers, courses, progress"
-	@echo "  make test                  Run the harness tests (update and course safety)"
+	@echo "  make test                  Run the harness tests (update, courses, path safety)"
 	@echo "  make lint                  Markdown lint the policy, docs, and skills (if markdownlint-cli2 present)"
 	@echo "  make clean                 Remove temporary files (DRY=1 to preview)"
 	@echo ""
@@ -232,11 +232,13 @@ education-club:
 # ============================================================================
 # Hygiene
 # ============================================================================
-# Тесты обвязки. Проверяют правила, ради которых обновление существует:
-# обновление не трогает студенческие каталоги, локальная правка сохраняется,
-# архив с выходом за каталог отвергается, грязный курс не обновляется.
+# Тесты обвязки. Проверяют правила, ради которых обновление и workspace
+# существуют: обновление не трогает студенческие каталоги, локальная правка
+# сохраняется, архив с выходом за каталог отвергается, грязный курс не
+# обновляется, имя курса не может стать путём, предпросмотр ничего не пишет.
 test:
 	@python3 tests/test_update.py
+	@python3 tests/test_paths.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \
