@@ -34,15 +34,15 @@ jobs:
         # курса не удаляется ради переустановки; что .botai/ не попадает в git.
         run: python3 tests/test_paths.py
 
-      - name: Зависимости ядра и тесты контрактов, записи и миграции
-        # Контракты валидируются jsonschema из lock-файла: проверяем, что
-        # закреплённые версии и хеши действительно устанавливаются, иначе
-        # проверки контрактов молча деградируют до «недоступно».
+      - name: Зависимости ядра в служебной venv
+        # The venv is created once, here, and its interpreter path is exported
+        # via GITHUB_ENV for every later step. Contract validation needs
+        # `jsonschema` from the pinned lock file, and the flow checks below build
+        # real contracts — running them with the bare system python made them
+        # fail on Linux for a reason unrelated to what they verify.
         #
-        # Всё в одном шаге: интерпретатор venv передаётся через переменную
-        # внутри шага, а не через GITHUB_ENV, чтобы шаг не зависел от порядка
-        # и от платформы. Путь к интерпретатору внутри venv различается
-        # (bin/python против Scripts/python.exe), поэтому он вычисляется.
+        # The interpreter path differs by platform (bin/python vs
+        # Scripts/python.exe), so it is computed rather than assumed.
         shell: bash
         run: |
           set -e
@@ -54,19 +54,25 @@ jobs:
           fi
           echo "venv python: $VPY"
           "$VPY" -m pip install --quiet --require-hashes -r requirements-core.lock
-          "$VPY" -c "import jsonschema; print('jsonschema ok')"
-          "$VPY" tests/test_schemas.py
-          "$VPY" tests/test_store.py
-          "$VPY" tests/test_course.py
-          "$VPY" tests/test_policy.py
-          "$VPY" tests/test_tutoring.py
-          "$VPY" tests/test_corpus.py
-          "$VPY" tests/test_environment.py
-          "$VPY" tests/test_contribution.py
-          "$VPY" tests/test_personas.py
-          "$VPY" tests/test_exports.py
-          "$VPY" tests/test_adapters.py
-          "$VPY" tests/test_migrations.py
+          "$VPY" -c "import jsonschema, referencing; print('core deps ok')"
+          echo "BOTAI_VPY=$VPY" >> "$GITHUB_ENV"
+
+      - name: Тесты контрактов, записи, курса, цикла и политики
+        shell: bash
+        run: |
+          set -e
+          "$BOTAI_VPY" tests/test_schemas.py
+          "$BOTAI_VPY" tests/test_store.py
+          "$BOTAI_VPY" tests/test_course.py
+          "$BOTAI_VPY" tests/test_policy.py
+          "$BOTAI_VPY" tests/test_tutoring.py
+          "$BOTAI_VPY" tests/test_corpus.py
+          "$BOTAI_VPY" tests/test_environment.py
+          "$BOTAI_VPY" tests/test_contribution.py
+          "$BOTAI_VPY" tests/test_personas.py
+          "$BOTAI_VPY" tests/test_exports.py
+          "$BOTAI_VPY" tests/test_adapters.py
+          "$BOTAI_VPY" tests/test_migrations.py
 
       - name: "Переход 1.3.2 → 2.0: мост и неполное обновление"
         # Сквозная проверка моста настоящим процессом: план ничего не меняет,
@@ -122,26 +128,26 @@ jobs:
         # пустой выбор не экспортирует всё подряд, пакет импортируется как
         # данные, сводка называет знаменатель, удаление проверено тем же
         # идентификатором обучающегося, которым писала команда.
-        run: python3 scripts/checks/privacy_flow.py
+        run: '$BOTAI_VPY scripts/checks/privacy_flow.py'
 
       - name: "MCP: узкая поверхность и честный вердикт хоста"
         # Проверяем отсутствие обходных инструментов (bash, edit, approve) и то,
         # что лазейка в конфиге хоста даёт HOST_UNVERIFIED с названной причиной,
         # а не managed.
-        run: python3 scripts/checks/mcp_surface.py
+        run: '$BOTAI_VPY scripts/checks/mcp_surface.py'
 
       - name: "Вклад: только чтение Git и черновик для ученика"
         # Проверяем, что публикация остаётся за учеником: команды commit/push/PR
         # не существуют, изменяющие формы git отклоняются, самоотчёт не
         # становится наблюдением, а изменившийся diff снимает прежние проверки.
-        run: python3 scripts/checks/contribution_flow.py
+        run: '$BOTAI_VPY scripts/checks/contribution_flow.py'
 
       - name: "Среда: подтверждение человеком и запрет повторного эффекта"
         # Сквозная проверка жизненного цикла через настоящий CLI: план, отказ
         # без подтверждения, подтверждение из терминала, выполнение, повтор
         # (не переустанавливает) и запись отказа. Ничего не выходит за пределы
         # рабочего пространства: единственный шаг — venv внутри .botai/.
-        run: python3 scripts/checks/environment_flow.py
+        run: '$BOTAI_VPY scripts/checks/environment_flow.py'
 
       - name: "Корпус: безопасность загрузки и проверка цитат"
         # Сквозная проверка без сети: собираем настоящий архив, устанавливаем
@@ -149,7 +155,7 @@ jobs:
         # привязан к своему курсу, исключённый корень недостижим, а цитата с
         # неверными координатами отклоняется. Сбой обновления не должен ломать
         # ранее установленный корпус.
-        run: python3 scripts/checks/corpus_flow.py
+        run: '$BOTAI_VPY scripts/checks/corpus_flow.py'
 
       - name: "Учебный цикл: сквозной сценарий"
         # Проверяем вертикальный сценарий целиком через настоящий CLI:
