@@ -59,6 +59,66 @@ jobs:
           "$VPY" tests/test_store.py
           "$VPY" tests/test_course.py
           "$VPY" tests/test_policy.py
+          "$VPY" tests/test_tutoring.py
+
+      - name: "Учебный цикл: сквозной сценарий"
+        # Проверяем вертикальный сценарий целиком через настоящий CLI:
+        # согласие, занятие, цель, попытка, проверка, освоение, проекция.
+        # Модульные тесты вызывают ядро напрямую и не заметили бы ошибку
+        # в связке команд.
+        #
+        # Имя шага закавычено: двоеточие внутри значения YAML читается как
+        # разделитель отображения, и без кавычек шаг не разбирался вовсе.
+        shell: bash
+        run: |
+          set -e
+          WS=/tmp/botai-cycle
+          rm -rf "$WS" && mkdir -p "$WS/courses"
+          cp -r examples/minimal-course "$WS/courses/minimal-diff"
+
+          cli() { python3 scripts/cli.py "$@" --root "$WS"; }
+
+          cli course-accept --course minimal-diff >/dev/null
+          cli consent-set --course minimal-diff --purpose learning_storage >/dev/null
+
+          OUT="$(cli session-start --course minimal-diff)"
+          echo "$OUT"
+          SID="$(echo "$OUT" | sed -n 's/.*session_id  *: *\([0-9a-f-]*\).*/\1/p')"
+          test -n "$SID" || { echo "session id не получен"; exit 1; }
+
+          cli session-goal --course minimal-diff --session "$SID" \
+            --objective explain-diff --assignment practice-diff --confirm >/dev/null
+
+          printf 'попытка ученика' > /tmp/attempt.txt
+          A1="$(cli session-attempt --course minimal-diff --session "$SID" \
+            --attempt-file /tmp/attempt.txt | sed -n 's/.*attempt_id  *: *\([0-9a-f-]*\).*/\1/p')"
+          test -n "$A1" || { echo "attempt id не получен"; exit 1; }
+
+          # Проверка без основания обязана быть отклонена.
+          if cli session-check --course minimal-diff --session "$SID" --attempt "$A1" \
+               --check-kind explain --verdict pass --criterion k1=pass; then
+            echo "проверка с зачтённым критерием без доказательства принята"; exit 1
+          fi
+
+          cli session-check --course minimal-diff --session "$SID" --attempt "$A1" \
+            --check-kind explain --verdict pass --criterion "k1=pass:$A1" >/dev/null
+
+          printf 'вторая попытка' > /tmp/attempt2.txt
+          A2="$(cli session-attempt --course minimal-diff --session "$SID" \
+            --attempt-file /tmp/attempt2.txt | sed -n 's/.*attempt_id  *: *\([0-9a-f-]*\).*/\1/p')"
+          cli session-check --course minimal-diff --session "$SID" --attempt "$A2" \
+            --check-kind transfer --verdict pass --criterion "k2=pass:$A2" \
+            | tee /tmp/check.txt
+          grep -q "demonstrated" /tmp/check.txt
+
+          cli progress --course minimal-diff --json > /tmp/progress.json
+          python3 - <<'PY'
+          import json
+          doc = json.load(open("/tmp/progress.json", encoding="utf-8"))
+          assert doc["course_id"] == "minimal-diff", doc["course_id"]
+          assert doc["counts"]["demonstrated"] == 1, doc["counts"]
+          print("проекция прогресса согласована")
+          PY
 
       - name: Принятый курс управляет помощью, а не рабочая копия
         # Сквозная проверка самого важного обещания: правка
@@ -216,3 +276,4 @@ jobs:
           "$VPY" -m pip install --quiet --require-hashes -r requirements-core.lock
           "$VPY" tests/test_course.py
           "$VPY" tests/test_policy.py
+          "$VPY" tests/test_tutoring.py

@@ -26,6 +26,12 @@ from pathlib import Path
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas" / "v2"
 SUPPORTED_MAJOR = 2
 
+# Check kinds, mirrored from common.schema.json so callers can validate a kind
+# without loading a schema. Kept in sync by `test_schemas.py`, which compares
+# this tuple against the schema's enum: two lists that can drift silently are
+# worse than one.
+SUPPORTED_CHECK_KINDS = ("explain", "predict", "apply", "transfer", "critique", "diagnostic")
+
 # Contract name -> schema file. Populated explicitly so a typo is a KeyError at
 # the call site, not a silently skipped validation.
 CONTRACTS = {
@@ -34,6 +40,7 @@ CONTRACTS = {
     "progress": "progress.schema.json",
     "binding": "binding.schema.json",
     "policy": "policy.schema.json",
+    "session": "session.schema.json",
     # Entities are stored individually, so they are validated individually:
     # a rule that only applied to the containing document would not run at the
     # moment of the write.
