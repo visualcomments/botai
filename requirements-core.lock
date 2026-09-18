@@ -30,14 +30,43 @@ jsonschema-specifications==2025.9.1 \
 referencing==0.37.0 \
     --hash=sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
 
-# Platform-specific wheel: this hash is for the CPython 3.12 manylinux x86_64
-# build. Installing on another platform requires appending that platform's
-# wheel hash here — the correct response is a second recorded hash, never a
-# loosened pin. `pip install --require-hashes` fails loudly when no recorded
-# artefact matches the platform, which is the intended outcome: an unverified
-# wheel must not silently take its place.
+# Platform-specific wheel. `rpds-py` ships a different artefact per platform and
+# Python version, so each supported combination needs its own hash here — the
+# correct response to a new platform is a second recorded hash, never a loosened
+# pin. `pip install --require-hashes` fails loudly when no recorded artefact
+# matches, which is the intended outcome: an unverified wheel must not silently
+# take its place.
+#
+# Hashes are from the PyPI JSON API for this exact version. The artefacts are:
+#   cp314 manylinux x86_64  rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+#   cp314 win_amd64         rpds_py-2026.6.3-cp314-cp314-win_amd64.whl
+#   cp314 macosx 11 arm64   rpds_py-2026.6.3-cp314-cp314-macosx_11_0_arm64.whl
+#   cp314 macosx 10.12 x64  rpds_py-2026.6.3-cp314-cp314-macosx_10_12_x86_64.whl
+#   cp313 manylinux x86_64  rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+#   cp313 win_amd64         rpds_py-2026.6.3-cp313-cp313-win_amd64.whl
+#   cp313 macosx 11 arm64   rpds_py-2026.6.3-cp313-cp313-macosx_11_0_arm64.whl
+#   cp313 macosx 10.12 x64  rpds_py-2026.6.3-cp313-cp313-macosx_10_12_x86_64.whl
+#   cp312 manylinux x86_64  rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+#   cp312 win_amd64         rpds_py-2026.6.3-cp312-cp312-win_amd64.whl
+#   cp312 macosx 11 arm64   rpds_py-2026.6.3-cp312-cp312-macosx_11_0_arm64.whl
+#   cp312 macosx 10.12 x64  rpds_py-2026.6.3-cp312-cp312-macosx_10_12_x86_64.whl
+#
+# The labels stay in comments ABOVE the requirement: a `#` inside a
+# line-continuation block ends the requirement, and pip then warns that each
+# `--hash` line has no requirement and ignores it.
 rpds-py==2026.6.3 \
-    --hash=sha256:ecabd69db66de867690f9797f2f8fa27ba501bbc24540cbdbdc649cd15888ba6
+    --hash=sha256:dc319e5a1de4b6913aac94bf6a2f9e847371e0a140a43dd4991db1a09bc2d504 \
+    --hash=sha256:0be972be84cfcaf46c8c6edf690ca0f154ac17babf1f6a955a51579b34ad2dc5 \
+    --hash=sha256:d7469697dce35be237db177d42e2a2ee26e6dcc5fc052078a6fefabd288c6edd \
+    --hash=sha256:931908d9fc855d8f74783377822be318edb6dcb19e47169dc038f9a1bf60b06e \
+    --hash=sha256:acac386b453c2516111b50985d60ce46e7fadb5ea71ae7b25f4c946935bf27cf \
+    --hash=sha256:9250a9a0a6fd4648b3f868da8d91a4c52b5811a62df58e753d50ae4454a36f80 \
+    --hash=sha256:f4d78253f6996be4901669ad25319f842f740eccf4d58e3c7f3dd39e6dde1d8f \
+    --hash=sha256:3cfe765c1da0072636ca06628261e0ea05688e160d5c8a03e0217c3854037223 \
+    --hash=sha256:ecabd69db66de867690f9797f2f8fa27ba501bbc24540cbdbdc649cd15888ba6 \
+    --hash=sha256:2c958bf94822e9290a40aaf2a822d4bc5c88099093e3948ad6c571eca9272e5f \
+    --hash=sha256:538949e262e46caa31ac01bdb3c1e8f642622922cacbabbae6a8445d9dc33eaf \
+    --hash=sha256:a0811d33247c3d6128a3001d763f2aa056bb3425204335400ac54f89eec3a0d0
 
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
