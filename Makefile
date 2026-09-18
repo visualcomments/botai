@@ -69,8 +69,10 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 .PHONY: help doctor install test \
         setup new-course \
         progress review courses course-set active \
-        corpus state-migrate \
+        corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
         course-inspect course-accept course-status policy-check \
+        session-start session-next session-goal session-attempt session-check session-pause \
+        consent-set consent-withdraw \
         update update-check update-dry-run \
         course-add course-update course-update-check course-update-commit detect-courses \
         education-club \
@@ -97,6 +99,10 @@ help:
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
 	@echo "  make review COURSE=slug    Open the review workflow for a student's submission"
 	@echo "  make corpus COURSE=slug    Acquire the course corpus (index + texts, verified)"
+	@echo "  make corpus-status COURSE=slug   Report corpus readiness for the accepted course"
+	@echo "  make corpus-acquire COURSE=slug  Download+verify per manifest (DRY=1 preview, OFFLINE=1 local only)"
+	@echo "  make source-search COURSE=slug QUERY=...  Scoped search over accepted materials"
+	@echo "  make quote-verify COURSE=slug CITATION=file.json  Verify a citation"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -214,6 +220,27 @@ course-accept:
 course-status:
 	@python3 scripts/cli.py course-status $(if $(COURSE),--course "$(COURSE)",)
 
+# ============================================================================
+# Корпус и источники.
+# ----------------------------------------------------------------------------
+# `corpus-status` сообщает состояние готовности и не чинит ничего сам.
+# `corpus-acquire` скачивает по декларативному манифесту, распаковывает с
+# лимитами и проверяет КАЖДЫЙ файл; неудачное обновление не трогает ранее
+# установленный корпус. `source-search` и `quote-verify` работают в границах
+# принятого курса: исключённые материалы не попадают даже в набор кандидатов.
+# ============================================================================
+corpus-status:
+	@python3 scripts/cli.py corpus-status --course "$(COURSE)"
+
+corpus-acquire:
+	@python3 scripts/cli.py corpus-acquire --course "$(COURSE)" $(if $(DRY),--dry-run,) $(if $(OFFLINE),--offline,)
+
+source-search:
+	@python3 scripts/cli.py source-search --course "$(COURSE)" --query "$(QUERY)"
+
+quote-verify:
+	@python3 scripts/cli.py quote-verify --course "$(COURSE)" --citation "$(CITATION)"
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -288,6 +315,8 @@ test:
 	@python3 tests/test_store.py
 	@python3 tests/test_course.py
 	@python3 tests/test_policy.py
+	@python3 tests/test_tutoring.py
+	@python3 tests/test_corpus.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

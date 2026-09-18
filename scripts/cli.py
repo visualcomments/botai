@@ -1220,6 +1220,235 @@ def cmd_consent_withdraw(root, course, learner, consent_id, dry):
         return 1
 
 
+def cmd_corpus_status(root, course, as_json):
+    """Report the corpus readiness for one accepted course."""
+    try:
+        from botai_core import corpus as core_corpus, course as core_course
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("нужен --course <slug>")
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
+
+    manifest_path = accepted.contract.get("corpus_manifest_path")
+    if not manifest_path:
+        result = {"status": "not_required", "course_id": accepted.course_id,
+                  "reason": "принятый контракт не объявляет корпус"}
+    else:
+        try:
+            base = (Path(root) / accepted.binding["repository_root"]).resolve()
+            manifest, kind = core_corpus.load_manifest(base / manifest_path)
+        except core_corpus.CorpusError as e:
+            result = {"status": "failed", "course_id": accepted.course_id,
+                      "reason": e.message, "code": e.code}
+        else:
+            result = core_corpus.status(root, accepted.course_id, manifest)
+            result["manifest_kind"] = kind
+            result["manifest_path"] = manifest_path
+
+    if as_json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["status"] in ("ready", "not_required") else 3
+
+    print("== корпус курса: %s ==" % accepted.course_id)
+    print("  состояние   : %s" % result["status"])
+    if result.get("reason"):
+        print("  причина     : %s" % result["reason"])
+    if result.get("manifest_kind") == "legacy_adapted":
+        print("  манифест    : преобразован из v1 — уровень проверки ниже, чем у v2")
+    if result.get("directory"):
+        print("  каталог     : %s" % result["directory"])
+    if result.get("checked"):
+        print("  проверено   : %d файлов" % result["checked"])
+    for label, key in (("отсутствуют", "missing"), ("не совпали", "mismatched"),
+                       ("без хешей", "unverified_files")):
+        if result.get(key):
+            print("  %-12s: %s" % (label, result[key][:3]))
+    if result["status"] == "ready":
+        print()
+        print("  Готово: цитаты можно проверять по этому корпусу.")
+    elif result["status"] == "not_required":
+        print()
+        print("  Корпус не предусмотрен контрактом. Это не «не проверено»,")
+        print("  а «проверять нечего».")
+    else:
+        print()
+        print("  Обучение с цитированием по этому корпусу невозможно, пока он")
+        print("  не подтверждён. Догадки вместо источника не подставляются.")
+    return 0 if result["status"] in ("ready", "not_required") else 3
+
+
+def cmd_corpus_acquire(root, course, dry, offline):
+    """Download and verify the course corpus from its declared manifest."""
+    try:
+        from botai_core import corpus as core_corpus, course as core_course
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("нужен --course <slug>")
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
+
+    manifest_path = accepted.contract.get("corpus_manifest_path")
+    if not manifest_path:
+        print("принятый контракт не объявляет корпус — скачивать нечего")
+        return 0
+
+    base = (Path(root) / accepted.binding["repository_root"]).resolve()
+    try:
+        manifest, kind = core_corpus.load_manifest(base / manifest_path)
+    except core_corpus.CorpusError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    report = core_corpus.acquire(root, accepted.course_id, manifest,
+                                 dry_run=dry, offline=offline)
+
+    print("== корпус: %s ==" % accepted.course_id)
+    print("  манифест    : %s%s" % (manifest_path,
+                                    " (преобразован из v1)" if kind == "legacy_adapted" else ""))
+    print("  состояние   : %s" % report["status"])
+    for item in report["downloaded"]:
+        if "would_verify" in item:
+            print("  будет скачано: %s" % item["url"])
+        else:
+            print("  скачано     : %s (%d байт)" % (item["url"], item["byte_size"]))
+    for item in report["unpacked"]:
+        print("  распаковано : %s, файлов %d" % (item["artifact_id"], item["files"]))
+    for warning in report["warnings"]:
+        print("  ВНИМАНИЕ: %s" % warning)
+    if report.get("error"):
+        print("  ошибка      : [%s] %s" % (report["error"]["code"],
+                                           report["error"]["message"]))
+
+    if report["status"] == "ready":
+        print()
+        print("  Корпус установлен и подтверждён по манифесту.")
+        return 0
+    if dry:
+        return 0
+    return 1
+
+
+def cmd_source_search(root, course, query, limit, as_json):
+    """Scoped search over the accepted course materials."""
+    try:
+        from botai_core import course as core_course, retrieval
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not (course and query):
+        print("usage: cli.py source-search --course <slug> --query <текст> [--limit N]")
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
+
+    try:
+        result = retrieval.search(accepted, query, limit=limit,
+                                  material_snapshot=accepted.binding.get("material_snapshot"))
+    except retrieval.RetrievalError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    if as_json:
+        payload = {k: v for k, v in result.items()}
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    print("== поиск по материалам курса ==")
+    print("  область     : %s (файлов %d, %s)"
+          % (result["scope"]["course_id"], result["scope"]["files_searched"],
+             "снимок принятой ревизии" if result["scope"]["using_snapshot"]
+             else "рабочая копия — не принятый снимок"))
+    print("  исключено   : %s" % (", ".join(result["scope"]["exclude_roots"]) or "—"))
+    print("  способ      : %s" % result["retrieval_method"])
+    if not result["hits"]:
+        print()
+        print("  Ничего не найдено. Это честный not_found, а не «источника нет»:")
+        print("  возможно, запрос сформулирован другими словами.")
+        return 0
+    print()
+    for index, hit in enumerate(result["hits"], 1):
+        locator = hit["locator"]
+        if "lines" in locator:
+            where = "строки %d–%d" % (locator["lines"]["start"], locator["lines"]["end"])
+        elif "chunk" in locator:
+            where = "фрагмент %d" % locator["chunk"]["chunk_id"]
+        else:
+            where = str(locator)
+        print("  %d. %s — %s" % (index, hit["relative_path"], where))
+        print("     %s" % hit["text"][:160])
+    return 0
+
+
+def cmd_quote_verify(root, course, citation_path, as_json):
+    """Verify one citation against the accepted materials."""
+    try:
+        from botai_core import course as core_course, retrieval
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not (course and citation_path):
+        print("usage: cli.py quote-verify --course <slug> --citation <файл.json>")
+        return 2
+    path = Path(citation_path)
+    if not path.is_file():
+        print("файл цитаты не найден: %s" % path)
+        return 2
+    try:
+        citation = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as e:
+        print("не удалось прочитать цитату: %s" % e)
+        return 2
+
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
+
+    try:
+        report = retrieval.verify_quote(
+            accepted, citation,
+            material_snapshot=accepted.binding.get("material_snapshot"))
+    except retrieval.RetrievalError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    allowed, warnings = retrieval.validate_citation(report)
+    if as_json:
+        report["allowed"] = allowed
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if allowed else 3
+
+    print("== проверка цитаты ==")
+    print("  статус текста : %s" % report["quote_status"])
+    print("  координаты    : %s" % report["coordinate_check"])
+    print("  смысл         : %s (строка не доказывает утверждение)"
+          % report["support_status"])
+    print("  %s" % report["quote_status_reason"])
+    if warnings:
+        for warning in warnings:
+            print("  ВНИМАНИЕ: %s" % warning)
+    print()
+    print("  Цитату можно показывать: %s" % ("да" if allowed else "НЕТ"))
+    return 0 if allowed else 3
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -1268,6 +1497,8 @@ def main():
                                         "session-start", "session-next", "session-goal",
                                         "session-attempt", "session-check", "session-pause",
                                         "consent-set", "consent-withdraw",
+                                        "corpus-status", "corpus-acquire",
+                                        "source-search", "quote-verify",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -1347,8 +1578,13 @@ def main():
     ap.add_argument("--retention", type=int, default=180,
                     help="consent-set: how many days learning data is kept")
     ap.add_argument("--consent", help="consent-withdraw: consent id to withdraw")
+    ap.add_argument("--query", help="source-search: what to look for")
+    ap.add_argument("--limit", type=int, default=5, help="source-search: max hits (1-8)")
+    ap.add_argument("--citation", help="quote-verify: JSON file with the citation")
+    ap.add_argument("--offline", action="store_true",
+                    help="corpus-acquire: use only what is already local")
     ap.add_argument("--json", action="store_true",
-                    help="progress: emit one JSON object instead of Markdown")
+                    help="progress/corpus-status/source-search/quote-verify: emit JSON")
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -1465,6 +1701,14 @@ def main():
     elif cmd == "consent-withdraw":
         sys.exit(cmd_consent_withdraw(root, args.course, args.learner, args.consent,
                                       args.dry_run))
+    elif cmd == "corpus-status":
+        sys.exit(cmd_corpus_status(root, args.course, args.json))
+    elif cmd == "corpus-acquire":
+        sys.exit(cmd_corpus_acquire(root, args.course, args.dry_run, args.offline))
+    elif cmd == "source-search":
+        sys.exit(cmd_source_search(root, args.course, args.query, args.limit, args.json))
+    elif cmd == "quote-verify":
+        sys.exit(cmd_quote_verify(root, args.course, args.citation, args.json))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

@@ -18,7 +18,9 @@ true of the tools rather than of the prompt:
 * `policy`  — allow/deny/needs_confirmation for help, effects and reading;
 * `tutoring`— the teaching cycle: state machine, mastery, review, response checks;
 * `session` — the cycle bound to the store, one command per transition;
-* `progress`— the Markdown view, rendered from the store and never authoritative.
+* `progress`— the Markdown view, rendered from the store and never authoritative;
+* `corpus`  — declarative acquisition: URL guard, safe unpack, per-file verify;
+* `retrieval`— scoped search and quote verification.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -26,6 +28,6 @@ Nothing here calls a language model, opens the network, or executes course code.
 from __future__ import annotations
 
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
-           "tutoring", "session", "progress"]
+           "tutoring", "session", "progress", "corpus", "retrieval"]
 
 SCHEMA_VERSION = 2

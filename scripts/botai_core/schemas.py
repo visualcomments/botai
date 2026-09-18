@@ -41,6 +41,7 @@ CONTRACTS = {
     "binding": "binding.schema.json",
     "policy": "policy.schema.json",
     "session": "session.schema.json",
+    "corpus": "corpus.schema.json",
     # Entities are stored individually, so they are validated individually:
     # a rule that only applied to the containing document would not run at the
     # moment of the write.
