@@ -2606,6 +2606,101 @@ def cmd_catalog_check(catalog_path, as_json):
     return 0 if report["ok"] else 3
 
 
+def cmd_skills_audit(root, as_json):
+    """Audit the installed skills for fields the import path would strip.
+
+    A skill is loaded into a model's context, so a field that changes *when* it
+    loads — `always`, `priority`, `inject` — grants it standing the policy never
+    gave it. The shipped skills pass untouched; a non-empty result means
+    something entered the tree by another route.
+    """
+    try:
+        from botai_core import skills as core_skills
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+
+    skills_root = root / ".agents" / "skills"
+    if not skills_root.is_dir():
+        print("каталог навыков не найден: %s" % skills_root)
+        return 2
+
+    findings = core_skills.check_skill_tree(skills_root)
+    total = len(list(skills_root.rglob("SKILL.md")))
+
+    if as_json:
+        print(json.dumps({"skills": total, "findings": findings},
+                         ensure_ascii=False, indent=2))
+        return 0 if not findings else 3
+
+    print("== проверка навыков ==")
+    print("  каталог : %s" % skills_root)
+    print("  навыков : %d" % total)
+    print("  замечаний: %d" % len(findings))
+    print()
+    if not findings:
+        print("  Все навыки в формате botai: полей, повышающих навык в правах, нет.")
+        print("  Проверяется фронтматтер, а не содержание: текст навыка этим не")
+        print("  оценивается — для этого есть процедура вычитки внешних материалов.")
+        return 0
+    for finding in findings:
+        print("  [%s] %s" % (finding["code"], finding["path"]))
+        print("        %s" % finding.get("message_ru", ""))
+    return 3
+
+
+def cmd_skill_check(path, as_json):
+    """Normalise one SKILL.md and report what would be removed."""
+    try:
+        from botai_core import skills as core_skills
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not path:
+        print("usage: cli.py skill-check --packet <путь к SKILL.md>")
+        return 2
+
+    target = Path(path)
+    if not target.is_file():
+        print("файл не найден: %s" % target)
+        return 2
+    try:
+        text = target.read_text(encoding="utf-8-sig")
+    except OSError as e:
+        print("не удалось прочитать: %s" % e)
+        return 2
+
+    try:
+        report = core_skills.normalise_skill(text, source=str(target))
+    except core_skills.SkillRejected as e:
+        if as_json:
+            print(json.dumps({"ok": False, "code": e.code,
+                              "message_ru": e.message}, ensure_ascii=False,
+                             indent=2))
+        else:
+            print("  отказ (%s): %s" % (e.code, e.message))
+        return 3
+
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+
+    print("== навык проверен ==")
+    print("  имя      : %s" % report["name"])
+    print("  sha256   : %s" % report["sha256"][:32])
+    print("  проверен : %s" % (report["verified"] or "(дата не указана)"))
+    if report["removed_fields"]:
+        print()
+        print("  Будет снято:")
+        for item in report["removed_fields"]:
+            reason = ("повышает навык в правах" if item["reason"] == "self_promoting"
+                      else "поле не из формата botai")
+            print("    %-18s %s" % (item["field"], reason))
+    print()
+    print("  %s" % report["note_ru"])
+    return 0
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -2666,6 +2761,7 @@ def main():
                                         "teacher-import", "teacher-summary",
                                         "adapter-check", "adapter-install",
                                         "catalog-check",
+                                        "skills-audit", "skill-check",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -2973,6 +3069,10 @@ def main():
         sys.exit(cmd_adapter_install(root, args.host, args.dry_run))
     elif cmd == "catalog-check":
         sys.exit(cmd_catalog_check(args.catalog, args.json))
+    elif cmd == "skills-audit":
+        sys.exit(cmd_skills_audit(root, args.json))
+    elif cmd == "skill-check":
+        sys.exit(cmd_skill_check(args.packet, args.json))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

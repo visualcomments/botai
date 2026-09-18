@@ -474,6 +474,7 @@ test:
 	@python3 tests/test_paths.py
 	@python3 tests/test_schemas.py
 	@python3 tests/test_claims.py
+	@python3 tests/test_skills.py
 	@python3 tests/test_store.py
 	@python3 tests/test_course.py
 	@python3 tests/test_policy.py
