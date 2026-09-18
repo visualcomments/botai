@@ -70,6 +70,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         setup new-course \
         progress review courses course-set active \
         corpus state-migrate \
+        course-inspect course-accept course-status policy-check \
         update update-check update-dry-run \
         course-add course-update course-update-check course-update-commit detect-courses \
         education-club \
@@ -98,6 +99,13 @@ help:
 	@echo "  make corpus COURSE=slug    Acquire the course corpus (index + texts, verified)"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
+	@echo ""
+	@echo "Course rules (what the agent is allowed to help with):"
+	@echo "  make course-inspect COURSE=slug  Show what the course declares: assignments, grading, rights (write nothing)"
+	@echo "  make course-accept COURSE=slug   Accept that contract as policy (a HUMAN decision; snapshots it under .botai/)"
+	@echo "  make course-status COURSE=slug   Show the accepted rules and any drift in the working copy"
+	@echo "  make policy-check COURSE=slug ASSIGNMENT=id [LEVEL=SOLUTION] [PREFERENCE=hints]"
+	@echo "                                   Explain whether that help is permitted, and on which rule"
 	@echo ""
 	@echo "Keeping things current:"
 	@echo "  make update                Update this botai harness itself (harness only; never courses/ or progress/)"
@@ -187,6 +195,29 @@ state-migrate:
 	@python3 scripts/cli.py state-migrate --course "$(COURSE)" $(if $(APPLY),--apply,) $(if $(LEARNER),--learner "$(LEARNER)",) $(if $(SPLIT),--confirm-split "$(SPLIT)",)
 
 # ============================================================================
+# Course rules: what the agent is allowed to help with.
+# ----------------------------------------------------------------------------
+# The course contract (`botai/course.json` in a course) declares which
+# assignments are graded and which are practice. Until a human accepts it, every
+# assignment counts as unknown, which behaves like graded: no ready solutions.
+#
+# `course-inspect` only reads. `course-accept` is a human decision and snapshots
+# the contract, so editing the file afterwards does not change the policy --
+# otherwise whoever commits last could reclassify graded work as practice.
+# ============================================================================
+course-inspect:
+	@python3 scripts/cli.py course-inspect --course "$(COURSE)"
+
+course-accept:
+	@python3 scripts/cli.py course-accept --course "$(COURSE)" $(if $(KIND),--kind "$(KIND)",) $(if $(URL),--url "$(URL)",)
+
+course-status:
+	@python3 scripts/cli.py course-status $(if $(COURSE),--course "$(COURSE)",)
+
+policy-check:
+	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
+
+# ============================================================================
 # Keeping the harness and the courses current
 # ----------------------------------------------------------------------------
 # `update` refreshes the harness itself (policy, skills, agents, scripts, docs)
@@ -247,12 +278,16 @@ education-club:
 # существуют: обновление не трогает студенческие каталоги, локальная правка
 # сохраняется, архив с выходом за каталог отвергается, грязный курс не
 # обновляется, имя курса не может стать путём, предпросмотр ничего не пишет,
-# контракты валидируются локально, миграция не выдумывает факты.
+# контракты валидируются локально, миграция не выдумывает факты, принятый
+# контракт курса не меняется от правки рабочей копии и оцениваемое задание не
+# получает готовый разбор.
 test:
 	@python3 tests/test_update.py
 	@python3 tests/test_paths.py
 	@python3 tests/test_schemas.py
 	@python3 tests/test_store.py
+	@python3 tests/test_course.py
+	@python3 tests/test_policy.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

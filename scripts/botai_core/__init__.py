@@ -13,13 +13,15 @@ true of the tools rather than of the prompt:
 * `paths`   — resolve and contain every path the tools touch;
 * `schemas` — validate every contract against a local JSON Schema;
 * `store`   — the SQLite record with transactions, evidence and idempotency;
-* `legacy`  — import a v1 Markdown progress file without inventing facts.
+* `legacy`  — import a v1 Markdown progress file without inventing facts;
+* `course`  — the accepted contract: binding, objective graph, assessment lookup;
+* `policy`  — allow/deny/needs_confirmation for help, effects and reading.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
 
 from __future__ import annotations
 
-__all__ = ["paths", "schemas", "store", "legacy"]
+__all__ = ["paths", "schemas", "store", "legacy", "course", "policy"]
 
 SCHEMA_VERSION = 2

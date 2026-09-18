@@ -57,6 +57,55 @@ jobs:
           "$VPY" -c "import jsonschema; print('jsonschema ok')"
           "$VPY" tests/test_schemas.py
           "$VPY" tests/test_store.py
+          "$VPY" tests/test_course.py
+          "$VPY" tests/test_policy.py
+
+      - name: Принятый курс управляет помощью, а не рабочая копия
+        # Сквозная проверка самого важного обещания: правка
+        # botai/course.json в рабочей копии не меняет политику, а оцениваемое
+        # задание не получает готовый разбор. Здесь проверяется связка
+        # CLI + ядро на настоящем каталоге, а не только модуль по отдельности.
+        shell: bash
+        run: |
+          set -e
+          rm -rf /tmp/botai-policy && mkdir -p /tmp/botai-policy/courses
+          cp -r examples/minimal-course /tmp/botai-policy/courses/minimal-diff
+
+          python3 scripts/cli.py course-inspect --course minimal-diff \
+            --root /tmp/botai-policy | tee /tmp/inspect.txt
+          grep -q "готовность  : inspectable" /tmp/inspect.txt
+
+          python3 scripts/cli.py course-accept --course minimal-diff \
+            --root /tmp/botai-policy | tee /tmp/accept.txt
+          grep -q "контракт" /tmp/accept.txt
+
+          # Тренировочное задание: полный разбор допустим по просьбе ученика.
+          python3 scripts/cli.py policy-check --course minimal-diff \
+            --assignment practice-diff --level SOLUTION --preference prefer-ask \
+            --root /tmp/botai-policy | tee /tmp/practice.txt
+          grep -q "решение     : allow" /tmp/practice.txt
+
+          # Необъявленное задание: строгий режим, готовый разбор запрещён.
+          if python3 scripts/cli.py policy-check --course minimal-diff \
+               --assignment never-declared --level SOLUTION --preference solution-first \
+               --root /tmp/botai-policy | tee /tmp/unknown.txt; then
+            echo "необъявленное задание получило разрешение"; exit 1
+          fi
+          grep -q "SOLUTION_NOT_ALLOWED_FOR_ASSESSMENT" /tmp/unknown.txt
+
+          # Рабочая копия переклассифицирует задание: принятая политика в силе.
+          python3 - <<'PY'
+          import json, pathlib
+          p = pathlib.Path("/tmp/botai-policy/courses/minimal-diff/botai/course.json")
+          doc = json.loads(p.read_text(encoding="utf-8"))
+          doc["assignments"][0]["assessment"] = "graded"
+          p.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+          PY
+          python3 scripts/cli.py course-status --course minimal-diff \
+            --root /tmp/botai-policy | tee /tmp/status.txt
+          grep -q "контракт изменён : да" /tmp/status.txt
+          grep -q "принято 'practice' -> в копии 'graded'" /tmp/status.txt
+          echo "принятая политика не следует за рабочей копией: ok"
 
       - name: Установка в отдельный проект, git и самообновление
         # Сквозная проверка: установщик → git-гигиена → обновление → предпросмотр.
@@ -150,3 +199,20 @@ jobs:
 
       - name: Тесты обновления
         run: python3 tests/test_update.py
+
+      - name: Тесты принятого курса и политики
+        # Принятие курса пишет снимки в `.botai/` и сравнивает пути, поэтому
+        # проверяется и на Windows: короткие имена, регистр и junction ведут
+        # себя иначе, чем на Linux.
+        shell: bash
+        run: |
+          set -e
+          python3 -m venv .win-venv
+          if [ -x .win-venv/bin/python ]; then
+            VPY="$PWD/.win-venv/bin/python"
+          else
+            VPY="$PWD/.win-venv/Scripts/python.exe"
+          fi
+          "$VPY" -m pip install --quiet --require-hashes -r requirements-core.lock
+          "$VPY" tests/test_course.py
+          "$VPY" tests/test_policy.py

@@ -430,6 +430,323 @@ def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False)
     return 0
 
 
+def _load_core():
+    """Import the v2 core, or explain what is missing and return None."""
+    try:
+        from botai_core import course as core_course, policy as core_policy
+        return core_course, core_policy
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        print("установите зависимости: python3 -m pip install --require-hashes "
+              "-r requirements-core.lock")
+        return None
+
+
+def cmd_course_inspect(root, course, dry):
+    """Describe a course without accepting anything and without running it.
+
+    Read-only by construction: it reads `botai/course.json` and the track, and
+    never executes a script from the course. The point is that a human sees what
+    a course declares — its graded rules, its rights, its gaps — before that
+    declaration governs any help.
+    """
+    loaded = _load_core()
+    if loaded is None:
+        return 2
+    core_course, _core_policy = loaded
+
+    if not course:
+        print("usage: cli.py course-inspect --course <slug>")
+        return 2
+    try:
+        course_dir = P.course_path(root, course, must_exist=True)
+    except P.PathError as e:
+        print("путь курса отклонён (%s): %s" % (e.code, e.message))
+        return 2
+
+    try:
+        report = core_course.inspect(course_dir)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    print("== осмотр курса: %s ==" % course)
+    print("  каталог     : %s" % report["course_dir"])
+    print("  контракт    : %s" % ("есть" if report["has_contract"]
+                                  else "НЕТ (%s)" % report["contract_path"]))
+    if report["has_contract"]:
+        print("  course_id   : %s" % report["course_id"])
+        print("  название    : %s" % report["title"])
+        licenses = report["licenses"]
+        print("  права       : %s" % ("не объявлены — публичное распространение "
+                                      "заблокировано до уточнения"
+                                      if licenses is None else licenses))
+        print("  вклад       : %s" % ("разрешён" if report["contribution_enabled"]
+                                      else "не предусмотрен контрактом"))
+        print("  оцениваемость заданий: %s"
+              % (", ".join(report.get("assessment_kinds") or []) or "(заданий нет)"))
+        if report["unknown_assessment_count"]:
+            print("    из них с неизвестной оцениваемостью: %d "
+                  "(действует строгий режим)" % report["unknown_assessment_count"])
+        print("  задания:")
+        for assignment in report["assignments"]:
+            mark = "" if assignment["present"] else "  [ФАЙЛ ОТСУТСТВУЕТ]"
+            print("    %-24s %-9s %s%s" % (assignment["assignment_id"],
+                                           assignment["assessment"],
+                                           assignment["path"], mark))
+        print("  цели        : %d в %d модулях"
+              % (len(report["objectives"]), len(report["modules"])))
+    print("  готовность  : %s" % report["readiness"])
+
+    if report["problems"]:
+        print()
+        print("  замечания:")
+        for problem in report["problems"]:
+            print("    [%s] %s" % (problem["code"], problem["message_ru"]))
+
+    print()
+    if not report["has_contract"]:
+        print("  Курс не объявляет условий: оцениваемость всех заданий считается")
+        print("  неизвестной, и готовые разборы не выдаются. Создайте")
+        print("  botai/course.json по схеме schemas/v2/course.schema.json.")
+        return 3
+
+    if report["readiness"] != "inspectable":
+        print("  Курс не будет принят, пока замечания выше не устранены.")
+        return 2
+
+    print("  Ничего не принято и не изменено. Проверьте условия и выполните:")
+    print("    python scripts/cli.py course-accept --course %s" % course)
+    return 0
+
+
+def cmd_course_accept(root, course, dry, kind=None, url=None, teaching_remote=None,
+                      teaching_branch=None, contribution_remote=None):
+    """Accept the course contract as the policy that governs this course.
+
+    This is a human operation on purpose. There is no equivalent tool in the
+    tutoring MCP surface: an agent that could accept a contract could accept a
+    contract that reclassifies a graded assignment as practice. The accepted
+    revision is snapshotted under `.botai/accepted/`, so editing
+    `botai/course.json` in a student branch afterwards changes nothing until a
+    human accepts the new revision.
+    """
+    loaded = _load_core()
+    if loaded is None:
+        return 2
+    core_course, _core_policy = loaded
+
+    if not course:
+        print("usage: cli.py course-accept --course <slug>")
+        return 2
+    try:
+        course_dir = P.course_path(root, course, must_exist=True)
+    except P.PathError as e:
+        print("путь курса отклонён (%s): %s" % (e.code, e.message))
+        return 2
+
+    try:
+        report = core_course.inspect(course_dir)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    if not report["has_contract"]:
+        print("  курс %s не объявляет условий (%s отсутствует)" % (course, report["contract_path"]))
+        print("  принять нечего: не выдумывайте оцениваемость — создайте контракт")
+        return 3
+
+    try:
+        relative = course_dir.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:  # pragma: no cover - course_path already contains it
+        relative = "courses/%s" % course
+
+    if dry:
+        print("== принятие курса (предпросмотр): %s ==" % course)
+        print("  course_id   : %s" % report["course_id"])
+        print("  будет принято: оцениваемость заданий %s"
+              % (", ".join(report.get("assessment_kinds") or []) or "(заданий нет)"))
+        if report["problems"]:
+            print("  замечания, из-за которых принятие будет отклонено: %d"
+                  % len(report["problems"]))
+            for problem in report["problems"][:6]:
+                print("    [%s] %s" % (problem["code"], problem["message_ru"]))
+        print("  ничего не записано (--dry-run)")
+        return 0
+
+    try:
+        binding = core_course.accept(
+            root, course_dir, slug=course, source_url=url,
+            teaching_remote=teaching_remote, teaching_branch=teaching_branch,
+            contribution_remote=contribution_remote, acceptance_kind=kind,
+            repository_root=relative,
+        )
+    except core_course.CourseError as e:
+        print("  курс НЕ принят (%s): %s" % (e.code, e.message))
+        print("  ничего не изменено")
+        return 2
+
+    print("== курс принят: %s ==" % binding["course_id"])
+    print("  ревизия     : %s %s" % (binding["accepted_revision"]["kind"],
+                                     binding["accepted_revision"]["id"][:16]))
+    print("  контракт    : %s" % binding["accepted_contract_hash"][:16])
+    print("  программа   : %s" % binding["accepted_track_hash"][:16])
+    print("  снимок      : %s" % binding["material_snapshot"])
+    print("  оцениваемость: %s" % ", ".join(binding["assessment_kinds"]))
+    print()
+    print("  Правила зафиксированы. Правка botai/course.json в рабочей копии")
+    print("  больше не меняет их: новая ревизия принимается отдельной командой.")
+    return 0
+
+
+def cmd_course_status(root, course, dry):
+    """What was accepted, and what changed in the course since then."""
+    loaded = _load_core()
+    if loaded is None:
+        return 2
+    core_course, _core_policy = loaded
+
+    bindings = core_course.list_bindings(root)
+    if not course and not bindings:
+        print("ни один курс не принят")
+        print("посмотрите условия и примите: python scripts/cli.py course-inspect "
+              "--course <slug>")
+        return 0
+
+    if not course:
+        print("== принятые курсы ==")
+        for binding in bindings:
+            print("  %-24s %-9s контракт %s"
+                  % (binding["course_id"], binding["slug"],
+                     binding["accepted_contract_hash"][:16]))
+            print("    оцениваемость: %s"
+                  % (", ".join(binding.get("assessment_kinds") or []) or "(заданий нет)"))
+        return 0
+
+    try:
+        binding = core_course.load_binding(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+    if binding is None:
+        print("курс %s не принят" % course)
+        print("посмотрите условия: python scripts/cli.py course-inspect --course %s" % course)
+        return 3
+
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    print("== принятый курс: %s ==" % course)
+    print("  название    : %s" % accepted.contract["title"])
+    print("  ревизия     : %s %s" % (accepted.revision["kind"], accepted.revision["id"]))
+    print("  принят      : %s (%s)" % (binding["accepted_at"], binding["acceptance_kind"]))
+    print("  контракт    : %s" % binding["accepted_contract_hash"])
+    print("  программа   : %s" % binding["accepted_track_hash"])
+    print("  материал    : %s" % binding["material_snapshot"])
+    print("  оцениваемость заданий: %s"
+          % (", ".join(binding.get("assessment_kinds") or []) or "(заданий нет)"))
+
+    try:
+        course_dir = P.course_path(root, course, must_exist=True)
+    except P.PathError as e:
+        print("  рабочая копия недоступна (%s): %s" % (e.code, e.message))
+        return 0
+
+    diff = core_course.diff_against_disk(root, course_dir)
+    print()
+    print("== расхождение с рабочей копией ==")
+    if diff["problems"]:
+        for problem in diff["problems"]:
+            print("  [%s] %s" % (problem["code"], problem["message_ru"]))
+    print("  контракт изменён : %s" % ("да" if diff["contract_changed"] else "нет"))
+    print("  программа изменена: %s" % ("да" if diff["track_changed"] else "нет"))
+
+    if diff["assessment_changed"]:
+        print()
+        print("  ВНИМАНИЕ: изменилась оцениваемость. Принятая политика в силе,")
+        print("  рабочая копия её не меняет — новая ревизия принимается отдельно:")
+        for change in diff["assessment_changed"]:
+            print("    %s.%s: принято %r -> в копии %r"
+                  % (change["assignment_id"], change["field"],
+                     change["accepted"], change["on_disk"]))
+    if diff["new_assignments"]:
+        print()
+        print("  Новые задания в рабочей копии (в принятом контракте их нет,")
+        print("  поэтому их оцениваемость считается неизвестной):")
+        for entry in diff["new_assignments"]:
+            print("    %s (%s)" % (entry["assignment_id"], entry["assessment"]))
+    if diff["missing_from_contract"]:
+        print()
+        print("  Задания принятого контракта исчезли из рабочей копии: %s"
+              % ", ".join(diff["missing_from_contract"]))
+    if diff["on_disk_revision"] and diff["accepted_revision"]:
+        same = (diff["on_disk_revision"]["id"] == diff["accepted_revision"]["id"])
+        print("  ревизия на диске : %s %s%s"
+              % (diff["on_disk_revision"]["kind"], diff["on_disk_revision"]["id"][:16],
+                 "" if same else "  (отличается от принятой)"))
+
+    if diff["contract_changed"] or diff["track_changed"] or diff["problems"]:
+        print()
+        print("  Чтобы принять новую ревизию после просмотра: course-accept")
+    return 0
+
+
+def cmd_policy_check(root, course, assignment, level, preference):
+    """Explain what the accepted policy permits for one assignment and level.
+
+    This is the deterministic answer to "may I give this help?" — the same
+    computation the tutoring surface uses, exposed so a human (or a test) can
+    see the decision and the rule it rests on rather than trusting the model's
+    account of its own constraint.
+    """
+    loaded = _load_core()
+    if loaded is None:
+        return 2
+    core_course, core_policy = loaded
+
+    if not course or not assignment:
+        print("usage: cli.py policy-check --course <slug> --assignment <id> "
+              "[--level HINT|EXAMPLE|SOLUTION] [--preference <style>]")
+        return 2
+
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
+
+    try:
+        decision = core_policy.request_help(
+            accepted, assignment_id=assignment, intent="solution" if level == "SOLUTION"
+            else ("example" if level == "EXAMPLE" else "hint"),
+            preference=preference, student_requested=True,
+        )
+        core_policy.validate_decision(decision)
+    except ValueError as e:  # pragma: no cover - schema regression guard
+        print("  решение не соответствует контракту политики: %s" % e)
+        return 2
+
+    resolved = core_policy.resolve_assessment(accepted, assignment)
+    print("== политика помощи ==")
+    print("  курс        : %s" % accepted.course_id)
+    print("  задание     : %s" % assignment)
+    print("  оцениваемость: %s (%s)" % (resolved["assessment"], resolved["source"]))
+    print("    %s" % resolved["message_ru"])
+    print("  запрошено   : %s" % level)
+    print("  решение     : %s (%s)" % (decision["decision"], decision["reason_code"]))
+    print("  предел      : %s" % (decision.get("assistance_ceiling") or "—"))
+    print("  правило     : %s" % (decision.get("rule_ref") or "—"))
+    print("  %s" % decision["message_ru"])
+    if decision.get("alternatives"):
+        print("  вместо этого:")
+        for option in decision["alternatives"]:
+            print("    - %s" % option)
+    return 0 if decision["decision"] == "allow" else 3
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -473,6 +790,8 @@ def main():
     ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
                                         "courses", "course-set", "active", "corpus",
                                         "update", "course-add", "course-update",
+                                        "course-inspect", "course-accept", "course-status",
+                                        "policy-check",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -503,6 +822,18 @@ def main():
     ap.add_argument("--confirm-split", action="append", default=[],
                     metavar="LEGACY_ID=LEARNER_ID",
                     help="state-migrate: explicit attribution for a multi-student file")
+    ap.add_argument("--assignment", help="policy-check: assignment id from the accepted contract")
+    ap.add_argument("--level", choices=["HINT", "EXAMPLE", "SOLUTION"], default="HINT",
+                    help="policy-check: level of help being considered")
+    ap.add_argument("--preference", default="prefer-ask",
+                    choices=["hints", "hints-then-solution", "solution-first", "prefer-ask"],
+                    help="policy-check: the learner's recorded feedback preference")
+    ap.add_argument("--kind", choices=["maintainer_manifest", "human_adapted_legacy"],
+                    help="course-accept: how acceptance came about")
+    ap.add_argument("--teaching-remote", help="course-accept: remote course updates come from")
+    ap.add_argument("--teaching-branch", help="course-accept: branch course updates come from")
+    ap.add_argument("--contribution-remote",
+                    help="course-accept: the student's fork, when there is one")
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -561,6 +892,18 @@ def main():
     elif cmd == "state-migrate":
         sys.exit(cmd_state_migrate(root, args.course, args.dry_run, args.learner,
                                    parse_confirm_split(args.confirm_split), apply=args.apply))
+    elif cmd == "course-inspect":
+        sys.exit(cmd_course_inspect(root, args.course, args.dry_run))
+    elif cmd == "course-accept":
+        sys.exit(cmd_course_accept(root, args.course, args.dry_run, kind=args.kind,
+                                   url=args.url, teaching_remote=args.teaching_remote,
+                                   teaching_branch=args.teaching_branch,
+                                   contribution_remote=args.contribution_remote))
+    elif cmd == "course-status":
+        sys.exit(cmd_course_status(root, args.course, args.dry_run))
+    elif cmd == "policy-check":
+        sys.exit(cmd_policy_check(root, args.course, args.assignment, args.level,
+                                  args.preference))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

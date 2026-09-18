@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/binding.schema.json",
+  "title": "botai course binding",
+  "description": "What was accepted for one installed course, and which snapshot that acceptance refers to. The binding is what makes a course authoritative: without it the agent has files, not a policy. It never points at an editable working file — accepted_* are hashes of copies taken under .botai/accepted/, so editing botai/course.json in a student branch does not change what governs help.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "course_id", "slug", "workspace_id", "repository_root",
+    "accepted_revision", "accepted_contract_hash", "accepted_track_hash",
+    "accepted_at", "acceptance_kind"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "The directory name under courses/. For a legacy course whose directory is not a valid new slug, this is the safe identifier and legacy_path carries the real directory."
+    },
+    "legacy_path": {
+      "type": ["string", "null"],
+      "maxLength": 512,
+      "description": "The original Cyrillic/underscore directory name, when slug != the on-disk name. The directory is never renamed automatically: renaming would break the paths a student already has."
+    },
+    "workspace_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "repository_root": {
+      "$ref": "common.schema.json#/$defs/relative_path",
+      "description": "Verified path under courses/. A course is one directory, never a path that climbs out of the workspace."
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "maxLength": 2048,
+      "description": "Where the course came from, with any embedded credentials stripped. null for a course created locally."
+    },
+    "teaching_remote": {
+      "type": ["string", "null"],
+      "maxLength": 64,
+      "description": "The remote course updates come from (usually upstream, or origin when the student did not fork)."
+    },
+    "teaching_branch": { "type": ["string", "null"], "maxLength": 255 },
+    "contribution_remote": {
+      "type": ["string", "null"],
+      "maxLength": 64,
+      "description": "The student's fork, when there is one. A fork and the course source are two different roles, not a substitute for each other."
+    },
+    "accepted_revision": { "$ref": "common.schema.json#/$defs/course_revision" },
+    "accepted_contract_hash": { "$ref": "common.schema.json#/$defs/sha256" },
+    "accepted_track_hash": { "$ref": "common.schema.json#/$defs/sha256" },
+    "accepted_environment_hash": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "accepted_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "acceptance_kind": {
+      "enum": ["maintainer_manifest", "human_adapted_legacy"],
+      "description": "How acceptance came about. This is provenance, not a cryptographic proof that the teacher approved it."
+    },
+    "assessment_kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/assessment" },
+      "description": "Assessment values actually present in the accepted contract, so a caller can tell 'the course declares nothing graded' from 'the graded list was never read'."
+    },
+    "material_snapshot": {
+      "type": ["string", "null"],
+      "maxLength": 512,
+      "description": "Where the accepted revision's readable material was snapshotted, relative to the workspace. Lessons are read from the snapshot, not from the working tree: otherwise an unnoticed edit changes the text the accepted contract refers to."
+    }
+  }
+}
