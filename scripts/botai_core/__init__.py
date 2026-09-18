@@ -30,7 +30,11 @@ true of the tools rather than of the prompt:
   diff hash, a self-report kept distinct from an observation, and no path to
   commit, push or open a pull request;
 * `personas`— presentation styles that cannot carry authority, and personal
-  badges derived from evidence and never part of a course grade.
+  badges derived from evidence and never part of a course grade;
+* `exports` — the learner's own data: selective export with a preview, a
+  checksum that detects damage but not identity, and planned deletion;
+* `teacher` — imported packets as untrusted data, a triage queue, and
+  aggregation that states its denominator instead of guessing a cohort size.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -39,6 +43,7 @@ from __future__ import annotations
 
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
            "tutoring", "session", "progress", "corpus", "retrieval",
-           "environment", "actions", "operation", "contribution", "personas"]
+           "environment", "actions", "operation", "contribution", "personas",
+           "exports", "teacher"]
 
 SCHEMA_VERSION = 2
