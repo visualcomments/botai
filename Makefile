@@ -75,6 +75,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         persona-set achievements \
         privacy-preview privacy-export privacy-delete teacher-import teacher-summary \
         adapter-check adapter-install catalog-check \
+        upgrade-plan upgrade-apply upgrade-check \
         course-inspect course-accept course-status policy-check \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
@@ -138,6 +139,11 @@ help:
 	@echo "  make adapter-check HOST=opencode [CONFIG=file] [HOSTVER=1.18.18]  Inspect the final config"
 	@echo "  make adapter-install HOST=opencode [DRY=1]  Write a profile into THIS project only"
 	@echo "  make catalog-check CATALOG=/path            Verify an optional external catalogue"
+	@echo ""
+	@echo "Upgrade from 1.3.x to 2.0 (run the bridge from a SEPARATE 2.0 checkout):"
+	@echo "  make upgrade-plan DEST=/path/to/old-workspace [SOURCE=/path/to/2.0]"
+	@echo "  make upgrade-apply DEST=... PLAN_ID=... [ACCEPT_EDITS=1]"
+	@echo "  make upgrade-check DEST=...   Report whether a workspace has the 2.0 assets"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -378,6 +384,24 @@ adapter-install:
 catalog-check:
 	@python3 scripts/cli.py catalog-check --catalog "$(CATALOG)"
 
+# ============================================================================
+# Переход 1.3.2 → 2.0.
+# ----------------------------------------------------------------------------
+# Мост запускают ИЗ ОТДЕЛЬНОГО checkout 2.0, а не поверх рабочего пространства:
+# обновлятор 1.3.2 знает свой allowlist и не поставит дерево v2, сколько бы
+# файлов ни поменять в репозитории. Мост несёт ЖЁСТКО ЗАДАННЫЙ список путей и не
+# читает allowlist из источника. План просматривает человек; применение — только
+# с --plan-id. Работа ученика (courses/, progress/, .botai/) не трогается.
+# ============================================================================
+upgrade-plan:
+	@python3 scripts/upgrade_v2.py --dest "$(DEST)" $(if $(SOURCE),--source "$(SOURCE)",) --plan
+
+upgrade-apply:
+	@python3 scripts/upgrade_v2.py --dest "$(DEST)" $(if $(SOURCE),--source "$(SOURCE)",) --apply --plan-id "$(PLAN_ID)" $(if $(ACCEPT_EDITS),--accept-local-edits,)
+
+upgrade-check:
+	@python3 scripts/upgrade_v2.py --dest "$(DEST)" --check
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -459,6 +483,7 @@ test:
 	@python3 tests/test_personas.py
 	@python3 tests/test_exports.py
 	@python3 tests/test_adapters.py
+	@python3 tests/test_migrations.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

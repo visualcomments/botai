@@ -17,6 +17,11 @@ expensive to notice:
   a later module) is refused at acceptance with the defect named, rather than
   failing later when the planner walks the graph.
 
+Acceptance criteria covered (docs/botai-v2-design.md §17.3): A22 (a repository
+nested inside another is not treated as its own) and A23 (editing
+`botai/course.json` in a student branch does not change the accepted policy —
+the drift is reported and a new revision needs a fresh human acceptance).
+
 Run:
     python3 tests/test_course.py
 """

@@ -15,6 +15,10 @@ write outside itself:
 * re-installing a course never deletes an existing directory that may hold the
   student's work.
 
+Acceptance criteria covered (docs/botai-v2-design.md §17.3): A07 (`--dry-run`
+truly writes nothing, including for commands that clone) and A22 (a repository
+nested inside another is not mistaken for one of its own).
+
 Run:
     python3 tests/test_paths.py
     python3 -m pytest tests/test_paths.py -q

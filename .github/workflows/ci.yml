@@ -66,6 +66,42 @@ jobs:
           "$VPY" tests/test_personas.py
           "$VPY" tests/test_exports.py
           "$VPY" tests/test_adapters.py
+          "$VPY" tests/test_migrations.py
+
+      - name: "Переход 1.3.2 → 2.0: мост и неполное обновление"
+        # Сквозная проверка моста настоящим процессом: план ничего не меняет,
+        # применение без plan-id отклонено, работа ученика не тронута, а
+        # наполовину обновлённое пространство сообщает V2_ASSETS_MISSING с
+        # перечнем файлов и подсказкой про мост.
+        run: |
+          set -e
+          WS=/tmp/botai-upgrade
+          rm -rf "$WS" && mkdir -p "$WS/scripts" "$WS/.botai" "$WS/courses/c" "$WS/progress"
+          echo "1.3.2" > "$WS/VERSION"
+          echo "old" > "$WS/AGENTS.md"
+          echo "student work" > "$WS/courses/c/work.md"
+
+          python3 scripts/upgrade_v2.py --dest "$WS" --plan --json > /tmp/plan.json
+          PLAN_ID="$(python3 -c "import json;print(json.load(open('/tmp/plan.json'))['plan_id'])")"
+          test -n "$PLAN_ID" || { echo "plan-id не получен"; exit 1; }
+          grep -q "^1.3.2$" "$WS/VERSION" || { echo "план изменил VERSION"; exit 1; }
+
+          if python3 scripts/upgrade_v2.py --dest "$WS" --apply >/dev/null 2>&1; then
+            echo "применение без plan-id прошло"; exit 1
+          fi
+
+          python3 scripts/upgrade_v2.py --dest "$WS" --apply --plan-id "$PLAN_ID" \
+            --accept-local-edits >/dev/null
+          test "$(cat "$WS/courses/c/work.md")" = "student work" \
+            || { echo "работа ученика изменена"; exit 1; }
+          python3 scripts/upgrade_v2.py --dest "$WS" --check >/dev/null
+
+          # Полуобновлённое пространство: убираем часть файлов 2.0.
+          rm -rf "$WS/scripts/botai_core" "$WS/schemas"
+          if python3 scripts/upgrade_v2.py --dest "$WS" --check >/dev/null 2>&1; then
+            echo "неполное обновление не обнаружено"; exit 1
+          fi
+          echo "мост и обнаружение неполного обновления: ok"
 
       - name: "Хост: запреты доказаны или названы"
         # Проверяем, что аккуратный профиль получает managed, а конфигурация с

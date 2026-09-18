@@ -17,6 +17,10 @@ student never evidenced. These tests check the properties that make that true:
 * importing a v1 record never upgrades a claim into evidence, never guesses at
   unparsed prose, and refuses a multi-student file rather than mis-attributing.
 
+Acceptance criteria covered (docs/botai-v2-design.md §17.3): A18 (a repeated
+command is not a second effect, and a stale write is refused) and A21 (the
+migration neither deletes the original nor invents facts from it).
+
 Run:
     python3 tests/test_store.py
     python3 -m pytest tests/test_store.py -q

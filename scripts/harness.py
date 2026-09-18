@@ -47,6 +47,7 @@ VERSION_FILE = "VERSION"
 MANAGED_FILES = [
     ".gitignore",
     "AGENTS.md",
+    "CHANGELOG.md",
     "CLAUDE.md",
     "LICENSE",
     "Makefile",
@@ -61,11 +62,12 @@ MANAGED_FILES = [
 # so that `make test` works in an installed project, not only in a checkout:
 # a test suite that exists only upstream cannot be run where it matters.
 #
-# `schemas` and `examples` are contracts and fixtures, not documentation: an
-# installed project cannot validate a course or run a migration without them,
-# and a fixity check that only exists upstream cannot be run where it matters
-# either.
-MANAGED_DIRS = [".agents", "docs", "examples", "schemas", "scripts", "tests"]
+# `schemas`, `examples` and `personas` are contracts, fixtures and shipped
+# styles, not documentation: an installed project cannot validate a course, run
+# a migration or offer `persona-set` without them. The v2 bridge carries its own
+# hard-coded copy of this list, because an updater that reads the list from the
+# tree it is installing has no boundary.
+MANAGED_DIRS = [".agents", "docs", "examples", "personas", "schemas", "scripts", "tests"]
 
 # Directories copied wholesale EXCEPT their `skills/` subdirectory, which is a
 # symlink farm regenerated on install and on every update.
