@@ -2000,6 +2000,138 @@ def cmd_contribute_rehearsal(root, target_dir, dry):
     return 0
 
 
+def cmd_persona_set(root, persona_id, learner, course, low_stimulus, gamification,
+                    list_only):
+    """Choose a presentation style. Style only — it changes no rules."""
+    try:
+        from botai_core import personas as core_personas
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+
+    found, problems = core_personas.available_personas()
+
+    if list_only or not persona_id:
+        print("== доступные персоны ==")
+        for pid, document in sorted(found.items()):
+            mark = " (по умолчанию)" if pid == core_personas.DEFAULT_PERSONA else ""
+            print("  %-12s %s%s" % (pid, document["title"], mark))
+            print("      %s" % document["description_ru"])
+        if problems:
+            print()
+            print("  Не загрузились:")
+            for problem in problems:
+                print("    %s: %s" % (problem["path"], problem["message_ru"]))
+        print()
+        print("  Персона — только оформление: она не меняет доступные инструменты,")
+        print("  задания, источники, правила помощи и оценивание.")
+        return 0
+
+    settings = core_personas.resolve(persona_id, low_stimulus=low_stimulus,
+                                     gamification=gamification)
+    print("== оформление занятия ==")
+    print("  персона     : %s (%s)" % (settings["persona_id"], settings["title"]))
+    print("  тон         : %s" % settings["tone"])
+    print("  награды     : %s" % ("включены" if settings["gamification"] else "выключены"))
+    print("  без стимуляции: %s" % ("да" if settings["low_stimulus"] else "нет"))
+    for note in settings["notes_ru"]:
+        print("  примечание  : %s" % note)
+    print()
+    print("  Переключение действует со следующего ответа и не сбрасывает прогресс.")
+    print("  Бот остаётся ИИ, а не преподавателем или исторической личностью.")
+
+    if course and not low_stimulus:
+        # Persisting the choice is a learner preference, not a permission.
+        try:
+            store = core_store.Store.open(root, learner or default_learner_id(root))
+        except Exception as e:  # noqa: BLE001
+            print("  (выбор не сохранён: %s)" % getattr(e, "code", e))
+            return 0
+        try:
+            entity_id = "%s:presentation" % course
+            body, version = store.get("presentation", entity_id, course_id=course)
+            document = dict(body or {})
+            document.update({
+                "schema_version": 2,
+                "course_id": course,
+                "persona_id": settings["persona_id"],
+                "gamification": settings["gamification"],
+                "low_stimulus": settings["low_stimulus"],
+            })
+            store.apply(kind="presentation", entity_id=entity_id,
+                        events=["profile.configured"], course_id=course,
+                        expected_version=version if body else None,
+                        new_body=document,
+                        event_payloads=[{"changed_fields": ["persona_id", "gamification",
+                                                            "low_stimulus"],
+                                         "provenance": "human_input",
+                                         "_actor": "learner_cli",
+                                         "_provenance": "human_input"}])
+            print()
+            print("  Выбор сохранён для курса %s." % course)
+        finally:
+            store.close()
+    return 0
+
+
+def cmd_achievements(root, course, learner, as_json):
+    """Show personal badges. Off by default, and never part of a grade."""
+    try:
+        from botai_core import personas as core_personas
+        from botai_core import store as core_store
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not course:
+        print("usage: cli.py achievements --course <slug> [--json]")
+        return 2
+
+    learner_id = learner or default_learner_id(root)
+    try:
+        store = core_store.Store.open(root, learner_id, create=False)
+    except Exception as e:  # noqa: BLE001
+        print("записи состояния нет: наград тоже нет")
+        return 0
+    try:
+        awards = store.list_entities("achievement", course_id=course)
+        presentation, _ = store.get("presentation", "%s:presentation" % course,
+                                    course_id=course)
+        gamification = bool((presentation or {}).get("gamification"))
+        rendered = core_personas.render_achievements(awards, gamification=gamification)
+
+        if as_json:
+            print(json.dumps(rendered, ensure_ascii=False, indent=2))
+            return 0
+
+        print("== награды ==")
+        if not rendered["shown"]:
+            print("  %s" % rendered["reason_ru"])
+            print()
+            print("  Включить: python scripts/cli.py persona-set --persona neutral "
+                  "--course %s --gamification" % course)
+            return 0
+
+        if not rendered["items"]:
+            print("  Пока ничего не выдано.")
+        for item in rendered["items"]:
+            print("  • %s" % item["title_ru"])
+            print("      %s" % item["reason_ru"])
+            print("      выдано: %s" % item["awarded_at"])
+        print()
+        print("  %s" % rendered["reason_ru"])
+        print("  %s" % rendered["excluded_from_grade_ru"])
+        revoked = [a for a in awards if a.get("revoked_at")]
+        if revoked:
+            print()
+            print("  Снятые награды:")
+            for award in revoked:
+                print("    %s — %s" % (award.get("title_ru"), award.get("revocation_reason_ru")))
+        return 0
+    finally:
+        store.close()
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -2054,6 +2186,7 @@ def main():
                                         "env-status", "operation-cancel",
                                         "contribute-start", "contribute-status",
                                         "contribute-draft", "contribute-rehearsal",
+                                        "persona-set", "achievements",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -2153,6 +2286,13 @@ def main():
     ap.add_argument("--contribution", help="contribution id (contribute-status/draft)")
     ap.add_argument("--dest", help="contribute-rehearsal: where to build the practice repo")
     ap.add_argument("--out", help="contribute-draft: write the draft to this file")
+    ap.add_argument("--persona", help="persona-set: neutral/colleague/expedition")
+    ap.add_argument("--list", action="store_true",
+                    help="persona-set: list the available personas")
+    ap.add_argument("--low-stimulus", dest="low_stimulus", action="store_true",
+                    help="persona-set: disable role insertions and badges")
+    ap.add_argument("--gamification", action="store_true",
+                    help="persona-set: opt in to personal badges")
     ap.add_argument("--wait", action="store_true",
                     help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
@@ -2313,6 +2453,11 @@ def main():
                                       args.learner, args.out))
     elif cmd == "contribute-rehearsal":
         sys.exit(cmd_contribute_rehearsal(root, args.dest, args.dry_run))
+    elif cmd == "persona-set":
+        sys.exit(cmd_persona_set(root, args.persona, args.learner, args.course,
+                                 args.low_stimulus, args.gamification, args.list))
+    elif cmd == "achievements":
+        sys.exit(cmd_achievements(root, args.course, args.learner, args.json))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

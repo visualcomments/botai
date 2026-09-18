@@ -63,6 +63,7 @@ jobs:
           "$VPY" tests/test_corpus.py
           "$VPY" tests/test_environment.py
           "$VPY" tests/test_contribution.py
+          "$VPY" tests/test_personas.py
 
       - name: "Вклад: только чтение Git и черновик для ученика"
         # Проверяем, что публикация остаётся за учеником: команды commit/push/PR

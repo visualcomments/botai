@@ -72,6 +72,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
         env-plan action-approve env-apply env-status operation-reconcile \
         contribute-start contribute-status contribute-draft contribute-rehearsal \
+        persona-set achievements \
         course-inspect course-accept course-status policy-check \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
@@ -118,6 +119,11 @@ help:
 	@echo "  make contribute-start COURSE=slug TASK=url [ROLE=developer] [PUBLISH=public_pr]"
 	@echo "  make contribute-status [CONTRIBUTION=id] Show state, diff hash and blockers"
 	@echo "  make contribute-draft COURSE=slug CONTRIBUTION=id [OUT=file]  Write the draft"
+	@echo ""
+	@echo "Presentation (style only; badges are opt-in and personal):"
+	@echo "  make persona-set LIST=1                  List the available personas"
+	@echo "  make persona-set PERSONA=expedition COURSE=slug [GAME=1] [QUIET=1]"
+	@echo "  make achievements COURSE=slug            Show personal badges (off by default)"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -301,6 +307,20 @@ contribute-draft:
 contribute-rehearsal:
 	@python3 scripts/cli.py contribute-rehearsal $(if $(DEST),--dest "$(DEST)",) $(if $(DRY),--dry-run,)
 
+# ============================================================================
+# Оформление: персоны и награды.
+# ----------------------------------------------------------------------------
+# Персона — только стиль: схема не принимает поля tools/permissions/grading,
+# поэтому стиль не может расширить права. Переключение действует со следующего
+# ответа и не сбрасывает прогресс. Награды по умолчанию ВЫКЛЮЧЕНЫ, они личные:
+# ни таблицы лидеров, ни серий, ни штрафов за перерыв, и в оценку они не входят.
+# ============================================================================
+persona-set:
+	@python3 scripts/cli.py persona-set $(if $(PERSONA),--persona "$(PERSONA)",) $(if $(COURSE),--course "$(COURSE)",) $(if $(GAME),--gamification,) $(if $(QUIET),--low-stimulus,) $(if $(LIST),--list,)
+
+achievements:
+	@python3 scripts/cli.py achievements --course "$(COURSE)"
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -379,6 +399,7 @@ test:
 	@python3 tests/test_corpus.py
 	@python3 tests/test_environment.py
 	@python3 tests/test_contribution.py
+	@python3 tests/test_personas.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \
