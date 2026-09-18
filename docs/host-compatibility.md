@@ -46,15 +46,39 @@ python scripts/cli.py adapter-check --host opencode
 
 - `permission` строится от `default: deny`;
 - запрещены все обходные инструменты, которые OpenCode **действительно
-  реализует**: `bash`, `edit`, `write`, `apply_patch`, `ast_grep_replace`,
-  `webfetch`, `websearch`, `task`, а также все внешние MCP (`context7_*`,
-  `github_*`, `engram_*`, `g4f-tools_*`, `gh_grep_*`, `roblox-studio_*`,
+  реализует**: `edit`, `write`, `apply_patch`, `ast_grep_replace`, `webfetch`,
+  `websearch`, `task`, а также все внешние MCP (`context7_*`, `github_*`,
+  `engram_*`, `g4f-tools_*`, `gh_grep_*`, `roblox-studio_*`,
   `education-club_*`);
 - явно разрешено только чтение и вопросы: `read`, `list`, `glob`, `grep`,
   `codesearch`, `lsp`, `question`, `skill`, `todowrite`;
+- **`bash` — не запрещён, а поставлен под подтверждение человека**:
+
+  ```json
+  "bash": { "make *": "allow", "git *": "allow", "*": "ask" }
+  ```
+
+  Разрешены ровно две именованные группы команд, которые нужны самой обвязке
+  (`make doctor`, `make update-check`, `git status`, `git diff`), а любая другая
+  команда требует согласия человека. Это не «generic bash», который запрещает
+  managed-профиль (§13.4 дизайна), но и не открытая дверь: исполнение без
+  ведома человека невозможно, и `adapter-check` называет `bash` в отчёте как
+  **допуск под подтверждением**, а не как закрытый инструмент;
 - `education-club` выключен (`enabled: false`) до явной настройки:
   `EDUCATION_CLUB_CATALOG` не задан, и включённый каталог с несуществующим
   путём не работал бы всё равно.
+
+### Три формы, и только две из них безопасны
+
+Для каждого обходного инструмента проверка различает:
+
+| Форма | Вердикт |
+|---|---|
+| `"bash": "deny"` | закрыто |
+| `"bash": {"make *": "allow", "*": "ask"}` | **допуск под подтверждением** (не проблема, но назван в отчёте) |
+| `"bash": {"*": "allow"}` | обход: не сертифицируется |
+| `"bash": {"make *": "allow"}` (нет catch-all) | обход: незаданная команда уходит в умолчание хоста |
+| `"bash": {"*": "allow", "make *": "ask"}` | обход: catch-all разрешает всё |
 
 ### Почему важен именно словарь хоста
 

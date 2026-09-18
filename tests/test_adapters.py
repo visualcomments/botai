@@ -381,8 +381,65 @@ def test_a_config_that_denies_a_nonexistent_tool_is_not_certified():
         check("назван %r" % tool, tool in named, named[:300])
 
 
+def test_narrow_bash_is_gated_not_bypassed():
+    """A named allow-list with an `ask` catch-all is a gate, not a hole.
+
+    The harness itself needs `make` and `git`, and the design forbids *generic*
+    bash rather than bash entirely. What must not pass: a pattern that opens
+    everything, or a block with no catch-all so unlisted commands fall through
+    to an unknown default.
+    """
+    def with_bash(rule):
+        """A careful config whose only difference is how `bash` is handled.
+
+        `careful_config()` lists `bash` in its flat `deny` array, so overriding
+        `permission["bash"]` alone would leave that entry in place and every
+        case below would pass for the wrong reason. The deny list is rebuilt.
+        """
+        config = careful_config()
+        config["permission"]["deny"] = [
+            tool for tool in A.bypass_tools_for("opencode") if tool != "bash"
+        ]
+        config["permission"]["bash"] = rule
+        return config
+
+    document = with_bash({"make *": "allow", "git *": "allow", "*": "ask"})
+    verdict, problems = A.inspect_config(document, host="opencode")
+    check("узкий bash с catch-all ask сертифицируется",
+          verdict == A.PROFILE_MANAGED, str(problems))
+    check("bash назван как допуск под подтверждением",
+          A.gated_tools(document, "opencode") == ["bash"],
+          str(A.gated_tools(document, "opencode")))
+
+    # A flat deny is the other acceptable form.
+    deny_version = with_bash("deny")
+    check("полный запрет тоже сертифицируется",
+          A.inspect_config(deny_version, host="opencode")[0] == A.PROFILE_MANAGED)
+    check("запрещённый bash не числится допуском",
+          A.gated_tools(deny_version, "opencode") == [])
+
+    # Opened to everything: this is the hole.
+    verdict, problems = A.inspect_config(with_bash({"*": "allow"}),
+                                         host="opencode")
+    check("bash, открытый целиком, не сертифицируется",
+          verdict != A.PROFILE_MANAGED, verdict)
+
+    # No catch-all: an unlisted command falls to the host default.
+    verdict, problems = A.inspect_config(with_bash({"make *": "allow"}),
+                                         host="opencode")
+    check("bash без catch-all не сертифицируется",
+          verdict != A.PROFILE_MANAGED, verdict)
+    check("причина названа",
+          any(p["code"] == "BYPASS_TOOL_NOT_DENIED" for p in problems),
+          str(problems))
+
+    # A catch-all of `allow` under a named pattern is still wide open.
+    check("catch-all allow не сертифицируется",
+          A.inspect_config(with_bash({"*": "allow", "make *": "ask"}),
+                           host="opencode")[0] != A.PROFILE_MANAGED)
+
+
 def test_untested_version_is_not_certified():
-    """The version pin must mean something, or it is decoration."""
     document = careful_config()
     pinned = A.TESTED_VERSIONS["opencode"]
     check("версия закреплена", bool(pinned), str(pinned))
@@ -543,6 +600,7 @@ def main():
         test_profile_is_generated_as_data_and_not_global,
         test_catalog_check_reports_before_use,
         test_render_report_is_readable,
+        test_narrow_bash_is_gated_not_bypassed,
         test_untested_version_is_not_certified,
         test_a_config_that_denies_a_nonexistent_tool_is_not_certified,
         test_bypass_list_is_the_hosts_own_vocabulary,

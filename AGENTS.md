@@ -579,8 +579,15 @@ changes.
 opencode also loads from this repo:
 
 - `opencode.json` — top-level settings: `default_agent` is `botai`, skills
-  paths, a `docs` reference, and permissions (edit/webfetch allowed; bash
-  allowed for `make *` and `git *`, everything else asks);
+  paths, a `docs` reference, and a restricted permission block: `edit`, `write`,
+  `apply_patch`, `webfetch`, `websearch`, `task` and every foreign MCP are
+  denied; reading (`read`, `glob`, `grep`, `codesearch`, `lsp`) and `question`
+  are allowed; `bash` is narrowed to `{"make *": "allow", "git *": "allow",
+  "*": "ask"}` — the two command families the harness itself needs, with every
+  other command requiring a human's approval rather than passing silently. That
+  is not *generic* bash, which the managed profile forbids, and `adapter-check`
+  reports `bash` as a human-gated allowance rather than a closed tool. See
+  `docs/host-compatibility.md`;
 - `.opencode/agent/botai.md` — the primary agent (the co-learner), plus
   subagents `tutor`, `mapper`, `reviewer`, `supplementer` for the specialized
   teaching roles;

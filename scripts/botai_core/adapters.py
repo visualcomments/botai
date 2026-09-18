@@ -162,6 +162,7 @@ def inspect_config(document, *, host, allowed=None):
     botai wrote: a host may merge global settings, load plugins or add subagents.
     """
     problems = []
+    notes = []
     allowed = set(allowed or allowed_tool_names())
 
     if not isinstance(document, dict):
@@ -232,6 +233,7 @@ def inspect_config(document, *, host, allowed=None):
     # OpenCode does not implement would flag a correct config, and the real
     # bypasses (`read`, `apply_patch`) would go unmentioned.
     denied = set()
+    report_gated = []
     if isinstance(permission, dict):
         denied.update(str(x) for x in (permission.get("deny") or []))
         denied.update(k for k, v in permission.items() if v == "deny")
@@ -249,12 +251,24 @@ def inspect_config(document, *, host, allowed=None):
                                   % tool,
                 })
             continue
-        if tool not in denied:
-            problems.append({
-                "code": "BYPASS_TOOL_NOT_DENIED",
-                "message_ru": "инструмент %r не запрещён явно: он даёт обход "
-                              "ограничений botai" % tool,
-            })
+
+        # A tool may be closed off in three ways, and only two of them are
+        # holes. `deny` removes it. A nested rule block that allows a named,
+        # narrow set and sends everything else to the human (`"*": "ask"`) keeps
+        # the capability behind a person's decision — that is not a bypass, and
+        # demanding a flat `deny` would push toward forbidding `make` and `git`
+        # outright, which the harness itself needs.
+        entry = permission.get(tool) if isinstance(permission, dict) else None
+        if tool in denied:
+            continue
+        if _is_gated_not_opened(entry):
+            report_gated.append(tool)
+            continue
+        problems.append({
+            "code": "BYPASS_TOOL_NOT_DENIED",
+            "message_ru": "инструмент %r не запрещён явно: он даёт обход "
+                          "ограничений botai" % tool,
+        })
 
     # Subagents can be given a wider toolset than the primary agent. If the
     # configuration does not constrain them, they are the hole.
@@ -295,8 +309,25 @@ def inspect_config(document, *, host, allowed=None):
                                       "добавить собственные инструменты" % name,
                     })
 
+    # A tool kept behind a human decision is not a problem, but it is a fact the
+    # report must state: a reader deciding whether to trust this verdict needs to
+    # know the model can still run `make` and `git`, and that anything else asks.
     verdict = PROFILE_MANAGED if not problems else "HOST_UNVERIFIED"
     return verdict, problems
+
+
+def gated_tools(document, host="opencode"):
+    """Tools this config leaves reachable only through human approval.
+
+    Exposed separately so a caller can report *what* the model may still do
+    without parsing the message text of a problem entry.
+    """
+    permission = (document or {}).get("permission")
+    if not isinstance(permission, dict):
+        return []
+    return sorted(tool for tool in bypass_tools_for(host)
+                  if tool not in READ_ONLY_ALLOWED
+                  and _is_gated_not_opened(permission.get(tool)))
 
 
 def _is_wildcard(text):
@@ -310,6 +341,36 @@ def _is_wildcard(text):
     if value in ("*", "**", "*:*"):
         return True
     return "*" in value
+
+
+def _is_gated_not_opened(entry):
+    """Whether a nested rule block closes a tool behind human approval.
+
+    A block like `{"make *": "allow", "git *": "allow", "*": "ask"}` grants two
+    named command families and sends every other command to the operator. The
+    capability is still reachable, but only through a decision a person makes,
+    which is the opposite of a silent bypass.
+
+    What is NOT accepted: any pattern that resolves to `allow` for everything
+    (`"*": "allow"`, `"*": "ask"` absent, an allow entry containing a wildcard
+    that would swallow the rest).
+    """
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("*") != "ask":
+        # Without a catch-all of `ask`, an unlisted command falls to whatever
+        # the host defaults to, which this profile cannot vouch for.
+        return False
+    for pattern, decision in entry.items():
+        if pattern == "*":
+            continue
+        if decision not in ("allow", "ask", "deny"):
+            return False
+        # An allow pattern must name something specific. `*`-only was handled
+        # above, but a pattern like `git *` is fine: it names one program.
+        if decision == "allow" and not str(pattern).strip("* ").strip():
+            return False
+    return True
 
 
 def adapter_check(host, config_path=None, *, document=None, version=None,
@@ -327,6 +388,7 @@ def adapter_check(host, config_path=None, *, document=None, version=None,
         "problems": [],
         "checked": [],
         "allowed_tools": list(allowed_tool_names()),
+        "gated_tools": [],
         "limits_ru": [],
     }
 
@@ -397,6 +459,7 @@ def adapter_check(host, config_path=None, *, document=None, version=None,
 
     verdict, problems = inspect_config(document, host=host)
     report["problems"].extend(problems)
+    report["gated_tools"] = gated_tools(document, host)
 
     # A version we have not tested cannot be certified, even when the config
     # itself is in order: permission semantics differ between host releases, and
@@ -491,6 +554,12 @@ def render_adapter_report(report):
     for item in report.get("limits_ru") or []:
         lines.append("  %s" % item)
     if report["verdict"] == PROFILE_MANAGED:
+        gated = report.get("gated_tools") or []
+        if gated:
+            lines.append("")
+            lines.append("  Допуск под подтверждением человека: %s." % ", ".join(gated))
+            lines.append("  Разрешены только шаблоны, заданные в конфигурации; любой")
+            lines.append("  другой вызов требует согласия человека, а не проходит молча.")
         lines.append("")
         lines.append("  Учебные операции разрешены в границах инструментов botai.")
         lines.append("  Это ограничение инструментов, а не песочница: текстовый")

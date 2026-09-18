@@ -14,7 +14,11 @@
     "edit": "deny",
     "write": "deny",
     "apply_patch": "deny",
-    "bash": "deny",
+    "bash": {
+      "make *": "allow",
+      "git *": "allow",
+      "*": "ask"
+    },
     "webfetch": "deny",
     "websearch": "deny",
     "task": "deny",
