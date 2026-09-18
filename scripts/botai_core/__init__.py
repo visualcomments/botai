@@ -38,7 +38,14 @@ true of the tools rather than of the prompt:
 * `mcp_handlers`— the narrow tool surface: one handler per catalogued tool, with
   no tool that runs a command, edits a file, or grants an approval;
 * `adapters` — host profiles: a certified restriction, or an honest
-  `HOST_UNVERIFIED` when the final configuration cannot be proven to restrict.
+  `HOST_UNVERIFIED` when the final configuration cannot be proven to restrict;
+* `claims` — the absolutist-claim filter: a superlative about a person is
+  refused before it reaches a record, because a claim needs evidence.
+
+Two mechanisms here are adapted from HKUDS/DeepTutor (Apache-2.0): `claims.py`
+from `services/memory/consolidator/guards.py`, and the session step budget in
+`tutoring.py` from its per-loop `ToolBudgets`. See `docs/deeptutor-comparison.md`
+for what was taken and what was deliberately left.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -48,6 +55,6 @@ from __future__ import annotations
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
            "tutoring", "session", "progress", "corpus", "retrieval",
            "environment", "actions", "operation", "contribution", "personas",
-           "exports", "teacher", "mcp_handlers", "adapters"]
+           "exports", "teacher", "mcp_handlers", "adapters", "claims"]
 
 SCHEMA_VERSION = 2

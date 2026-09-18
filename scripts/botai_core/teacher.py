@@ -29,6 +29,7 @@ from pathlib import Path
 
 from . import paths
 from . import schemas
+from . import claims
 
 SCHEMA_VERSION = 2
 
@@ -277,11 +278,27 @@ def _priority_reason(category, reporters):
 
 def triage(store, *, course_id, category, objective_id=None, status="triaged",
            note_ru=None):
-    """Move a queue item through the teacher's own states."""
+    """Move a queue item through the teacher's own states.
+
+    A free-text `note_ru` passes the absolutist-claim filter first: a resolution
+    note is where "полностью освоил" would otherwise enter the record unopposed,
+    and a claim about a person is exactly what rule 6 and §16 forbid. The check
+    exempts quotations, so recording what a learner said is unaffected.
+    """
     if category not in CATEGORY_ORDER:
         raise TeacherError("CATEGORY_UNKNOWN", "неизвестная категория: %r" % category)
     if status not in TICKET_STATUSES:
         raise TeacherError("TICKET_STATUS_UNKNOWN", "неизвестный статус: %r" % status)
+
+    if note_ru:
+        try:
+            claims.check_text(note_ru, field="resolution")
+        except claims.ClaimRejected as e:
+            raise TeacherError(
+                e.code,
+                "заметка не записана: %s" % claims.rejection_note(e)["message_ru"],
+                detail={"phrases": list(e.phrases)},
+            )
 
     ticket_id = "%s:%s" % (category, objective_id or "general")
     body, version = store.get(TICKET_KIND, ticket_id, course_id=course_id)

@@ -334,7 +334,8 @@ class SessionService:
         updated = T.session_document(body, target_state=target,
                                      assistance_max=T.max_level(
                                          body.get("assistance_max"),
-                                         payload["assistance_max"]))
+                                         payload["assistance_max"]),
+                                     steps_taken=T.count_step(body))
 
         result, replayed = self.store.apply(
             kind="attempt", entity_id=attempt_id, events=["attempt.recorded"],
@@ -342,8 +343,13 @@ class SessionService:
             expected_version=expected_version, request_id=request_id,
             new_body=document, event_payloads=[payload],
         )
-        # The session moves in the same command when the state actually changes.
-        if target != body["state"]:
+        # The session is written when the state moves *or* when the step count
+        # advances. Writing only on a state change would freeze the counter after
+        # the first step — every later attempt lands in a session already in
+        # FEEDBACK, so `steps_taken` would read 1 forever and the capacity budget
+        # would never fire.
+        stepped = updated.get("steps_taken") != body.get("steps_taken")
+        if target != body["state"] or stepped:
             self.store.apply(
                 kind=SESSION_KIND, entity_id=session_id,
                 events=["session.attempt_recorded"],
@@ -351,6 +357,7 @@ class SessionService:
                 new_body=updated,
                 event_payloads=[{"attempt_id": attempt_id,
                                  "assessment": body.get("assessment"),
+                                 "steps_taken": updated.get("steps_taken"),
                                  "_actor": "core", "_provenance": "core_computed"}],
             )
         self._project()

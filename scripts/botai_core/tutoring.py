@@ -115,6 +115,25 @@ MIN_SESSION_MINUTES = 5
 # another hint: it is a different explanation, a prerequisite, or a teacher.
 STUCK_CYCLES_BEFORE_TEACHER = 3
 
+# How many teaching steps one session may run before it must come up for air.
+#
+# Taken from HKUDS/DeepTutor, `deeptutor/services/memory/consolidator/guards.py`
+# (Apache-2.0), which gives every tool a per-loop call budget and, once it is
+# exceeded, returns a hint observation instead of executing — so the loop
+# converges instead of continuing indefinitely.
+#
+# botai already bounded *time* (`MAX_SESSION_MINUTES`) and *payload size*, but
+# nothing bounded the number of turns. `consecutive_stuck_sessions` counts the
+# learner's stalling, not the session's length, so a session could keep cycling
+# while making visible progress and still run far past what a person can absorb.
+# Rule 5 of the policy ("respect breaks and capacity") asks for exactly this
+# limit; until now it was advice with no mechanism behind it.
+SESSION_STEP_BUDGET = 24
+
+# Past the budget but short of a hard stop, the session says so and offers the
+# next honest move rather than silently continuing.
+SESSION_STEP_WARN_AT = 18
+
 
 class TutoringError(RuntimeError):
     """A refused transition or command, with a stable code."""
@@ -390,6 +409,20 @@ def next_step(course, session, *, objective_states=None, attempts=None,
 
     objective_id = session.get("current_objective_id")
     assignment_id = session.get("current_assignment_id")
+
+    # 3. Capacity. A session that has used its step budget stops adding new
+    #    material, however willing the learner is. Placed after the stop and
+    #    consent rules — a stop request and a missing agreement both outrank a
+    #    capacity limit — and before any teaching advice, because continuing is
+    #    exactly what must not be offered by default here.
+    budget = step_budget_directive(session.get("steps_taken"))
+    if budget is not None:
+        base = _directive(
+            session, allowed_intents=("stop", "reflect"),
+            next_action=budget["next_action"], reason=budget["reason_ru"],
+        )
+        base["budget"] = budget["budget"]
+        return base
 
     # 3. The assignment must be declared by the accepted contract. An
     #    undeclared one is `unknown`, which caps help at EXAMPLE.
@@ -863,6 +896,67 @@ def stuck_signal(consecutive_stuck_sessions):
     happens through the separate, consented export path.
     """
     return int(consecutive_stuck_sessions or 0) >= STUCK_CYCLES_BEFORE_TEACHER
+
+
+def count_step(session):
+    """The session's step count after one more teaching step.
+
+    One step is one recorded interaction with the material — an attempt, a
+    check, or a piece of assistance. Counting recorded events rather than model
+    turns means the number cannot be inflated or hidden by the model, and it
+    survives a resume because it lives on the session document.
+    """
+    return int(session.get("steps_taken") or 0) + 1
+
+
+def step_budget_state(steps_taken):
+    """How a session's step count reads: ok, warn or exhausted.
+
+    A budget that only stops the session at the last moment is a cliff; the
+    warning exists so the learner is told before the wall, not at it. The
+    thresholds come from DeepTutor's per-loop tool budgets, adapted from tool
+    calls to teaching steps.
+    """
+    taken = int(steps_taken or 0)
+    if taken >= SESSION_STEP_BUDGET:
+        return "exhausted"
+    if taken >= SESSION_STEP_WARN_AT:
+        return "warn"
+    return "ok"
+
+
+def step_budget_directive(steps_taken):
+    """The instruction a session at or past its budget must follow, or None.
+
+    `None` means the session proceeds normally. Anything else replaces the
+    ordinary next-step advice: the point is that continuing is not offered as
+    though nothing had happened.
+    """
+    state = step_budget_state(steps_taken)
+    if state == "ok":
+        return None
+    if state == "warn":
+        return {
+            "next_action": "offer_break",
+            "reason_ru": (
+                "Занятие идёт долго (%d шагов из %d). Стоит предложить паузу "
+                "или завершение, а не продолжать по инерции."
+                % (int(steps_taken or 0), SESSION_STEP_BUDGET)
+            ),
+            "budget": {"taken": int(steps_taken or 0), "limit": SESSION_STEP_BUDGET,
+                       "state": state},
+        }
+    return {
+        "next_action": "close_or_pause",
+        "reason_ru": (
+            "Бюджет занятия исчерпан (%d шагов). Новый материал в этой сессии "
+            "не начинается: предложите завершить занятие или продолжить в "
+            "следующем. Это предел внимания, а не наказание."
+            % int(steps_taken or 0)
+        ),
+        "budget": {"taken": int(steps_taken or 0), "limit": SESSION_STEP_BUDGET,
+                   "state": state},
+    }
 
 
 # --------------------------------------------------------------------------

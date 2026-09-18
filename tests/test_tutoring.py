@@ -634,6 +634,109 @@ def test_stuck_signal_after_three_sessions():
     check("три сессии с одной блокировкой — сигнал", T.stuck_signal(3) is True)
 
 
+def test_session_step_budget_has_three_states():
+    """A session has a step budget, and the budget is not a suggestion.
+
+    The design bounds a sitting by minutes as well as by topics; a loop that
+    keeps producing `session_next` without converging is a cost the learner
+    pays. The budget makes that visible *before* it becomes a stuck session —
+    `consecutive_stuck_sessions` counts sittings, this counts steps inside one.
+    """
+    check("пустая сессия не израсходована",
+          T.step_budget_state(0) == "ok")
+    check("отсутствие счётчика не считается исчерпанием",
+          T.step_budget_state(None) == "ok")
+    check("до границы предупреждения — ok",
+          T.step_budget_state(T.SESSION_STEP_WARN_AT - 1) == "ok")
+    check("на границе — warn",
+          T.step_budget_state(T.SESSION_STEP_WARN_AT) == "warn")
+    check("на пределе — exhausted",
+          T.step_budget_state(T.SESSION_STEP_BUDGET) == "exhausted")
+    check("далеко за пределом — тоже exhausted",
+          T.step_budget_state(T.SESSION_STEP_BUDGET * 10) == "exhausted")
+
+
+def test_exhausted_budget_offers_a_stop_not_a_new_topic():
+    """Past the limit the answer is rest, and the directive says why.
+
+    A budget that merely warned would be decorative: the model would keep
+    going. `next_step` must stop offering new work, and must say that the
+    reason is the budget rather than the learner's progress — those are
+    different facts and the learner is told the true one.
+    """
+    directive = T.step_budget_directive(T.SESSION_STEP_BUDGET)
+    check("на пределе предлагается закрыть или приостановить",
+          directive["next_action"] == "close_or_pause", str(directive))
+    check("причина названа бюджетом шагов, а не прогрессом",
+          "шаг" in directive["reason_ru"], directive["reason_ru"])
+    check("в директиве есть счётчик и предел",
+          directive.get("budget", {}).get("limit") == T.SESSION_STEP_BUDGET,
+          str(directive.get("budget")))
+    check("сказано, что это предел внимания, а не наказание",
+          "предел" in directive["reason_ru"], directive["reason_ru"])
+
+
+def test_step_budget_is_a_capacity_limit_not_a_lock():
+    """A session that keeps going must slow down before it burns out.
+
+    The limit is graded: nothing happens for a long while, then a break is
+    *offered* at `SESSION_STEP_WARN_AT`, then at `SESSION_STEP_BUDGET` the
+    session asks to close or pause. It never refuses to record an attempt and
+    never deletes work — a learner genuinely mid-flow is told about the budget,
+    not locked out of it.
+
+    Mirrors DeepTutor's per-loop tool budgets (``ToolBudgets`` in
+    ``deeptutor/services/memory/consolidator/guards.py``), applied to a study
+    sitting rather than to a memory-consolidation loop.
+    """
+    check("в начале занятия счётчик пуст",
+          T.step_budget_state(None) == "ok", T.step_budget_state(None))
+    check("до границы предупреждения ничего не предлагается",
+          T.step_budget_state(T.SESSION_STEP_WARN_AT - 1) == "ok")
+    check("на границе предупреждения предлагается пауза",
+          T.step_budget_state(T.SESSION_STEP_WARN_AT) == "warn")
+    check("на пределе занятие просит закрыться",
+          T.step_budget_state(T.SESSION_STEP_BUDGET) == "exhausted")
+    check("предупреждение наступает раньше предела",
+          T.SESSION_STEP_WARN_AT < T.SESSION_STEP_BUDGET,
+          "%s < %s" % (T.SESSION_STEP_WARN_AT, T.SESSION_STEP_BUDGET))
+
+    # The directive for "ok" is empty — the budget must be invisible until it
+    # has something to say, or it becomes noise the learner learns to ignore.
+    check("на обычном шаге директивы нет",
+          T.step_budget_directive(3) is None, str(T.step_budget_directive(3)))
+
+    warn = T.step_budget_directive(T.SESSION_STEP_WARN_AT)
+    check("на границе предложен перерыв, а не отказ",
+          warn["next_action"] == "offer_break", str(warn))
+    check("в директиве видно, сколько шагов пройдено",
+          warn["budget"]["taken"] == T.SESSION_STEP_WARN_AT,
+          str(warn.get("budget")))
+    check("назван предел, а не только счётчик",
+          warn["budget"]["limit"] == T.SESSION_STEP_BUDGET,
+          str(warn.get("budget")))
+
+    done = T.step_budget_directive(T.SESSION_STEP_BUDGET)
+    check("исчерпанный бюджет просит закрыть или отложить",
+          done["next_action"] == "close_or_pause", str(done))
+    check("состояние бюджета названо исчерпанным",
+          done["budget"]["state"] == "exhausted", str(done.get("budget")))
+    check("причина говорит о пределе внимания, а не о провале ученика",
+          "предел" in done["reason_ru"] or "бюджет" in done["reason_ru"],
+          done["reason_ru"])
+
+
+def test_count_step_increments_and_never_loses_the_count():
+    """The counter is what makes the budget real; it must not reset or stall."""
+    check("пустая сессия — шаг первый", T.count_step({}) == 1)
+    check("счётчик растёт", T.count_step({"steps_taken": 4}) == 5)
+    check("мусор в поле не обнуляет счёт",
+          T.count_step({"steps_taken": "7"}) == 8,
+          str(T.count_step({"steps_taken": "7"})))
+    check("испорченное значение читается как ноль",
+          T.count_step({"steps_taken": "не число"}) == 1)
+
+
 # ---------------------------------------------------------------------------
 # The service layer: the cycle bound to the store
 # ---------------------------------------------------------------------------
@@ -889,6 +992,9 @@ def main():
         test_check_kinds_list_matches_the_schema,
         test_session_document_validates,
         test_stuck_signal_after_three_sessions,
+        test_session_step_budget_has_three_states,
+        test_exhausted_budget_offers_a_stop_not_a_new_topic,
+        test_step_budget_is_a_capacity_limit_not_a_lock,
         test_service_refuses_a_course_nobody_accepted,
         test_service_records_the_vertical_scenario,
         test_service_refuses_assistance_policy_denies,

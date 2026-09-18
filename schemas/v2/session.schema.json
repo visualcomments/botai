@@ -66,6 +66,11 @@
     },
     "started_at": { "$ref": "common.schema.json#/$defs/timestamp" },
     "ended_at": { "type": ["string", "null"] },
+    "steps_taken": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Teaching steps completed in this sitting. A budget on how long one session may run: rule 5 of the policy asks the agent to respect capacity, and this is the mechanism behind that sentence. Counting steps rather than tokens keeps the limit independent of which model is answering."
+    },
     "next_step": {
       "oneOf": [
         {
@@ -77,8 +82,9 @@
               "enum": [
                 "resume_attempt", "review_prerequisite", "do_check",
                 "read_source", "prepare_environment", "ask_teacher",
-                "choose_goal", "rest"
-              ]
+                "choose_goal", "rest", "offer_break", "close_or_pause"
+              ],
+              "description": "`offer_break` and `close_or_pause` are the capacity actions: one warns before the budget, the other stops new material at it."
             },
             "objective_id": { "type": ["string", "null"] },
             "reason_ru": { "type": "string", "maxLength": 500 }
