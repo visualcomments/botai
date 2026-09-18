@@ -20,7 +20,12 @@ true of the tools rather than of the prompt:
 * `session` — the cycle bound to the store, one command per transition;
 * `progress`— the Markdown view, rendered from the store and never authoritative;
 * `corpus`  — declarative acquisition: URL guard, safe unpack, per-file verify;
-* `retrieval`— scoped search and quote verification.
+* `retrieval`— scoped search and quote verification;
+* `environment`— plan an install: closed step kinds, plan hash, human screen;
+* `actions` — the restricted executor: no inherited secrets, bounded output,
+  whole process tree killed on timeout;
+* `operation`— the lifecycle: approval bound to one plan hash, spent once, and
+  a lease that stops two workers running the same install.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -28,6 +33,7 @@ Nothing here calls a language model, opens the network, or executes course code.
 from __future__ import annotations
 
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
-           "tutoring", "session", "progress", "corpus", "retrieval"]
+           "tutoring", "session", "progress", "corpus", "retrieval",
+           "environment", "actions", "operation"]
 
 SCHEMA_VERSION = 2

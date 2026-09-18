@@ -1449,6 +1449,272 @@ def cmd_quote_verify(root, course, citation_path, as_json):
     return 0 if allowed else 3
 
 
+def _open_operations(root, learner=None, *, create=True):
+    try:
+        from botai_core import operation as core_operation
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return None
+    learner_id = learner or default_learner_id(root)
+    return core_operation.OperationService.open(root, learner_id, create=create)
+
+
+def cmd_env_plan(root, course, spec_path, learner):
+    """Build an environment plan. Nothing is executed."""
+    try:
+        from botai_core import course as core_course, environment as core_env
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not (course and spec_path):
+        print("usage: cli.py env-plan --course <slug> --spec <environment.json>")
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except core_course.CourseError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
+
+    spec_file = Path(spec_path)
+    if not spec_file.is_file():
+        print("спецификация среды не найдена: %s" % spec_file)
+        return 2
+    try:
+        spec = json.loads(spec_file.read_text(encoding="utf-8-sig"))
+        from botai_core import schemas
+        schemas.validate(spec, "environment")
+    except (OSError, ValueError) as e:
+        print("не удалось прочитать спецификацию: %s" % e)
+        return 2
+    except Exception as e:  # noqa: BLE001
+        print("спецификация не соответствует схеме: %s" % getattr(e, "message", e))
+        return 2
+
+    service = _open_operations(root, learner)
+    if service is None:
+        return 2
+    try:
+        input_hashes = {}
+        for entry in spec.get("inputs") or []:
+            candidate = Path(root) / accepted.binding["repository_root"] / entry["path"]
+            if candidate.is_file():
+                from botai_core import corpus as core_corpus
+                input_hashes[entry["input_id"]] = core_corpus.sha256_file(candidate)
+            else:
+                print("  ВНИМАНИЕ: вход %s не найден (%s)"
+                      % (entry["input_id"], entry["path"]))
+
+        try:
+            plan, operation = service.create_plan(spec, course=accepted,
+                                                  input_hashes=input_hashes)
+        except core_env.EnvironmentError as e:
+            print("  план не собран (%s): %s" % (e.code, e.message))
+            return 2
+
+        print(core_env.render_plan(plan, course_title=accepted.contract["title"]))
+        print()
+        if input_hashes:
+            print("Входы закреплены: %s" % ", ".join(sorted(input_hashes)))
+        return 0
+    finally:
+        service.close()
+
+
+def cmd_env_apply(root, operation_id, learner, wait):
+    """Execute a plan that a human already approved."""
+    try:
+        from botai_core import operation as core_operation
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not operation_id:
+        print("usage: cli.py env-apply --operation <id> [--wait]")
+        return 2
+
+    service = _open_operations(root, learner)
+    if service is None:
+        return 2
+    try:
+        plan = service.get_plan(operation_id)
+        if plan is None:
+            print("операция не найдена: %s" % operation_id)
+            return 2
+
+        # Recompute the input hashes from the workspace so the check at apply
+        # time is a real comparison and not a formality.
+        input_hashes = {}
+        from botai_core import corpus as core_corpus
+        for input_id, _expected in (plan.get("input_hashes") or {}).items():
+            for step in plan["steps"]:
+                for path in step["parameters"].get("write_roots") or []:
+                    candidate = Path(root) / path
+                    if candidate.is_file():
+                        input_hashes[input_id] = core_corpus.sha256_file(candidate)
+
+        try:
+            result = service.apply(operation_id, actor="human_cli",
+                                   current_hashes=input_hashes or None)
+        except core_operation.OperationError as e:
+            print("  отказ (%s): %s" % (e.code, e.message))
+            if e.detail.get("decision"):
+                for alternative in e.detail["decision"].get("alternatives", []):
+                    print("    - %s" % alternative)
+            return 4 if e.code in ("APPROVAL_REQUIRED",) else 3
+
+        print("== операция %s ==" % operation_id)
+        print("  состояние   : %s" % result["status"])
+        if result.get("replayed"):
+            print("  (повтор не выполнялся: возвращён прежний результат)")
+        for step in result["operation"]["results"]:
+            mark = "ok  " if step.get("ok") else "FAIL"
+            note = " (пропущен: %s)" % step["note"] if step.get("skipped") else ""
+            print("  [%s] %-16s %s%s" % (mark, step["step_id"], step["kind"], note))
+        if result.get("report", {}).get("message_ru"):
+            print("  %s" % result["report"]["message_ru"])
+        return 0 if result["status"] not in ("FAILED", "CANCELLED") else 1
+    finally:
+        service.close()
+
+
+def cmd_action_approve(root, operation_id, learner, decision, dry):
+    """Record a human's decision about one plan. Human-only by construction.
+
+    The `human_channel` argument is not settable from a tool call: this command
+    runs in a terminal, and that is what it reports. A model cannot reach this
+    function, which is what makes the approval meaningful rather than decorative.
+    """
+    if not operation_id:
+        print("usage: cli.py action-approve --operation <id> [--deny]")
+        return 2
+
+    service = _open_operations(root, learner)
+    if service is None:
+        return 2
+    try:
+        plan = service.get_plan(operation_id)
+        if plan is None:
+            print("операция не найдена: %s" % operation_id)
+            return 2
+
+        from botai_core import environment as core_env
+        print(core_env.render_plan(plan))
+        print()
+
+        if dry:
+            print("ничего не записано (--dry-run)")
+            return 0
+
+        if decision == "granted":
+            answer = input("Подтвердить выполнение этого плана? [y/N] ").strip().lower()
+            if answer not in ("y", "yes", "д", "да"):
+                print("не подтверждено: ничего не записано")
+                return 0
+
+        try:
+            approval = service.approve(operation_id, decision=decision,
+                                       human_channel="cli:%s" % _terminal_label())
+        except Exception as e:  # noqa: BLE001
+            print("  отказ (%s): %s" % (getattr(e, "code", type(e).__name__), e))
+            return 3
+
+        print("разрешение записано: %s (%s)" % (approval["approval_id"][:8],
+                                                approval["decision"]))
+        if decision == "granted":
+            print("выполнить: python scripts/cli.py env-apply --operation %s"
+                  % operation_id)
+        return 0
+    finally:
+        service.close()
+
+
+def _terminal_label():
+    """A best-effort label for which terminal approved a plan."""
+    for name in ("WT_SESSION", "TERM_SESSION_ID", "SSH_TTY", "TERM"):
+        if os.environ.get(name):
+            return "%s=%s" % (name, os.environ[name][:24])
+    return "tty"
+
+
+def cmd_env_status(root, operation_id, course, learner, as_json):
+    """Show one operation, or list the operations of a course."""
+    service = _open_operations(root, learner, create=False)
+    if service is None:
+        return 2
+    try:
+        if not operation_id:
+            items = service.list_operations(course)
+            if as_json:
+                print(json.dumps(items, ensure_ascii=False, indent=2))
+                return 0
+            if not items:
+                print("операций по курсу нет")
+                return 0
+            print("== операции ==")
+            for item in items:
+                print("  %s  %-22s шаг %d/%s"
+                      % (item["operation_id"][:8], item["status"],
+                         item["next_step"], "?"))
+            return 0
+
+        operation = service.get_operation(operation_id)
+        if operation is None:
+            print("операция не найдена: %s" % operation_id)
+            return 2
+        plan = service.get_plan(operation_id)
+        if as_json:
+            print(json.dumps({"operation": operation, "plan": plan},
+                             ensure_ascii=False, indent=2))
+            return 0
+
+        print("== операция %s ==" % operation_id)
+        print("  состояние   : %s" % operation["status"])
+        print("  план-хеш    : %s" % operation["plan_hash"][:32])
+        print("  шагов       : %d, выполнено до %d"
+              % (len(plan["steps"]) if plan else 0, operation["next_step"]))
+        if operation.get("started_at"):
+            print("  начата      : %s" % operation["started_at"])
+        if operation.get("finished_at"):
+            print("  завершена   : %s" % operation["finished_at"])
+        if operation.get("cancellation_requested"):
+            print("  запрошена отмена")
+        for step in operation.get("results") or []:
+            mark = "ok  " if step.get("ok") else "FAIL"
+            print("  [%s] %-16s %s" % (mark, step["step_id"], step["kind"]))
+            if step.get("error"):
+                print("        %s" % step["error"][:200])
+        return 0
+    finally:
+        service.close()
+
+
+def cmd_operation_cancel(root, operation_id, learner, reason, reconcile):
+    service = _open_operations(root, learner, create=False)
+    if service is None:
+        return 2
+    if not operation_id:
+        print("usage: cli.py operation-cancel --operation <id> [--reconcile] "
+              "[--reason ...]")
+        return 2
+    try:
+        if reconcile:
+            report = service.reconcile(operation_id)
+            print("== восстановление операции %s ==" % operation_id)
+            for key in ("status", "next_step", "steps_total", "steps_finished",
+                        "failed_steps", "cancellation_requested"):
+                print("  %-20s: %s" % (key, report.get(key)))
+            print("  %s" % report["message_ru"])
+            return 0
+
+        result = service.cancel(operation_id, reason=reason)
+        print(result["message_ru"])
+        return 0
+    except Exception as e:  # noqa: BLE001
+        print("  отказ (%s): %s" % (getattr(e, "code", type(e).__name__), e))
+        return 3
+    finally:
+        service.close()
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -1499,6 +1765,8 @@ def main():
                                         "consent-set", "consent-withdraw",
                                         "corpus-status", "corpus-acquire",
                                         "source-search", "quote-verify",
+                                        "env-plan", "action-approve", "env-apply",
+                                        "env-status", "operation-cancel",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -1583,8 +1851,16 @@ def main():
     ap.add_argument("--citation", help="quote-verify: JSON file with the citation")
     ap.add_argument("--offline", action="store_true",
                     help="corpus-acquire: use only what is already local")
+    ap.add_argument("--spec", help="env-plan: environment spec JSON file")
+    ap.add_argument("--operation", help="operation id (env-apply/action-approve/env-status)")
+    ap.add_argument("--deny", action="store_true",
+                    help="action-approve: record a refusal instead of a grant")
+    ap.add_argument("--reconcile", action="store_true",
+                    help="operation-cancel: inspect state instead of cancelling")
+    ap.add_argument("--wait", action="store_true",
+                    help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
-                    help="progress/corpus-status/source-search/quote-verify: emit JSON")
+                    help="progress/corpus-status/source-search/quote-verify/env-status: emit JSON")
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -1709,6 +1985,20 @@ def main():
         sys.exit(cmd_source_search(root, args.course, args.query, args.limit, args.json))
     elif cmd == "quote-verify":
         sys.exit(cmd_quote_verify(root, args.course, args.citation, args.json))
+    elif cmd == "env-plan":
+        sys.exit(cmd_env_plan(root, args.course, args.spec, args.learner))
+    elif cmd == "action-approve":
+        sys.exit(cmd_action_approve(root, args.operation, args.learner,
+                                    "denied" if args.deny else "granted",
+                                    args.dry_run))
+    elif cmd == "env-apply":
+        sys.exit(cmd_env_apply(root, args.operation, args.learner, args.wait))
+    elif cmd == "env-status":
+        sys.exit(cmd_env_status(root, args.operation, args.course, args.learner,
+                                args.json))
+    elif cmd == "operation-cancel":
+        sys.exit(cmd_operation_cancel(root, args.operation, args.learner,
+                                      args.reason, args.reconcile))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

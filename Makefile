@@ -70,6 +70,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         setup new-course \
         progress review courses course-set active \
         corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
+        env-plan action-approve env-apply env-status operation-reconcile \
         course-inspect course-accept course-status policy-check \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
@@ -103,6 +104,13 @@ help:
 	@echo "  make corpus-acquire COURSE=slug  Download+verify per manifest (DRY=1 preview, OFFLINE=1 local only)"
 	@echo "  make source-search COURSE=slug QUERY=...  Scoped search over accepted materials"
 	@echo "  make quote-verify COURSE=slug CITATION=file.json  Verify a citation"
+	@echo ""
+	@echo "Course environment (plan, then a HUMAN approves, then it runs):"
+	@echo "  make env-plan COURSE=slug SPEC=env.json  Build a plan; executes nothing"
+	@echo "  make action-approve OPERATION=id         A human approves in a terminal (DENY=1 refuses)"
+	@echo "  make env-apply OPERATION=id              Run an approved plan (a repeat returns the prior result)"
+	@echo "  make env-status [OPERATION=id] [COURSE=slug]  Show operation state"
+	@echo "  make operation-reconcile OPERATION=id    Inspect state; never re-runs an effect"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -241,6 +249,30 @@ source-search:
 quote-verify:
 	@python3 scripts/cli.py quote-verify --course "$(COURSE)" --citation "$(CITATION)"
 
+# ============================================================================
+# Среда курса: план -> подтверждение человеком -> выполнение -> проверка.
+# ----------------------------------------------------------------------------
+# `env-plan` ничего не исполняет и печатает детерминированный экран: какие
+# команды, куда запись, сеть, риски, ограничения. `action-approve` — команда
+# ЧЕЛОВЕКА в отдельном терминале: у модели нет ни её, ни способа выдать
+# разрешение. `env-apply` без разрешения отказывает. Повтор после успеха
+# возвращает прежний результат, а не выполняет второй эффект.
+# ============================================================================
+env-plan:
+	@python3 scripts/cli.py env-plan --course "$(COURSE)" --spec "$(SPEC)"
+
+action-approve:
+	@python3 scripts/cli.py action-approve --operation "$(OPERATION)" $(if $(DENY),--deny,)
+
+env-apply:
+	@python3 scripts/cli.py env-apply --operation "$(OPERATION)"
+
+env-status:
+	@python3 scripts/cli.py env-status $(if $(OPERATION),--operation "$(OPERATION)",) $(if $(COURSE),--course "$(COURSE)",)
+
+operation-reconcile:
+	@python3 scripts/cli.py operation-cancel --operation "$(OPERATION)" --reconcile
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -317,6 +349,7 @@ test:
 	@python3 tests/test_policy.py
 	@python3 tests/test_tutoring.py
 	@python3 tests/test_corpus.py
+	@python3 tests/test_environment.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

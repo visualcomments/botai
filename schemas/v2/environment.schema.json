@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/environment.schema.json",
+  "title": "botai environment spec",
+  "description": "What a course needs installed, described as data. The v1 harness delegated environment setup to whatever the course's own scripts did; here the course declares prerequisites, inputs, steps and checks, and the executor runs a closed set of step kinds. A step kind outside that set is a refusal, not a plugin point: an 'install anything' step would make every other limit decorative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile_id", "supported_platforms", "prerequisites", "inputs", "steps", "checks", "resources", "offline"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "profile_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": ["string", "null"], "maxLength": 200 },
+    "supported_platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["linux", "macos", "windows", "wsl"] },
+      "description": "Incompatibility is stated up front. A profile that silently half-works on another platform is worse than one that declines."
+    },
+    "prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool", "required"],
+        "properties": {
+          "tool": { "enum": ["python", "git", "docker", "podman", "node"] },
+          "version_constraint": {
+            "type": ["string", "null"],
+            "maxLength": 64,
+            "description": "A restricted comparison form such as '>=3.11,<3.14'. Parsed by the core, never passed to a shell: an unparsed constraint string is how an injection reaches a version check."
+          },
+          "required": { "type": "boolean" },
+          "install_help_url": { "type": ["string", "null"], "maxLength": 512 },
+          "why_ru": { "type": ["string", "null"], "maxLength": 500 }
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "description": "Files whose bytes the plan pins: lock files, scripts, container recipes. Secrets never appear here.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["input_id", "path", "sha256"],
+        "properties": {
+          "input_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "path": { "$ref": "common.schema.json#/$defs/relative_path" },
+          "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "kind", "parameters", "explanation_ru", "risk"],
+        "properties": {
+          "step_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "kind": {
+            "enum": [
+              "course_clone", "venv_create", "pip_sync", "npm_ci",
+              "artifact_fetch", "container_create", "declared_command", "service_stop"
+            ]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/slug" }
+          },
+          "parameters": { "type": "object" },
+          "inputs": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/slug" }
+          },
+          "outputs": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/relative_path" }
+          },
+          "timeout_seconds": { "type": ["integer", "null"], "minimum": 1, "maximum": 900 },
+          "network": { "type": "boolean" },
+          "risk": {
+            "enum": ["none", "writes_local", "installs_code", "runs_course_code", "changes_system"],
+            "description": "Shown to the learner before approval. `installs_code` and above mean the step can run code that a course author wrote."
+          },
+          "explanation_ru": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "kind", "parameters"],
+        "properties": {
+          "check_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "kind": {
+            "enum": ["tool_version", "file_hash", "path_exists", "http_health", "declared_check"],
+            "description": "A closed set. `declared_check` runs an accepted command and therefore needs the same sandbox and approval as an executable step — it is not a way around them."
+          },
+          "parameters": { "type": "object" },
+          "expected": {},
+          "timeout_seconds": { "type": ["integer", "null"], "minimum": 1, "maximum": 900 },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disk_bytes_max": { "type": ["integer", "null"], "minimum": 0 },
+        "memory_mb_max": { "type": ["integer", "null"], "minimum": 0 },
+        "cpu_limit": { "type": ["number", "null"], "minimum": 0 },
+        "ports": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 65535 } },
+        "estimated_download_bytes": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "offline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "required_cached_artifacts": { "type": "array", "items": { "type": "string" } },
+        "limitations": { "type": "array", "items": { "type": "string", "maxLength": 500 } }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "description": "The closed set of commands declared_command steps may name. A command is an argv array plus a cwd id — never a string, and never assembled from model input.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command_id", "argv", "cwd_id"],
+        "properties": {
+          "command_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "An argv array, executed with shell=False. A single-element array holding a shell line would defeat the separation, so the executor refuses argv[0] values that are shells."
+          },
+          "cwd_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "env_allowlist": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 64 },
+            "description": "Named environment variables passed through. The environment is not inherited: a course script must not receive the learner's cloud tokens or Git credential helper."
+          },
+          "write_roots": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/relative_path" }
+          },
+          "expected_exit_codes": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Exit 0 alone is not success: a check also has to find the artifact it expected."
+          }
+        }
+      }
+    }
+  }
+}
