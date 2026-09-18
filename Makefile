@@ -71,6 +71,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         progress review courses course-set active \
         corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
         env-plan action-approve env-apply env-status operation-reconcile \
+        contribute-start contribute-status contribute-draft contribute-rehearsal \
         course-inspect course-accept course-status policy-check \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
@@ -111,6 +112,12 @@ help:
 	@echo "  make env-apply OPERATION=id              Run an approved plan (a repeat returns the prior result)"
 	@echo "  make env-status [OPERATION=id] [COURSE=slug]  Show operation state"
 	@echo "  make operation-reconcile OPERATION=id    Inspect state; never re-runs an effect"
+	@echo ""
+	@echo "First contribution (the STUDENT publishes; the agent only drafts):"
+	@echo "  make contribute-rehearsal [DEST=dir]     Build a throwaway repo for Git practice"
+	@echo "  make contribute-start COURSE=slug TASK=url [ROLE=developer] [PUBLISH=public_pr]"
+	@echo "  make contribute-status [CONTRIBUTION=id] Show state, diff hash and blockers"
+	@echo "  make contribute-draft COURSE=slug CONTRIBUTION=id [OUT=file]  Write the draft"
 	@echo "  make state-migrate COURSE=slug  Import a v1 progress record (report first; APPLY=1 to write)"
 	@echo "  make education-club        Verify the Open Education Club catalog checkout (EDUCATION_CLUB_CATALOG=/path/to/catalog)"
 	@echo ""
@@ -273,6 +280,27 @@ env-status:
 operation-reconcile:
 	@python3 scripts/cli.py operation-cancel --operation "$(OPERATION)" --reconcile
 
+# ============================================================================
+# Первый вклад.
+# ----------------------------------------------------------------------------
+# Публикацию выполняет УЧЕНИК: агент не делает commit, push и не открывает PR.
+# Он наблюдает состояние Git только на чтение, привязывает проверки к отпечатку
+# изменения и готовит ЧЕРНОВИК описания. `contribute-rehearsal` создаёт
+# одноразовый репозиторий для репетиции, чтобы первые шаги Git не пробовались
+# на настоящем курсе.
+# ============================================================================
+contribute-start:
+	@python3 scripts/cli.py contribute-start --course "$(COURSE)" --task "$(TASK)" $(if $(ROLE),--role "$(ROLE)",) $(if $(REPO),--repo "$(REPO)",) $(if $(PUBLISH),--publish "$(PUBLISH)",)
+
+contribute-status:
+	@python3 scripts/cli.py contribute-status $(if $(COURSE),--course "$(COURSE)",) $(if $(CONTRIBUTION),--contribution "$(CONTRIBUTION)",)
+
+contribute-draft:
+	@python3 scripts/cli.py contribute-draft --course "$(COURSE)" --contribution "$(CONTRIBUTION)" $(if $(OUT),--out "$(OUT)",)
+
+contribute-rehearsal:
+	@python3 scripts/cli.py contribute-rehearsal $(if $(DEST),--dest "$(DEST)",) $(if $(DRY),--dry-run,)
+
 policy-check:
 	@python3 scripts/cli.py policy-check --course "$(COURSE)" --assignment "$(ASSIGNMENT)" $(if $(LEVEL),--level "$(LEVEL)",) $(if $(PREFERENCE),--preference "$(PREFERENCE)",)
 
@@ -350,6 +378,7 @@ test:
 	@python3 tests/test_tutoring.py
 	@python3 tests/test_corpus.py
 	@python3 tests/test_environment.py
+	@python3 tests/test_contribution.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

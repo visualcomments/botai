@@ -43,6 +43,7 @@ CONTRACTS = {
     "session": "session.schema.json",
     "corpus": "corpus.schema.json",
     "environment": "environment.schema.json",
+    "contribution": "contribution.schema.json",
     "plan": "plan.schema.json#/$defs/plan",
     "approval": "plan.schema.json#/$defs/approval",
     "operation": "plan.schema.json#/$defs/operation",

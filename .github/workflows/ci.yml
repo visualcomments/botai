@@ -62,6 +62,13 @@ jobs:
           "$VPY" tests/test_tutoring.py
           "$VPY" tests/test_corpus.py
           "$VPY" tests/test_environment.py
+          "$VPY" tests/test_contribution.py
+
+      - name: "Вклад: только чтение Git и черновик для ученика"
+        # Проверяем, что публикация остаётся за учеником: команды commit/push/PR
+        # не существуют, изменяющие формы git отклоняются, самоотчёт не
+        # становится наблюдением, а изменившийся diff снимает прежние проверки.
+        run: python3 scripts/checks/contribution_flow.py
 
       - name: "Среда: подтверждение человеком и запрет повторного эффекта"
         # Сквозная проверка жизненного цикла через настоящий CLI: план, отказ
