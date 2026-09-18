@@ -34,7 +34,11 @@ true of the tools rather than of the prompt:
 * `exports` — the learner's own data: selective export with a preview, a
   checksum that detects damage but not identity, and planned deletion;
 * `teacher` — imported packets as untrusted data, a triage queue, and
-  aggregation that states its denominator instead of guessing a cohort size.
+  aggregation that states its denominator instead of guessing a cohort size;
+* `mcp_handlers`— the narrow tool surface: one handler per catalogued tool, with
+  no tool that runs a command, edits a file, or grants an approval;
+* `adapters` — host profiles: a certified restriction, or an honest
+  `HOST_UNVERIFIED` when the final configuration cannot be proven to restrict.
 
 Nothing here calls a language model, opens the network, or executes course code.
 """
@@ -44,6 +48,6 @@ from __future__ import annotations
 __all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
            "tutoring", "session", "progress", "corpus", "retrieval",
            "environment", "actions", "operation", "contribution", "personas",
-           "exports", "teacher"]
+           "exports", "teacher", "mcp_handlers", "adapters"]
 
 SCHEMA_VERSION = 2

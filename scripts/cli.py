@@ -2445,6 +2445,103 @@ def cmd_teacher_summary(root, course, learner, as_json, queue_only):
         store.close()
 
 
+def cmd_adapter_check(root, host, config_path, version, as_json):
+    """Check whether a host can be certified, and name what stands in the way."""
+    try:
+        from botai_core import adapters as core_adapters
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not host:
+        print("usage: cli.py adapter-check --host opencode [--config <файл>] "
+              "[--version <версия>]")
+        print()
+        print("Хосты с адаптером: %s" % ", ".join(core_adapters.KNOWN_HOSTS))
+        return 2
+
+    document = None
+    candidate = Path(config_path) if config_path else (root / "opencode.json")
+    if candidate.is_file() and not config_path:
+        try:
+            document = json.loads(candidate.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            document = None
+
+    report = core_adapters.adapter_check(
+        host,
+        config_path=Path(config_path) if config_path else (candidate if candidate.is_file() else None),
+        document=document, version=version, workspace_root=root)
+
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["verdict"] == core_adapters.PROFILE_MANAGED else 3
+
+    print(core_adapters.render_adapter_report(report))
+    return 0 if report["verdict"] == core_adapters.PROFILE_MANAGED else 3
+
+
+def cmd_adapter_install(root, host, dry):
+    """Write a managed profile into this project. Nothing global is touched."""
+    try:
+        from botai_core import adapters as core_adapters
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not host:
+        print("usage: cli.py adapter-install --host opencode")
+        return 2
+    try:
+        profile = core_adapters.build_profile(host, workspace_root=root)
+    except core_adapters.AdapterError as e:
+        print("  отказ (%s): %s" % (e.code, e.message))
+        return 2
+
+    target = root / "botai-profile.json"
+    print("== профиль хоста: %s ==" % host)
+    print("  файл        : %s" % target)
+    print("  по умолчанию: %s" % profile["permission"]["default"])
+    print("  разрешено   : %d инструментов botai" % len(profile["permission"]["allow"]))
+    print("  запрещено   : %s" % ", ".join(profile["permission"]["deny"][:6]) + " …")
+    for note in profile["notes_ru"]:
+        print("  %s" % note)
+    if dry:
+        print()
+        print("  ничего не записано (--dry-run)")
+        return 0
+
+    target.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8", newline="\n")
+    print()
+    print("  Профиль записан только в этот проект; глобальные настройки не тронуты.")
+    print("  Проверьте итоговую конфигурацию хоста:")
+    print("    python scripts/cli.py adapter-check --host %s" % host)
+    return 0
+
+
+def cmd_catalog_check(catalog_path, as_json):
+    """Verify an optional external catalogue before offering it."""
+    try:
+        from botai_core import adapters as core_adapters
+    except ImportError as e:
+        print("ядро v2 недоступно: %s" % e)
+        return 2
+    if not catalog_path:
+        print("usage: cli.py catalog-check --catalog <путь>")
+        return 2
+    report = core_adapters.catalog_check(Path(catalog_path))
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 3
+    print("== проверка каталога ==")
+    print("  путь        : %s" % report["catalog_path"])
+    print("  версия      : %s" % report.get("version", "(не указана)"))
+    print("  состояние   : %s" % ("готов" if report["ok"] else "не готов"))
+    for problem in report["problems"]:
+        print("    [%s] %s" % (problem["code"], problem["message_ru"]))
+    print("  %s" % report["note_ru"])
+    return 0 if report["ok"] else 3
+
+
 def parse_confirm_split(values):
     """`--confirm-split stu-01=<id>` -> {"stu-01": "<id>"}."""
     mapping = {}
@@ -2503,6 +2600,8 @@ def main():
                                         "privacy-preview", "privacy-export",
                                         "privacy-delete",
                                         "teacher-import", "teacher-summary",
+                                        "adapter-check", "adapter-install",
+                                        "catalog-check",
                                         "state-migrate",
                                         "doctor", "clean"])
     ap.add_argument("--name", help="course slug for new-course / course-add")
@@ -2620,6 +2719,10 @@ def main():
     ap.add_argument("--packet", help="teacher-import: packet JSON file")
     ap.add_argument("--queue", action="store_true",
                     help="teacher-summary: show the triage queue instead of the summary")
+    ap.add_argument("--host", help="adapter-check/install: opencode, claude-code, cursor, …")
+    ap.add_argument("--config", help="adapter-check: host configuration file to inspect")
+    ap.add_argument("--version", help="adapter-check: host version actually in use")
+    ap.add_argument("--catalog", help="catalog-check: path to the external catalogue")
     ap.add_argument("--wait", action="store_true",
                     help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
@@ -2799,6 +2902,13 @@ def main():
     elif cmd == "teacher-summary":
         sys.exit(cmd_teacher_summary(root, args.course, args.learner, args.json,
                                      args.queue))
+    elif cmd == "adapter-check":
+        sys.exit(cmd_adapter_check(root, args.host, args.config, args.version,
+                                   args.json))
+    elif cmd == "adapter-install":
+        sys.exit(cmd_adapter_install(root, args.host, args.dry_run))
+    elif cmd == "catalog-check":
+        sys.exit(cmd_catalog_check(args.catalog, args.json))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

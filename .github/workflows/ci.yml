@@ -65,6 +65,21 @@ jobs:
           "$VPY" tests/test_contribution.py
           "$VPY" tests/test_personas.py
           "$VPY" tests/test_exports.py
+          "$VPY" tests/test_adapters.py
+
+      - name: "Хост: запреты доказаны или названы"
+        # Проверяем, что аккуратный профиль получает managed, а конфигурация с
+        # шаблоном в разрешениях, default=allow, подагентом с bash или включённым
+        # внешним плагином — HOST_UNVERIFIED с названной причиной. Хост без
+        # адаптера обязан получить compatibility, а не managed.
+        run: |
+          set -e
+          python3 scripts/cli.py adapter-check --host not-a-real-host --json \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['verdict']=='compatibility', d['verdict']; print('нет адаптера -> compatibility')"
+          if python3 scripts/cli.py adapter-check --host opencode --json >/dev/null 2>&1; then
+            echo "непроверенная конфигурация выдана за managed"; exit 1
+          fi
+          echo "непроверенная конфигурация -> не managed"
 
       - name: "Приватность: согласие, пакет, знаменатель, удаление"
         # Сквозная проверка через настоящий CLI: экспорт без согласия отклонён,
@@ -72,6 +87,12 @@ jobs:
         # данные, сводка называет знаменатель, удаление проверено тем же
         # идентификатором обучающегося, которым писала команда.
         run: python3 scripts/checks/privacy_flow.py
+
+      - name: "MCP: узкая поверхность и честный вердикт хоста"
+        # Проверяем отсутствие обходных инструментов (bash, edit, approve) и то,
+        # что лазейка в конфиге хоста даёт HOST_UNVERIFIED с названной причиной,
+        # а не managed.
+        run: python3 scripts/checks/mcp_surface.py
 
       - name: "Вклад: только чтение Git и черновик для ученика"
         # Проверяем, что публикация остаётся за учеником: команды commit/push/PR
