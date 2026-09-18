@@ -137,22 +137,52 @@ def main():
 
     print()
     print("### 8. аккуратный профиль сертифицируется")
+    # Written against the host's own vocabulary: denying `shell` or `execute`
+    # would be decorative, because OpenCode implements neither, while `read` and
+    # `apply_patch` would stay reachable.
     careful = {"permission": {"default": "deny",
-                              "allow": list(A.allowed_tool_names()) + ["question"],
-                              "deny": list(A.MUST_BE_DENIED)}}
+                              "allow": list(A.allowed_tool_names())
+                                       + list(A.READ_ONLY_ALLOWED),
+                              "deny": list(A.bypass_tools_for("opencode"))}}
     verdict, problems = A.inspect_config(careful, host="opencode")
     check("аккуратный конфиг -> managed", verdict == A.PROFILE_MANAGED, str(problems))
 
     print()
+    print("### 8b. конфиг с запретами несуществующих инструментов не проходит")
+    decorative = {"permission": {
+        "default": "deny",
+        "allow": list(A.allowed_tool_names()) + ["question"],
+        "deny": ["shell", "run_command", "execute", "fetch", "patch",
+                 "multiedit", "notebook_edit"],
+    }}
+    verdict, problems = A.inspect_config(decorative, host="opencode")
+    check("декоративный запрет не сертифицирован",
+          verdict != A.PROFILE_MANAGED, verdict)
+    named = " ".join(p["message_ru"] for p in problems)
+    check("назван настоящий обходной инструмент read",
+          "read" in named, named[:200])
+
+    print()
+    print("### 8c. незакреплённая версия не сертифицируется")
+    pinned = A.adapter_check("opencode", document=careful,
+                             version=A.TESTED_VERSIONS["opencode"])
+    check("закреплённая версия -> managed",
+          pinned["verdict"] == A.PROFILE_MANAGED, str(pinned["problems"]))
+    other = A.adapter_check("opencode", document=careful, version="0.0.1")
+    check("другая версия -> не managed",
+          other["verdict"] == "HOST_UNVERIFIED", other["verdict"])
+
+    print()
     print("### 9. каждая лазейка названа")
+    deny_all = list(A.bypass_tools_for("opencode"))
     holes = {
         "шаблон botai_*": {"permission": {"default": "deny", "allow": ["botai_*"],
-                                          "deny": list(A.MUST_BE_DENIED)}},
+                                          "deny": deny_all}},
         "шаблон *": {"permission": {"default": "deny", "*": "allow",
-                                    "deny": list(A.MUST_BE_DENIED)}},
+                                    "deny": deny_all}},
         "default=allow": {"permission": {"default": "allow",
                                          "allow": list(A.allowed_tool_names()),
-                                         "deny": list(A.MUST_BE_DENIED)}},
+                                         "deny": deny_all}},
         "подгаент с bash": {**careful, "agent": {"h": {"tools": ["bash"]}}},
         "внешний плагин": {**careful, "mcp": {"other": {"enabled": True}}},
         "нет раздела разрешений": {},
@@ -181,7 +211,11 @@ def main():
     print("### 12. проверка на настоящем конфиге репозитория")
     real = REPO / "opencode.json"
     if real.is_file():
-        report = A.adapter_check("opencode", config_path=real)
+        # The CLI detects the installed version; this call must pass it too, or
+        # an otherwise-correct config reports HOST_VERSION_UNKNOWN.
+        import cli as cli_module
+        detected = cli_module._detect_host_version("opencode")
+        report = A.adapter_check("opencode", config_path=real, version=detected)
         check("реальный конфиг проверен, вердикт вынесен",
               report["verdict"] in (A.PROFILE_MANAGED, "HOST_UNVERIFIED"),
               report["verdict"])

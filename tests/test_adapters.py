@@ -266,11 +266,17 @@ def test_env_status_and_cancel_have_no_apply_tool():
 # A26 — a host is certified only on evidence
 # ---------------------------------------------------------------------------
 def careful_config():
+    """A config written against the host's OWN tool vocabulary.
+
+    OpenCode 1.18.26 has no `shell`, `execute` or `fetch`, so a config that
+    denies those and stops there is decorative: `read` and `apply_patch` remain
+    reachable. This uses the names the host implements.
+    """
     return {
         "permission": {
             "default": "deny",
-            "allow": list(A.allowed_tool_names()) + ["question"],
-            "deny": list(A.MUST_BE_DENIED),
+            "allow": list(A.allowed_tool_names()) + list(A.READ_ONLY_ALLOWED),
+            "deny": list(A.bypass_tools_for("opencode")),
         }
     }
 
@@ -284,9 +290,9 @@ def test_careful_config_is_certified():
 def test_wildcard_allow_is_not_certified():
     for config in (
         {"permission": {"default": "deny", "allow": ["botai_*"],
-                        "deny": list(A.MUST_BE_DENIED)}},
+                        "deny": list(A.bypass_tools_for("opencode"))}},
         {"permission": {"default": "deny", "*": "allow",
-                        "deny": list(A.MUST_BE_DENIED)}},
+                        "deny": list(A.bypass_tools_for("opencode"))}},
     ):
         verdict, problems = A.inspect_config(config, host="opencode")
         codes = {p["code"] for p in problems}
@@ -324,6 +330,83 @@ def test_privileged_subagent_is_named():
           verdict != A.PROFILE_MANAGED, verdict)
     check("назван конкретный подагент и инструмент",
           any("helper" in p["message_ru"] for p in problems), str(problems))
+
+
+def test_bypass_list_is_the_hosts_own_vocabulary():
+    """A fixed cross-host list certifies the wrong things.
+
+    OpenCode implements `read` and `apply_patch`; it does not implement `shell`,
+    `execute` or `fetch`. A check that demands denies for names the host lacks
+    and never mentions the ones it has reports a decorative config as safe.
+    """
+    opencode = set(A.bypass_tools_for("opencode"))
+    check("в списке есть read (хост его имеет)", "read" in opencode, str(sorted(opencode)))
+    check("в списке есть apply_patch", "apply_patch" in opencode)
+    check("в списке есть task (делегирование)",
+          "task" in opencode)
+    check("в списке нет несуществующего execute", "execute" not in opencode)
+    check("в списке нет несуществующего multiedit", "multiedit" not in opencode)
+    # An unknown host keeps a broad generic list rather than an empty one:
+    # not knowing the vocabulary is not a reason to demand nothing. It is not a
+    # superset of OpenCode's — it names `shell` and `execute`, which OpenCode
+    # lacks, and omits `apply_patch`, which OpenCode has — and that is fine,
+    # because it is never applied to OpenCode.
+    generic = set(A.bypass_tools_for("some-unknown-host"))
+    check("для неизвестного хоста список не пуст", len(generic) >= 10,
+          str(sorted(generic)))
+    check("для неизвестного хоста остаётся bash", "bash" in generic,
+          str(sorted(generic)))
+    check("для неизвестного хоста остаётся task", "task" in generic,
+          str(sorted(generic)))
+
+
+def test_a_config_that_denies_a_nonexistent_tool_is_not_certified():
+    """Denying `shell` looks careful and protects nothing."""
+    config = {
+        "permission": {
+            "default": "deny",
+            "allow": list(A.allowed_tool_names()) + ["question"],
+            "deny": ["shell", "run_command", "execute", "fetch", "patch",
+                     "multiedit", "notebook_edit"],
+        }
+    }
+    verdict, problems = A.inspect_config(config, host="opencode")
+    codes = {p["code"] for p in problems}
+    check("конфиг с запретами несуществующих инструментов не сертифицирован",
+          verdict != A.PROFILE_MANAGED, verdict)
+    check("названы настоящие обходные инструменты",
+          "BYPASS_TOOL_NOT_DENIED" in codes, str(codes))
+    named = " ".join(p["message_ru"] for p in problems)
+    for tool in ("read", "apply_patch", "bash"):
+        check("назван %r" % tool, tool in named, named[:300])
+
+
+def test_untested_version_is_not_certified():
+    """The version pin must mean something, or it is decoration."""
+    document = careful_config()
+    pinned = A.TESTED_VERSIONS["opencode"]
+    check("версия закреплена", bool(pinned), str(pinned))
+
+    verdict, _ = A.inspect_config(document, host="opencode")
+    check("сама конфигурация в порядке", verdict == A.PROFILE_MANAGED, verdict)
+
+    same = A.adapter_check("opencode", document=document, version=pinned)
+    check("закреплённая версия сертифицируется",
+          same["verdict"] == A.PROFILE_MANAGED, str(same["problems"]))
+
+    other = A.adapter_check("opencode", document=document, version="0.0.1")
+    check("другая версия не сертифицируется",
+          other["verdict"] == "HOST_UNVERIFIED", other["verdict"])
+    check("причина названа",
+          any(p["code"] == "HOST_VERSION_MISMATCH" for p in other["problems"]),
+          str(other["problems"]))
+
+    unstated = A.adapter_check("opencode", document=document, version=None)
+    check("неуказанная версия не сертифицируется",
+          unstated["verdict"] == "HOST_UNVERIFIED", unstated["verdict"])
+    check("сказано, что версию нужно указать",
+          any("Укажите" in p["message_ru"] for p in unstated["problems"]),
+          str(unstated["problems"]))
 
     unconstrained = careful_config()
     unconstrained["subagents"] = {"mapper": {}}
@@ -376,13 +459,14 @@ def test_adapter_check_reads_a_real_file():
         path = Path(tmp) / "opencode.json"
         path.write_text(json.dumps(careful_config(), ensure_ascii=False),
                         encoding="utf-8")
-        report = A.adapter_check("opencode", config_path=path)
+        report = A.adapter_check("opencode", config_path=path, version=A.TESTED_VERSIONS["opencode"])
         check("конфигурация из файла проверена", path in
               [Path(x) for x in report["checked"]], str(report["checked"]))
         check("вердикт вынесен", report["verdict"] in
               (A.PROFILE_MANAGED, "HOST_UNVERIFIED"), report["verdict"])
 
-        missing = A.adapter_check("opencode", config_path=Path(tmp) / "nope.json")
+        missing = A.adapter_check("opencode", config_path=Path(tmp) / "nope.json",
+                             version=A.TESTED_VERSIONS["opencode"])
         check("отсутствующий файл не сертифицируется",
               missing["verdict"] == "HOST_UNVERIFIED", missing["verdict"])
 
@@ -395,7 +479,7 @@ def test_profile_is_generated_as_data_and_not_global():
           all(not name.endswith("*") for name in profile["permission"]["allow"]),
           str(profile["permission"]["allow"][:3]))
     check("профиль запрещает обходные инструменты",
-          set(A.MUST_BE_DENIED) <= set(profile["permission"]["deny"]))
+          set(A.bypass_tools_for("opencode")) <= set(profile["permission"]["deny"]))
     check("профиль называет свои пределы",
           any("не песочница" in note for note in profile["known_limitations_ru"]),
           str(profile["known_limitations_ru"]))
@@ -422,7 +506,8 @@ def test_catalog_check_reports_before_use():
 
 
 def test_render_report_is_readable():
-    report = A.adapter_check("opencode", document=careful_config())
+    report = A.adapter_check("opencode", document=careful_config(),
+                             version=A.TESTED_VERSIONS["opencode"])
     text = A.render_adapter_report(report)
     check("отчёт называет вердикт", "вердикт" in text and
           report["verdict"] in text, text[:200])
@@ -458,6 +543,9 @@ def main():
         test_profile_is_generated_as_data_and_not_global,
         test_catalog_check_reports_before_use,
         test_render_report_is_readable,
+        test_untested_version_is_not_certified,
+        test_a_config_that_denies_a_nonexistent_tool_is_not_certified,
+        test_bypass_list_is_the_hosts_own_vocabulary,
     ]
     for test in tests:
         print("== %s ==" % test.__name__)

@@ -39,22 +39,58 @@ KNOWN_HOSTS = ("opencode", "claude-code", "cursor", "codex", "pi", "dsh")
 
 # The exact versions an adapter has been exercised against. A version not in
 # this map is not "probably fine": it is untested, and the check says so.
+#
+# OpenCode 1.18.26: the permission block in `opencode.json` was read back through
+# `opencode debug config`, which prints the merged result including global
+# settings and plugins, and every rule resolved as written. That is what makes
+# the version pinnable — the file having the right shape is not evidence.
 TESTED_VERSIONS = {
-    "opencode": None,   # to be filled by the compatibility run; see docs/host-compatibility.md
+    "opencode": "1.18.26",
 }
 
 PROFILE_MANAGED = "managed"
 PROFILE_COMPATIBILITY = "compatibility"
 
-# Tools the managed profile must NOT leave reachable. Each is a way around the
-# botai tool surface: run a command, edit a file, read any file, fetch any URL,
-# or delegate to an agent that has them.
-MUST_BE_DENIED = (
-    "bash", "shell", "run_command", "execute",
-    "edit", "write", "patch", "multiedit", "notebook_edit",
-    "webfetch", "websearch", "fetch",
-    "task",
-)
+# Tools that must NOT be left reachable in a managed profile, per host.
+#
+# A fixed cross-host list does not work, and demanding it is a defect: OpenCode
+# 1.18.26 has no tool called `shell`, `execute`, `fetch` or `multiedit`, so a
+# check that requires those denies reports a config as unsafe for naming tools
+# the host does not have — and, worse, would accept a config that never denies
+# `read` or `apply_patch`, which the host *does* have. The list is therefore per
+# host, and `capability_of` maps each name to the capability it grants.
+HOST_BYPASS_TOOLS = {
+    "opencode": (
+        # run a command
+        "bash",
+        # change a file without the core's plan/approve flow
+        "edit", "write", "apply_patch", "ast_grep_replace",
+        # reach the network
+        "webfetch", "websearch",
+        # read anything, including closed material
+        "read", "list", "glob", "grep", "codesearch", "ast_grep_search",
+        # delegate to an agent that may carry a wider toolset
+        "task",
+    ),
+    # Hosts with no adapter yet keep a conservative generic list: an unknown
+    # vocabulary is not a reason to demand nothing.
+    "*": (
+        "bash", "shell", "run_command", "execute", "edit", "write", "patch",
+        "multiedit", "notebook_edit", "webfetch", "websearch", "fetch", "task",
+        "read", "glob", "grep",
+    ),
+}
+
+# Names that grant a capability, but are legitimately allowed in a teaching
+# session because the core's job is to read material and ask the student
+# questions. Stated explicitly so the allowance is a decision, not an oversight.
+READ_ONLY_ALLOWED = ("read", "list", "glob", "grep", "codesearch", "lsp",
+                     "question", "skill", "todowrite")
+
+
+def bypass_tools_for(host):
+    """The bypass tools that actually exist on this host."""
+    return HOST_BYPASS_TOOLS.get(host, HOST_BYPASS_TOOLS["*"])
 
 # Tool names the managed profile is allowed to expose. Built from the MCP
 # catalogue so a new tool cannot be added without appearing here — and never as
@@ -89,6 +125,7 @@ def build_profile(host, *, workspace_root=None):
         )
 
     allowed = list(allowed_tool_names())
+    bypass = list(bypass_tools_for(host))
     profile = {
         "schema_version": SCHEMA_VERSION,
         "host": host,
@@ -99,8 +136,8 @@ def build_profile(host, *, workspace_root=None):
             # must not be the thing that decides, so the deny is stated as the
             # default rather than as a trailing rule.
             "default": "deny",
-            "allow": sorted(allowed),
-            "deny": sorted(MUST_BE_DENIED),
+            "allow": sorted(allowed + list(READ_ONLY_ALLOWED)),
+            "deny": sorted(bypass),
         },
         "notes_ru": [
             "Профиль запрещает всё по умолчанию и разрешает только инструменты botai.",
@@ -174,7 +211,7 @@ def inspect_config(document, *, host, allowed=None):
                     "message_ru": "разрешён инструмент %r, которого нет в каталоге "
                                   "botai: проверьте, не добавлен ли он позже" % entry,
                 })
-            elif not text.startswith("botai_") and text not in ("question",):
+            elif not text.startswith("botai_") and text not in READ_ONLY_ALLOWED:
                 problems.append({
                     "code": "NON_BOTAI_TOOL_ALLOWED",
                     "message_ru": "разрешён посторонний инструмент %r: он может "
@@ -190,11 +227,28 @@ def inspect_config(document, *, host, allowed=None):
 
     # A deny list that names a bypass tool is necessary but not sufficient; a
     # missing entry is a concrete, checkable defect.
+    #
+    # Only tools the host actually has are demanded: requiring a deny for a name
+    # OpenCode does not implement would flag a correct config, and the real
+    # bypasses (`read`, `apply_patch`) would go unmentioned.
     denied = set()
     if isinstance(permission, dict):
         denied.update(str(x) for x in (permission.get("deny") or []))
         denied.update(k for k, v in permission.items() if v == "deny")
-    for tool in MUST_BE_DENIED:
+    for tool in bypass_tools_for(host):
+        if tool in READ_ONLY_ALLOWED:
+            # Reading the workspace is how the agent teaches; it is only a
+            # bypass when it is left implicit, so it must be explicitly allowed
+            # rather than silently inherited from a permissive default.
+            if permission.get(tool) != "allow" and tool not in (
+                    permission.get("allow") or []):
+                problems.append({
+                    "code": "READ_TOOL_NOT_EXPLICIT",
+                    "message_ru": "инструмент %r не задан явно: при чтении "
+                                  "материалов полагаться на умолчание нельзя"
+                                  % tool,
+                })
+            continue
         if tool not in denied:
             problems.append({
                 "code": "BYPASS_TOOL_NOT_DENIED",
@@ -204,17 +258,23 @@ def inspect_config(document, *, host, allowed=None):
 
     # Subagents can be given a wider toolset than the primary agent. If the
     # configuration does not constrain them, they are the hole.
+    bypass = set(bypass_tools_for(host))
     for key in ("agent", "agents", "subagent", "subagents"):
         for name, spec in (document.get(key) or {}).items() if isinstance(document.get(key), dict) else []:
             spec_tools = (spec or {}).get("tools") if isinstance(spec, dict) else None
             if spec_tools is None:
-                problems.append({
-                    "code": "SUBAGENT_UNCONSTRAINED",
-                    "message_ru": "подагент %r не ограничен по инструментам" % name,
-                })
+                # A subagent with no declared tools inherits; if it also has no
+                # permission block, nothing constrains it.
+                spec_permission = (spec or {}).get("permission") if isinstance(spec, dict) else None
+                if not spec_permission:
+                    problems.append({
+                        "code": "SUBAGENT_UNCONSTRAINED",
+                        "message_ru": "подагент %r не ограничен ни инструментами, "
+                                      "ни разрешениями" % name,
+                    })
             else:
                 for tool in spec_tools:
-                    if tool in MUST_BE_DENIED:
+                    if tool in bypass and tool not in READ_ONLY_ALLOWED:
                         problems.append({
                             "code": "SUBAGENT_HAS_BYPASS_TOOL",
                             "message_ru": "подагент %r получает инструмент %r"
@@ -288,7 +348,18 @@ def adapter_check(host, config_path=None, *, document=None, version=None,
                           "проверенная: результат проверки конфигурации не "
                           "распространяется на неё" % (version or "неизвестна"),
             })
-    elif version and version != tested:
+    elif not version:
+        # An unstated version is not a tested one. Calling `adapter-check`
+        # without `--version` used to certify the host on the strength of the
+        # config alone, which silently assumed the installed release is the one
+        # that was exercised. Say so instead.
+        report["problems"].append({
+            "code": "HOST_VERSION_UNKNOWN",
+            "message_ru": "версия хоста не указана, а проверялась %s: подтвердить "
+                          "ограничения на неизвестном релизе нельзя. Укажите "
+                          "--version." % tested,
+        })
+    elif version != tested:
         report["problems"].append({
             "code": "HOST_VERSION_MISMATCH",
             "message_ru": "проверена версия %s, обнаружена %s: поведение разрешений "
@@ -326,7 +397,25 @@ def adapter_check(host, config_path=None, *, document=None, version=None,
 
     verdict, problems = inspect_config(document, host=host)
     report["problems"].extend(problems)
-    report["verdict"] = verdict
+
+    # A version we have not tested cannot be certified, even when the config
+    # itself is in order: permission semantics differ between host releases, and
+    # `inspect_config` only reads the shape of the file. Without this, pinning a
+    # version would be decorative — the verdict would be `managed` for any
+    # release, which is exactly the claim the pin exists to avoid making.
+    version_blocks = any(
+        problem["code"] in ("HOST_VERSION_MISMATCH", "HOST_VERSION_UNTESTED",
+                            "HOST_VERSION_UNKNOWN")
+        for problem in report["problems"]
+    )
+    report["verdict"] = "HOST_UNVERIFIED" if version_blocks else verdict
+    if version_blocks:
+        report["limits_ru"] = [
+            "Версия хоста не закреплена как проверенная, поэтому ограничения не",
+            "подтверждены на ней. Доступен режим compatibility либо read-only",
+            "учебный режим. Закрепить версию: docs/host-compatibility.md.",
+        ]
+        return report
 
     if verdict != PROFILE_MANAGED:
         report["limits_ru"] = [

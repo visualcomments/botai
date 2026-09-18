@@ -2467,6 +2467,42 @@ def cmd_teacher_summary(root, course, learner, as_json, queue_only):
         store.close()
 
 
+def _detect_host_version(host):
+    """Ask an installed host its version, or return None.
+
+    Reading the version rather than requiring it: `adapter-check` certifies a
+    specific release, so the useful default is the one actually installed. A
+    host that is not installed answers None, and the check then says the version
+    is unknown instead of guessing.
+    """
+    import re
+    import subprocess
+
+    executable = shutil.which(host)
+    if not executable:
+        return None
+
+    # On Windows an npm-installed CLI resolves to a `.CMD` shim, which the OS
+    # will not launch without a shell. Falling back to a shell string only when
+    # the direct call cannot work keeps the argument list intact elsewhere.
+    commands = [[executable, "--version"]]
+    if executable.lower().endswith((".cmd", ".bat")):
+        commands.append('"%s" --version' % executable)
+
+    for command in commands:
+        use_shell = isinstance(command, str)
+        try:
+            completed = subprocess.run(command, capture_output=True, text=True,
+                                       timeout=30, shell=use_shell)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        text = ((completed.stdout or "") + (completed.stderr or "")).strip()
+        match = re.search(r"\d+\.\d+\.\d+", text)
+        if match:
+            return match.group(0)
+    return None
+
+
 def cmd_adapter_check(root, host, config_path, version, as_json):
     """Check whether a host can be certified, and name what stands in the way."""
     try:
@@ -2480,6 +2516,12 @@ def cmd_adapter_check(root, host, config_path, version, as_json):
         print()
         print("Хосты с адаптером: %s" % ", ".join(core_adapters.KNOWN_HOSTS))
         return 2
+
+    # Ask the host its own version when none was given. Requiring `--version` by
+    # hand means the check is only correct when the caller remembers, and an
+    # unstated version must not certify the host anyway.
+    if not version:
+        version = _detect_host_version(host)
 
     document = None
     candidate = Path(config_path) if config_path else (root / "opencode.json")

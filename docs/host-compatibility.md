@@ -42,19 +42,51 @@
 python scripts/cli.py adapter-check --host opencode
 ```
 
-Актуальный вывод для `opencode.json` этого репозитория — `HOST_UNVERIFIED`:
-разрешения в нём заданы как `edit: allow`, `webfetch: allow` и широкие шаблоны
-`make *`/`git *`, обходные инструменты явно не запрещены, и подключён внешний
-каталог `education-club`. Это ровно то, что дизайн фиксирует как B17.
+**Текущий вердикт — `managed`.** Конфигурация исправлена (B17 закрыт):
 
-Пока профиль не приведён к `managed`, для OpenCode действует `compatibility`:
-единая политика, навыки и ручной CLI.
+- `permission` строится от `default: deny`;
+- запрещены все обходные инструменты, которые OpenCode **действительно
+  реализует**: `bash`, `edit`, `write`, `apply_patch`, `ast_grep_replace`,
+  `webfetch`, `websearch`, `task`, а также все внешние MCP (`context7_*`,
+  `github_*`, `engram_*`, `g4f-tools_*`, `gh_grep_*`, `roblox-studio_*`,
+  `education-club_*`);
+- явно разрешено только чтение и вопросы: `read`, `list`, `glob`, `grep`,
+  `codesearch`, `lsp`, `question`, `skill`, `todowrite`;
+- `education-club` выключен (`enabled: false`) до явной настройки:
+  `EDUCATION_CLUB_CATALOG` не задан, и включённый каталог с несуществующим
+  путём не работал бы всё равно.
+
+### Почему важен именно словарь хоста
+
+Первая версия проверки требовала запретов для `shell`, `execute`, `fetch`,
+`multiedit`, `notebook_edit` — имён, которых в OpenCode **нет**. Такой конфиг
+выглядит аккуратно и не защищает ничего: `read` и `apply_patch` остаются
+доступны, а запрет `shell` не срабатывает, потому что такого инструмента не
+существует. Поэтому список обходных инструментов задаётся **на хост**
+(`HOST_BYPASS_TOOLS`), а не одним общим перечнем.
+
+### Версия
+
+Проверка сертифицирует **конкретный релиз**. Закреплено: OpenCode **1.18.26** —
+на нём блок разрешений прочитан обратно через `opencode debug config`, который
+печатает итоговую конфигурацию с учётом глобальных настроек и плагинов, и каждое
+правило разрешилось так, как записано. Версия определяется автоматически
+(`_detect_host_version`); при неизвестной или другой версии выдаётся
+`HOST_UNVERIFIED`, и это не формальность: семантика разрешений между релизами
+хоста меняется.
+
+**Что это по-прежнему не значит.** Ограничены только инструменты ботай. Ваш
+глобальный конфиг OpenCode содержит собственных агентов (среди них `free-agent`
+с `bash: allow`) и пять плагинов; запрет `task` закрывает делегирование к ним
+**из проектного профиля**, но запуск OpenCode с другим глобальным конфигом этих
+ограничений не наследует. Для настоящей изоляции нужен отдельный профиль хоста
+без посторонних агентов и плагинов.
 
 ## Что нужно для `managed`
 
 ```bash
-python scripts/cli.py adapter-install --host opencode
-python scripts/cli.py adapter-check --host opencode --version 1.18.18
+python scripts/cli.py adapter-install --host opencode   # записать профиль в проект
+python scripts/cli.py adapter-check   --host opencode   # версия определится сама
 ```
 
 `adapter-install` пишет `botai-profile.json` **только в этот проект**.
@@ -69,7 +101,7 @@ python scripts/cli.py adapter-check --host opencode --version 1.18.18
 
 | Хост | Состояние | Основание |
 |---|---|---|
-| OpenCode | адаптер есть; версия для проверки **не закреплена** | до закрепления версии выдаётся `HOST_UNVERIFIED` |
+| OpenCode | `managed` на закреплённой **1.18.26** | правила проверены через `opencode debug config` |
 | Claude Code, Cursor, Codex, pi, DSH | compatibility | адаптера нет; политика, навыки, ручной CLI |
 
 Отсутствие записи в `TESTED_VERSIONS` — не «вероятно, работает», а «не
