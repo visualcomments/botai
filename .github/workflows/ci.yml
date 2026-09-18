@@ -34,15 +34,15 @@ jobs:
         # курса не удаляется ради переустановки; что .botai/ не попадает в git.
         run: python3 tests/test_paths.py
 
-      - name: Зависимости ядра и тесты контрактов, записи и миграции
-        # Контракты валидируются jsonschema из lock-файла: проверяем, что
-        # закреплённые версии и хеши действительно устанавливаются, иначе
-        # проверки контрактов молча деградируют до «недоступно».
+      - name: Зависимости ядра в служебной venv
+        # The venv is created once, here, and its interpreter path is exported
+        # via GITHUB_ENV for every later step. Contract validation needs
+        # `jsonschema` from the pinned lock file, and the flow checks below build
+        # real contracts — running them with the bare system python made them
+        # fail on Linux for a reason unrelated to what they verify.
         #
-        # Всё в одном шаге: интерпретатор venv передаётся через переменную
-        # внутри шага, а не через GITHUB_ENV, чтобы шаг не зависел от порядка
-        # и от платформы. Путь к интерпретатору внутри venv различается
-        # (bin/python против Scripts/python.exe), поэтому он вычисляется.
+        # The interpreter path differs by platform (bin/python vs
+        # Scripts/python.exe), so it is computed rather than assumed.
         shell: bash
         run: |
           set -e
@@ -54,18 +54,60 @@ jobs:
           fi
           echo "venv python: $VPY"
           "$VPY" -m pip install --quiet --require-hashes -r requirements-core.lock
-          "$VPY" -c "import jsonschema; print('jsonschema ok')"
-          "$VPY" tests/test_schemas.py
-          "$VPY" tests/test_store.py
-          "$VPY" tests/test_course.py
-          "$VPY" tests/test_policy.py
-          "$VPY" tests/test_tutoring.py
-          "$VPY" tests/test_corpus.py
-          "$VPY" tests/test_environment.py
-          "$VPY" tests/test_contribution.py
-          "$VPY" tests/test_personas.py
-          "$VPY" tests/test_exports.py
-          "$VPY" tests/test_adapters.py
+          "$VPY" -c "import jsonschema, referencing; print('core deps ok')"
+          echo "BOTAI_VPY=$VPY" >> "$GITHUB_ENV"
+
+      - name: Тесты контрактов, записи, курса, цикла и политики
+        shell: bash
+        run: |
+          set -e
+          "$BOTAI_VPY" tests/test_schemas.py
+          "$BOTAI_VPY" tests/test_store.py
+          "$BOTAI_VPY" tests/test_course.py
+          "$BOTAI_VPY" tests/test_policy.py
+          "$BOTAI_VPY" tests/test_tutoring.py
+          "$BOTAI_VPY" tests/test_corpus.py
+          "$BOTAI_VPY" tests/test_environment.py
+          "$BOTAI_VPY" tests/test_contribution.py
+          "$BOTAI_VPY" tests/test_personas.py
+          "$BOTAI_VPY" tests/test_exports.py
+          "$BOTAI_VPY" tests/test_adapters.py
+          "$BOTAI_VPY" tests/test_migrations.py
+
+      - name: "Переход 1.3.2 → 2.0: мост и неполное обновление"
+        # Сквозная проверка моста настоящим процессом: план ничего не меняет,
+        # применение без plan-id отклонено, работа ученика не тронута, а
+        # наполовину обновлённое пространство сообщает V2_ASSETS_MISSING с
+        # перечнем файлов и подсказкой про мост.
+        run: |
+          set -e
+          WS=/tmp/botai-upgrade
+          rm -rf "$WS" && mkdir -p "$WS/scripts" "$WS/.botai" "$WS/courses/c" "$WS/progress"
+          echo "1.3.2" > "$WS/VERSION"
+          echo "old" > "$WS/AGENTS.md"
+          echo "student work" > "$WS/courses/c/work.md"
+
+          python3 scripts/upgrade_v2.py --dest "$WS" --plan --json > /tmp/plan.json
+          PLAN_ID="$(python3 -c "import json;print(json.load(open('/tmp/plan.json'))['plan_id'])")"
+          test -n "$PLAN_ID" || { echo "plan-id не получен"; exit 1; }
+          grep -q "^1.3.2$" "$WS/VERSION" || { echo "план изменил VERSION"; exit 1; }
+
+          if python3 scripts/upgrade_v2.py --dest "$WS" --apply >/dev/null 2>&1; then
+            echo "применение без plan-id прошло"; exit 1
+          fi
+
+          python3 scripts/upgrade_v2.py --dest "$WS" --apply --plan-id "$PLAN_ID" \
+            --accept-local-edits >/dev/null
+          test "$(cat "$WS/courses/c/work.md")" = "student work" \
+            || { echo "работа ученика изменена"; exit 1; }
+          python3 scripts/upgrade_v2.py --dest "$WS" --check >/dev/null
+
+          # Полуобновлённое пространство: убираем часть файлов 2.0.
+          rm -rf "$WS/scripts/botai_core" "$WS/schemas"
+          if python3 scripts/upgrade_v2.py --dest "$WS" --check >/dev/null 2>&1; then
+            echo "неполное обновление не обнаружено"; exit 1
+          fi
+          echo "мост и обнаружение неполного обновления: ok"
 
       - name: "Хост: запреты доказаны или названы"
         # Проверяем, что аккуратный профиль получает managed, а конфигурация с
@@ -74,9 +116,9 @@ jobs:
         # адаптера обязан получить compatibility, а не managed.
         run: |
           set -e
-          python3 scripts/cli.py adapter-check --host not-a-real-host --json \
+          "$BOTAI_VPY" scripts/cli.py adapter-check --host not-a-real-host --json \
             | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['verdict']=='compatibility', d['verdict']; print('нет адаптера -> compatibility')"
-          if python3 scripts/cli.py adapter-check --host opencode --json >/dev/null 2>&1; then
+          if "$BOTAI_VPY" scripts/cli.py adapter-check --host opencode --json >/dev/null 2>&1; then
             echo "непроверенная конфигурация выдана за managed"; exit 1
           fi
           echo "непроверенная конфигурация -> не managed"
@@ -86,26 +128,26 @@ jobs:
         # пустой выбор не экспортирует всё подряд, пакет импортируется как
         # данные, сводка называет знаменатель, удаление проверено тем же
         # идентификатором обучающегося, которым писала команда.
-        run: python3 scripts/checks/privacy_flow.py
+        run: '$BOTAI_VPY scripts/checks/privacy_flow.py'
 
       - name: "MCP: узкая поверхность и честный вердикт хоста"
         # Проверяем отсутствие обходных инструментов (bash, edit, approve) и то,
         # что лазейка в конфиге хоста даёт HOST_UNVERIFIED с названной причиной,
         # а не managed.
-        run: python3 scripts/checks/mcp_surface.py
+        run: '$BOTAI_VPY scripts/checks/mcp_surface.py'
 
       - name: "Вклад: только чтение Git и черновик для ученика"
         # Проверяем, что публикация остаётся за учеником: команды commit/push/PR
         # не существуют, изменяющие формы git отклоняются, самоотчёт не
         # становится наблюдением, а изменившийся diff снимает прежние проверки.
-        run: python3 scripts/checks/contribution_flow.py
+        run: '$BOTAI_VPY scripts/checks/contribution_flow.py'
 
       - name: "Среда: подтверждение человеком и запрет повторного эффекта"
         # Сквозная проверка жизненного цикла через настоящий CLI: план, отказ
         # без подтверждения, подтверждение из терминала, выполнение, повтор
         # (не переустанавливает) и запись отказа. Ничего не выходит за пределы
         # рабочего пространства: единственный шаг — venv внутри .botai/.
-        run: python3 scripts/checks/environment_flow.py
+        run: '$BOTAI_VPY scripts/checks/environment_flow.py'
 
       - name: "Корпус: безопасность загрузки и проверка цитат"
         # Сквозная проверка без сети: собираем настоящий архив, устанавливаем
@@ -113,7 +155,7 @@ jobs:
         # привязан к своему курсу, исключённый корень недостижим, а цитата с
         # неверными координатами отклоняется. Сбой обновления не должен ломать
         # ранее установленный корпус.
-        run: python3 scripts/checks/corpus_flow.py
+        run: '$BOTAI_VPY scripts/checks/corpus_flow.py'
 
       - name: "Учебный цикл: сквозной сценарий"
         # Проверяем вертикальный сценарий целиком через настоящий CLI:
@@ -129,8 +171,11 @@ jobs:
           WS=/tmp/botai-cycle
           rm -rf "$WS" && mkdir -p "$WS/courses"
           cp -r examples/minimal-course "$WS/courses/minimal-diff"
-
-          cli() { python3 scripts/cli.py "$@" --root "$WS"; }
+          # The core venv, not the system python: `course-accept` validates the
+          # course contract, which needs `jsonschema`. Running this with the bare
+          # interpreter made the acceptance fail and every later step in the
+          # scenario fail with it.
+          cli() { "$BOTAI_VPY" scripts/cli.py "$@" --root "$WS"; }
 
           cli course-accept --course minimal-diff >/dev/null
           cli consent-set --course minimal-diff --purpose learning_storage >/dev/null
@@ -185,22 +230,22 @@ jobs:
           rm -rf /tmp/botai-policy && mkdir -p /tmp/botai-policy/courses
           cp -r examples/minimal-course /tmp/botai-policy/courses/minimal-diff
 
-          python3 scripts/cli.py course-inspect --course minimal-diff \
+          "$BOTAI_VPY" scripts/cli.py course-inspect --course minimal-diff \
             --root /tmp/botai-policy | tee /tmp/inspect.txt
           grep -q "готовность  : inspectable" /tmp/inspect.txt
 
-          python3 scripts/cli.py course-accept --course minimal-diff \
+          "$BOTAI_VPY" scripts/cli.py course-accept --course minimal-diff \
             --root /tmp/botai-policy | tee /tmp/accept.txt
           grep -q "контракт" /tmp/accept.txt
 
           # Тренировочное задание: полный разбор допустим по просьбе ученика.
-          python3 scripts/cli.py policy-check --course minimal-diff \
+          "$BOTAI_VPY" scripts/cli.py policy-check --course minimal-diff \
             --assignment practice-diff --level SOLUTION --preference prefer-ask \
             --root /tmp/botai-policy | tee /tmp/practice.txt
           grep -q "решение     : allow" /tmp/practice.txt
 
           # Необъявленное задание: строгий режим, готовый разбор запрещён.
-          if python3 scripts/cli.py policy-check --course minimal-diff \
+          if "$BOTAI_VPY" scripts/cli.py policy-check --course minimal-diff \
                --assignment never-declared --level SOLUTION --preference solution-first \
                --root /tmp/botai-policy | tee /tmp/unknown.txt; then
             echo "необъявленное задание получило разрешение"; exit 1
@@ -215,7 +260,7 @@ jobs:
           doc["assignments"][0]["assessment"] = "graded"
           p.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
           PY
-          python3 scripts/cli.py course-status --course minimal-diff \
+          "$BOTAI_VPY" scripts/cli.py course-status --course minimal-diff \
             --root /tmp/botai-policy | tee /tmp/status.txt
           grep -q "контракт изменён : да" /tmp/status.txt
           grep -q "принято 'practice' -> в копии 'graded'" /tmp/status.txt
@@ -227,7 +272,7 @@ jobs:
         # самообновляемой, или если приватное состояние попало в историю.
         run: |
           set -e
-          python3 scripts/install.py --dest /tmp/botai-ci --no-git >/dev/null
+          "$BOTAI_VPY" scripts/install.py --dest /tmp/botai-ci --no-git >/dev/null
           test -f /tmp/botai-ci/VERSION
           test -f /tmp/botai-ci/.botai/install.json
           python3 /tmp/botai-ci/scripts/cli.py doctor >/dev/null
@@ -244,7 +289,7 @@ jobs:
         run: |
           set -e
           rm -rf /tmp/botai-git
-          python3 scripts/install.py --dest /tmp/botai-git >/dev/null
+          "$BOTAI_VPY" scripts/install.py --dest /tmp/botai-git >/dev/null
           for probe in .botai/install.json courses/x/y.md progress/x.md; do
             if ! git -C /tmp/botai-git check-ignore -q "$probe"; then
               echo "путь не игнорируется: $probe"
@@ -276,8 +321,8 @@ jobs:
         run: |
           set -e
           make help >/dev/null
-          python3 scripts/cli.py --help >/dev/null
-          python3 scripts/courses.py --help >/dev/null
+          "$BOTAI_VPY" scripts/cli.py --help >/dev/null
+          "$BOTAI_VPY" scripts/courses.py --help >/dev/null
 
       - name: Проверка, что отчёт обновления не пуст
         # Обновление обязано перечислить, что произошло: молчаливое обновление

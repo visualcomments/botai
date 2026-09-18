@@ -301,10 +301,17 @@ botai/
 │   ├── install.py             # установщик: создаёт отдельный проект, файлы агента — только в нём
 │   ├── harness.py             # общие списки путей, отпечатки, безопасная синхронизация
 │   ├── update.py              # самообновление обвязки (курсы/ и progress/ не трогает)
-│   └── courses.py             # получение и обновление курсов
-├── .agents/skills/            # 17 образовательных Agent-скиллов (реальные файлы)
+│   ├── courses.py             # получение и обновление курсов
+│   ├── upgrade_v2.py          # мост 1.3.x → 2.0 (только stdlib, отдельный checkout)
+│   ├── mcp_server.py          # узкая MCP-поверхность: 18 инструментов, stdio
+│   └── botai_core/            # ядро 2.0: пути, схемы, состояние, курс, политика,
+│                              #   цикл занятия, корпус, среда, вклад, персоны,
+│                              #   экспорт, преподаватель, адаптеры хостов
+├── schemas/v2/                # контракты 2.0 (JSON Schema Draft 2020-12)
+├── personas/                  # стилевые персоны (neutral/colleague/expedition)
+├── .agents/skills/            # образовательные Agent-скиллы (реальные файлы)
 │   ├── README.md              # что установлено, источники, как использовать глобально
-│   └── <skill>/SKILL.md       # один каталог на скилл (18 скиллов)
+│   └── <skill>/SKILL.md       # один каталог на скилл
 ├── .claude/skills/            # симлинки -> ../../.agents/skills/<skill> (Claude Code)
 ├── .cursor/skills/            # симлинки -> ../../.agents/skills/<skill> (Cursor)
 ├── .opencode/                 # обвязка opencode
@@ -588,6 +595,51 @@ make detect-courses                # что за курсы, откуда и е�
 Подробно: [docs/updating.md](docs/updating.md) — что перезаписывается, что
 сохраняется, как откатиться и как поставить обновление по расписанию.
 
+## Переход на 2.0 и что он добавляет
+
+Версия `2.0.0-rc.1` добавляет к обвязке ядро, которое делает правила
+проверяемыми, а не только описанными. Основные команды:
+
+```bash
+# Правила курса: что объявлено и что принято
+python scripts/cli.py course-inspect --course <slug>   # только чтение
+python scripts/cli.py course-accept  --course <slug>   # человеческое решение
+python scripts/cli.py policy-check --course <slug> --assignment <id> --level SOLUTION
+
+# Учебный цикл
+python scripts/cli.py consent-set --course <slug> --purpose learning_storage
+python scripts/cli.py session-start --course <slug>
+python scripts/cli.py session-next  --session <id>
+python scripts/cli.py session-check --session <id> --attempt <id> \
+  --check-kind explain --verdict pass --criterion "k1=pass:<attempt>"
+
+# Корпус и цитаты
+python scripts/cli.py corpus-status  --course <slug>
+python scripts/cli.py source-search  --course <slug> --query "…"
+python scripts/cli.py quote-verify   --course <slug> --citation cite.json
+
+# Среда: план → подтверждение ЧЕЛОВЕКОМ → выполнение
+python scripts/cli.py env-plan       --course <slug> --spec env.json
+python scripts/cli.py action-approve --operation <id>
+python scripts/cli.py env-apply      --operation <id>
+```
+
+Переход со старой версии делается **из отдельного checkout 2.0**:
+
+```bash
+python scripts/upgrade_v2.py --dest <старое-workspace> --plan
+python scripts/upgrade_v2.py --dest <старое-workspace> --apply --plan-id <id>
+```
+
+Работа ученика (`courses/`, `progress/`, `.botai/`) при этом не перезаписывается
+ни на одном шаге.
+
+**Чего 2.0 пока не обещает, и это важно:** `managed`-профиль хоста не выдан ни
+одному хосту — для OpenCode сейчас действует `compatibility`; контейнерные виды
+шагов объявлены и проверяются, но не исполняются; награды и персоны выключены по
+умолчанию; педагогический эффект ещё не измерялся. См.
+[docs/host-compatibility.md](docs/host-compatibility.md).
+
 ## Документация
 
 - [TUTORIAL.md](TUTORIAL.md) — пошаговый туториал: что такое botai и как им пользоваться;
@@ -597,7 +649,12 @@ make detect-courses                # что за курсы, откуда и е�
 - [docs/course-agent-skills.md](docs/course-agent-skills.md) — широкая экосистема образовательных Agent-скиллов;
 - [docs/open-source-contribution.md](docs/open-source-contribution.md) — режим со-разработчика опенсорс-курса: роли, вклад, связь с сообществом;
 - [docs/education-club.md](docs/education-club.md) — подключение каталога Open Education Club через MCP и старт курса из каталога;
-- [docs/updating.md](docs/updating.md) — обновление обвязки и курсов: что сохраняется, откат, расписание.
+- [docs/updating.md](docs/updating.md) — обновление обвязки и курсов: что сохраняется, откат, расписание;
+- [docs/botai-v2-design.md](docs/botai-v2-design.md) — технический дизайн 2.0: требования, границы доверия, критерии приёмки;
+- [docs/course-rules.md](docs/course-rules.md) — принятый контракт курса и политика помощи;
+- [docs/corpus-and-sources.md](docs/corpus-and-sources.md) — корпус, безопасная загрузка, проверка цитат;
+- [docs/contribution-flow.md](docs/contribution-flow.md) — первый вклад: что делает агент и что делает ученик;
+- [docs/host-compatibility.md](docs/host-compatibility.md) — какие хосты поддержаны и чего поддержка не означает.
 
 ## Атрибуция и происхождение
 

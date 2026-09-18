@@ -229,6 +229,28 @@ def cmd_doctor(root, dry):
         if cdir.is_dir():
             print("  course %-20s: %s" % (cdir.name, C.course_url(cdir) or "(no source recorded)"))
 
+    # A half-finished 2.0 update leaves a workspace whose cli.py imports modules
+    # that were never installed. The check is stdlib-only precisely so that it
+    # still runs there — a diagnostic that fails to import cannot report.
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import importlib.util as _ilu
+        spec = _ilu.spec_from_file_location("upgrade_v2", Path(__file__).resolve().parent / "upgrade_v2.py")
+        if spec and spec.loader:
+            bridge = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(bridge)
+            assets = bridge.check_assets(root)
+            if not assets["ok"]:
+                print()
+                print("V2_ASSETS_MISSING: %s" % assets["message_ru"])
+                for relative in assets["missing"][:8]:
+                    print("  отсутствует: %s" % relative)
+                print("  %s" % assets["hint_ru"])
+                return 2
+    except Exception:  # noqa: BLE001 - a diagnostic must not fail on its own check
+        pass
+    return 0
+
 
 # --- Corpus acquisition -----------------------------------------------------
 #
