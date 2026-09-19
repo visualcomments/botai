@@ -161,6 +161,114 @@ def api_check(token: str, timeout: float = 15.0) -> tuple[bool, str]:
         return False, "ошибка проверки: %s: %s" % (type(exc).__name__, exc)
 
 
+
+def read_clipboard(widget) -> str:
+    """The clipboard text, or "" when there is none.
+
+    The widget path is tried first and the platform path second: in some
+    environments the Tk clipboard is not wired to the system one, and a token
+    copied from a browser then appears empty. pyperclip is optional; if it is
+    absent the Tk path is all we have, which is the normal case on Windows.
+    """
+    for attempt in (
+        lambda: widget.clipboard_get(),
+        lambda: widget.tk.clipboard_get(),
+    ):
+        try:
+            text = attempt()
+            if text:
+                return text
+        except Exception:  # noqa: BLE001 - TclError when the clipboard is empty
+            pass
+    try:
+        import pyperclip  # noqa: PLC0415 - optional
+        return pyperclip.paste() or ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def insert_into_entry(entry, token_var, text: str) -> None:
+    """Insert `text` at the cursor, replacing any selection.
+
+    Kept separate from the button so a test can drive it without a display.
+    """
+    if not text:
+        return
+    try:
+        first = entry.index("sel.first")
+        last = entry.index("sel.last")
+        entry.delete(first, last)
+    except Exception:  # noqa: BLE001 - no selection
+        pass
+    entry.insert("insert", text.strip())
+    token_var.set(entry.get())
+
+
+def attach_entry_editing(entry, token_var, root) -> None:
+    """Give the entry the usual editing affordances, explicitly.
+
+    Each one is bound rather than assumed: a paste that silently does nothing is
+    indistinguishable from a paste that was never offered, and the field is the
+    one place the user must get a secret in.
+    """
+    import tkinter as tk  # noqa: PLC0415
+
+    def paste(_event=None):
+        insert_into_entry(entry, token_var, read_clipboard(entry))
+        return "break"
+
+    def copy(_event=None):
+        try:
+            root.clipboard_clear()
+            root.clipboard_append(entry.selection_get())
+        except Exception:  # noqa: BLE001
+            pass
+        return "break"
+
+    def cut(_event=None):
+        copy()
+        try:
+            entry.delete("sel.first", "sel.last")
+            token_var.set(entry.get())
+        except Exception:  # noqa: BLE001
+            pass
+        return "break"
+
+    def select_all(_event=None):
+        entry.selection_range(0, "end")
+        entry.icursor("end")
+        return "break"
+
+    menu = tk.Menu(entry, tearoff=0)
+    menu.add_command(label="Вставить", command=paste)
+    menu.add_command(label="Копировать", command=copy)
+    menu.add_command(label="Вырезать", command=cut)
+    menu.add_separator()
+    menu.add_command(label="Выделить всё", command=select_all)
+
+    def show_menu(event):
+        entry.focus_set()
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    # Ctrl+V and Ctrl+Shift+V (the latter is what pastes into a terminal, and
+    # users reach for it by reflex); Shift+Insert is the X11/Windows classic.
+    for sequence in ("<Control-v>", "<Control-V>", "<Control-Shift-V>",
+                     "<Shift-Insert>", "<<Paste>>"):
+        entry.bind(sequence, paste)
+    entry.bind("<Control-c>", copy)
+    entry.bind("<Control-x>", cut)
+    entry.bind("<Control-a>", select_all)
+    entry.bind("<Button-3>", show_menu)
+    entry.bind("<Button-2>", show_menu)   # middle click on some systems
+
+    # A visible button, because a hidden key binding is not discoverable.
+    return paste
+
+
 def build_ui():  # pragma: no cover - requires a display
     import tkinter as tk
     from tkinter import messagebox, ttk
@@ -203,6 +311,12 @@ def build_ui():  # pragma: no cover - requires a display
         entry_row, text="показать", variable=revealed, command=toggle_reveal
     ).grid(row=0, column=1, padx=(8, 0))
 
+    # Paste is a button, not only a key: the field is the one place the secret
+    # must get in, and a binding that the host swallows is no affordance at all.
+    paste_entry = attach_entry_editing(entry, token_var, root)
+    paste_button = ttk.Button(entry_row, text="Вставить")
+    paste_button.grid(row=0, column=2, padx=(6, 0))
+
     # --- status line --------------------------------------------------------
     status_var = tk.StringVar(value="Вставьте токен и нажмите «Проверить».")
     status = ttk.Label(
@@ -218,6 +332,19 @@ def build_ui():  # pragma: no cover - requires a display
     ttk.Label(frame, textvariable=preview_var, foreground="#777").grid(
         row=4, column=0, sticky="w"
     )
+
+    def on_paste_button():
+        before = entry.get()
+        paste_entry()
+        if entry.get() == before:
+            status_var.set(
+                "Буфер обмена пуст или недоступен. Скопируйте токен заново "
+                "на странице GitHub и нажмите «Вставить» ещё раз."
+            )
+        else:
+            status_var.set("Вставлено. Нажмите «Проверить».")
+
+    paste_button.configure(command=on_paste_button)
 
     progress = ttk.Progressbar(frame, mode="indeterminate")
     progress.grid(row=5, column=0, sticky="ew", pady=(8, 0))
