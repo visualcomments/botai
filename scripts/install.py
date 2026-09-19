@@ -29,6 +29,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+# The installer prints Russian diagnostics. A Windows console defaults to
+# a legacy code page (cp1251/cp866), where those characters are unmappable
+# and printing raises UnicodeEncodeError - the install would die halfway,
+# after it had already written part of the project. Reconfigure to UTF-8
+# with replacement so output survives any terminal, exactly as cli.py,
+# update.py and courses.py already do.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable
+        pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import harness as H  # noqa: E402

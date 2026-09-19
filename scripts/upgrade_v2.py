@@ -41,6 +41,18 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+# The bridge prints Russian progress and refusals, and with --json a plan
+# full of them. On a Windows console with a legacy code page that raised
+# UnicodeEncodeError, and a caller reading the pipe as UTF-8 got
+# undecodable bytes instead of the plan - the upgrade looked broken while
+# the workspace was fine. Reconfigure to UTF-8 with replacement, as
+# cli.py, update.py and courses.py already do.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable
+        pass
+
 BRIDGE_VERSION = "1.0"
 TARGET_VERSION_PREFIX = "2."
 

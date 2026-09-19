@@ -541,6 +541,70 @@ def test_response_check_catches_form_violations():
         s.cleanup()
 
 
+def test_language_consistency_is_enforced_not_advisory():
+    """Rule 0 is computed, not requested.
+
+    A Russian answer carrying Chinese characters or bare English words is
+    refused; the legitimate exceptions pass. This is the reported defect:
+    a multilingual model welded CJK into Russian words and dropped English
+    mid-clause, and stating the rule in AGENTS.md did not stop it.
+    """
+    s = Session()
+    try:
+        def codes(text):
+            return sorted({v["code"] for v in T.language_violations(text, "ru")})
+
+        # -- the reported defects: all must be refused ----------------------
+        check("знак чужой письменности в русском слове отклонён",
+              codes("не\u7edd\u5bf9") != [],
+              str(codes("не\u7edd\u5bf9")))
+        check("китайское слово, вкравшееся в предложение, отклонено",
+              "RESPONSE_FOREIGN_SCRIPT" in codes("граница не\u5dee\u5f02, а \u6df1\u5316"),
+              str(codes("граница не\u5dee\u5f02, а \u6df1\u5316")))
+        check("голое английское слово в русском предложении отклонено",
+              "RESPONSE_UNTRANSLATED_LATIN" in codes(
+                  "вы нашли genuine философскую проблему"),
+              str(codes("вы нашли genuine философскую проблему")))
+        check("голое organized отклонено",
+              "RESPONSE_UNTRANSLATED_LATIN" in codes(
+                  "знания organized в логическую систему"),
+              str(codes("знания organized в логическую систему")))
+
+        # -- the legitimate exceptions: all must pass -----------------------
+        clean = "Наука — одна из форм познания. Алгоритм, файл, интерфейс — русские слова."
+        check("чистый русский текст не отклоняется", codes(clean) == [], str(codes(clean)))
+        check("иностранный термин один раз в скобках допускается",
+              codes("состязательная проверка (adversarial evaluation)") == [],
+              str(codes("состязательная проверка (adversarial evaluation)")))
+        check("дословная цитата в кавычках не проверяется как проза",
+              codes("Фейерабенд выдвинул принцип «anything goes».") == [],
+              str(codes("Фейерабенд выдвинул принцип «anything goes».")))
+        check("пути и команды в бэктиках допускаются",
+              codes("Запустите `make verify` и проверьте `COURSE_CORPUS_ROOT`.") == [],
+              str(codes("Запустите `make verify` и проверьте `COURSE_CORPUS_ROOT`.")))
+        check("латинские термины искусства допускаются",
+              codes("a priori Кант разбирает раньше; qualia остаются спорными.") == [],
+              str(codes("a priori Кант разбирает раньше; qualia остаются спорными.")))
+        check("курс не на русском не проверяется",
+              T.language_violations("A fine English response.", "en") == [],
+              str(T.language_violations("A fine English response.", "en")))
+
+        # -- integration: validate_response refuses the leak ----------------
+        bad = {"session_id": s.session["session_id"], "intent": "hint",
+               "assessment": "practice", "assistance_level": "HINT",
+               "assistance_step": 1,
+               "explanation": "Вы нашли genuine философскую проблему.",
+               "question": "Почему?", "citations": []}
+        accepted, violations, action = T.validate_response(s.course, s.session, bad)
+        got = {v["code"] for v in violations}
+        check("validate_response отказывает ответу с чужим языком",
+              not accepted and "RESPONSE_UNTRANSLATED_LATIN" in got, str(got))
+        check("языковой провал возвращается как исправление",
+              action == "fix_response", action)
+    finally:
+        s.cleanup()
+
+
 # ---------------------------------------------------------------------------
 # Directives and next step
 # ---------------------------------------------------------------------------
@@ -985,6 +1049,7 @@ def main():
         test_attempt_requires_exactly_one_content_form,
         test_assistance_levels_are_validated,
         test_response_check_catches_form_violations,
+        test_language_consistency_is_enforced_not_advisory,
         test_directive_is_a_pure_read,
         test_prerequisite_is_surfaced_before_new_material,
         test_due_review_is_offered_before_new_objectives,

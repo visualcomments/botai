@@ -35,6 +35,18 @@ import sys
 import uuid
 from pathlib import Path
 
+# Tool results are serialised with ensure_ascii=False, so the Russian text
+# in every envelope goes on the wire as real UTF-8. On a Windows host whose
+# console code page is cp1251/cp866 that encoding is not UTF-8, so the
+# server either raised UnicodeEncodeError on startup (the raw stderr
+# prints below) or handed the client mojibake it could not parse as
+# JSON-RPC. Pinning both streams is what the protocol already assumes.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable
+        pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from botai_core import schemas  # noqa: E402

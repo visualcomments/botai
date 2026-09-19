@@ -28,6 +28,7 @@ the whole cycle replayable and auditable after a crash.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from . import schemas
@@ -898,6 +899,34 @@ def stuck_signal(consecutive_stuck_sessions):
     return int(consecutive_stuck_sessions or 0) >= STUCK_CYCLES_BEFORE_TEACHER
 
 
+def _steps_of(session_or_value):
+    """The step counter read defensively, as a non-negative int.
+
+    The value lives on the session document, which is persisted and can be
+    edited, restored from a backup, or left half-written by an interrupted
+    write. A counter is bookkeeping: a damaged one must degrade to zero and let
+    the session continue, never raise inside the teaching loop and take the
+    lesson down with it. Numeric strings are honoured because JSON round-trips
+    and hand edits produce them; anything else means "no count".
+    """
+    value = session_or_value
+    if isinstance(value, dict):
+        value = value.get("steps_taken")
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value if value > 0 else 0
+    if isinstance(value, float):
+        return int(value) if value > 0 else 0
+    if isinstance(value, str):
+        try:
+            parsed = int(value.strip())
+        except ValueError:
+            return 0
+        return parsed if parsed > 0 else 0
+    return 0
+
+
 def count_step(session):
     """The session's step count after one more teaching step.
 
@@ -906,7 +935,7 @@ def count_step(session):
     turns means the number cannot be inflated or hidden by the model, and it
     survives a resume because it lives on the session document.
     """
-    return int(session.get("steps_taken") or 0) + 1
+    return _steps_of(session) + 1
 
 
 def step_budget_state(steps_taken):
@@ -917,7 +946,7 @@ def step_budget_state(steps_taken):
     thresholds come from DeepTutor's per-loop tool budgets, adapted from tool
     calls to teaching steps.
     """
-    taken = int(steps_taken or 0)
+    taken = _steps_of(steps_taken)
     if taken >= SESSION_STEP_BUDGET:
         return "exhausted"
     if taken >= SESSION_STEP_WARN_AT:
@@ -941,9 +970,9 @@ def step_budget_directive(steps_taken):
             "reason_ru": (
                 "Занятие идёт долго (%d шагов из %d). Стоит предложить паузу "
                 "или завершение, а не продолжать по инерции."
-                % (int(steps_taken or 0), SESSION_STEP_BUDGET)
+                % (_steps_of(steps_taken), SESSION_STEP_BUDGET)
             ),
-            "budget": {"taken": int(steps_taken or 0), "limit": SESSION_STEP_BUDGET,
+            "budget": {"taken": _steps_of(steps_taken), "limit": SESSION_STEP_BUDGET,
                        "state": state},
         }
     return {
@@ -952,9 +981,9 @@ def step_budget_directive(steps_taken):
             "Бюджет занятия исчерпан (%d шагов). Новый материал в этой сессии "
             "не начинается: предложите завершить занятие или продолжить в "
             "следующем. Это предел внимания, а не наказание."
-            % int(steps_taken or 0)
+            % _steps_of(steps_taken)
         ),
-        "budget": {"taken": int(steps_taken or 0), "limit": SESSION_STEP_BUDGET,
+        "budget": {"taken": _steps_of(steps_taken), "limit": SESSION_STEP_BUDGET,
                    "state": state},
     }
 
@@ -967,6 +996,234 @@ RESPONSE_INTENTS = ("diagnose", "hint", "explain", "example", "feedback",
                     "check", "reflect", "stop")
 
 MAX_EXPLANATION_WORDS = 400
+
+
+# --------------------------------------------------------------------------
+# Language consistency (AGENTS.md rules 0 and 8) - enforced, not advisory
+# --------------------------------------------------------------------------
+#
+# Rule 0 exists because a multilingual model leaks. The reported failures were
+# Russian sentences with Chinese characters welded into them and bare English
+# words dropped mid-clause. Stating the rule did not stop it: seven commits
+# added the same sentence to the policy and to all six agent files and the
+# leakage continued - which is what this module's docstring warns about, that a
+# rule the model enforces on itself is a rule it can drift off. So it is
+# computed here instead.
+#
+# What counts as a violation was derived from evidence rather than guessed: the
+# detector was run over the course's own 26 lectures, and the tokens it flagged
+# were read one by one. Latin does legitimately appear in Russian philosophical
+# prose ("a priori", "idola", "qualia"), and the policy itself requires a
+# foreign term to be given once in parentheses after the Russian explanation.
+# Both are protected. What is not protected is the actual defect: a script that
+# has no business in the text at all, two scripts welded into one word, and a
+# bare English word standing where a Russian one was promised.
+
+# Scripts with no legitimate place in the prose of a Russian course. Latin is
+# absent from this list on purpose: it is handled by the narrower word-level
+# check below, because a blanket ban would block "a priori" and every quoted
+# English title.
+FOREIGN_SCRIPT_RANGES = (
+    (0x3040, 0x30FF),   # Hiragana, Katakana
+    (0x3400, 0x4DBF),   # CJK ext. A
+    (0x4E00, 0x9FFF),   # CJK unified ideographs
+    (0xF900, 0xFAFF),   # CJK compatibility ideographs
+    (0xFF66, 0xFF9F),   # halfwidth Katakana
+    (0xAC00, 0xD7AF),   # Hangul syllables
+    (0x0600, 0x06FF),   # Arabic
+    (0x0590, 0x05FF),   # Hebrew
+    (0x0E00, 0x0E7F),   # Thai
+)
+
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
+
+# The URL half of a Markdown link or image. Stripped as a span so that the
+# label stays scannable while the path - which is Latin by nature - does not.
+_MARKDOWN_TARGET_RE = re.compile(r"\]\([^)\n]*\)")
+_HAS_LATIN_RE = re.compile(r"[A-Za-z]")
+_HAS_LOWER_LATIN_RE = re.compile(r"[a-z]")
+
+# Spans where foreign text is correct and must never be flagged: code, URLs, a
+# verbatim quotation, and the parenthetical gloss the skill prescribes.
+_PROTECTED_SPANS = (
+    re.compile(r"```.*?```", re.S),          # fenced code
+    re.compile(r"`[^`\n]*`"),                # inline code, command, env var
+    re.compile(r"https?://\S+|www\.\S+"),    # URL
+    re.compile(r"\u00ab[^\u00bb]*\u00bb"),   # Russian quotation marks
+    re.compile(r"\u201c[^\u201d]*\u201d"),   # curly double quotes
+    re.compile(r"\([^()\n]*\)"),             # parenthetical gloss
+    _MARKDOWN_TARGET_RE,                   # [label](target) - the target only
+)
+
+# Latin phrases Russian scholarly prose uses verbatim. Stripped before the
+# word-level scan so that "a priori" is not read as two stray English words.
+_LATIN_PHRASES = (
+    "reductio ad absurdum", "argumentum ad hominem", "cogito ergo sum",
+    "a posteriori", "a priori", "tabula rasa", "modus ponens", "modus tollens",
+    "prima facie", "bona fide", "status quo", "ad infinitum", "ad absurdum",
+    "ad hoc", "ex ante", "ex post", "in vivo", "in vitro", "de facto",
+    "de jure", "per se", "vice versa", "et cetera", "sensu stricto",
+    "sensu largo", "op cit", "a fortiori",
+)
+
+# Single Latin terms of art that are not English words. Kept deliberately small:
+# every entry is a hole in the rule, so each one has to earn its place. Derived
+# from the course's own lectures (Bacon's "idola", the qualia debate), not
+# invented.
+_LATIN_TERMS_OF_ART = frozenset({
+    "idola", "qualia", "quale", "priori", "posteriori", "principia",
+    "percipi", "cogito", "ergo", "versus", "vs", "etc", "cf", "ibid",
+})
+
+# Bibliographic and registry identifiers are mixed-case by convention (arXiv,
+# ePrint) and the policy lists them as never translated.
+_BIBLIO_RE = re.compile(r"^(?:arxiv|eprint|doi|isbn|issn|pmid|orcid|scopus)", re.I)
+
+# Characters that make a token an identifier rather than prose: a path, a
+# filename, an environment variable, a chunk coordinate, a DOI.
+_IDENTIFIER_CHARS = "/\\._:#@"
+
+_ACRONYM_RE = re.compile(r"^[A-Z][A-Z0-9+\-]{0,7}$")
+
+# The prose a learner reads. `citations[].verbatim` is excluded by construction:
+# a quotation original stays in its own language, and flagging it would punish
+# the one place foreign text is required.
+PROSE_FIELDS = ("explanation", "question")
+
+
+def strip_protected_spans(text):
+    """Remove code, URLs, quotations, glosses and Latin phrases.
+
+    What is left is the text the learner reads as the agent's own Russian prose,
+    which is the only text the language rule governs.
+    """
+    for pattern in _PROTECTED_SPANS:
+        text = pattern.sub(" ", text)
+    lowered = text.lower()
+    for phrase in _LATIN_PHRASES:
+        if phrase in lowered:
+            text = re.sub(re.escape(phrase), " ", text, flags=re.I)
+    return text
+
+
+def foreign_script_chars(text):
+    """Characters from a script that is neither Cyrillic nor Latin."""
+    return [ch for ch in text
+            if any(lo <= ord(ch) <= hi for lo, hi in FOREIGN_SCRIPT_RANGES)]
+
+
+def welded_tokens(text):
+    """Tokens that mix two scripts inside a single word.
+
+    This is the sharpest signal available and it has no legitimate case: a word
+    is one language or the other. It is what catches a model writing the Russian
+    word and the Chinese word as a single token, and it also catches the OCR
+    damage that produces the same shape in source material.
+    """
+    found = []
+    for token in text.split():
+        token = token.strip(".,;:!?()[]{}\"'`")
+        if len(token) < 2:
+            continue
+        if any(char in token for char in _IDENTIFIER_CHARS):
+            continue          # a path, link target or filename, not prose
+        if _CYRILLIC_RE.search(token) and (_HAS_LATIN_RE.search(token)
+                                           or foreign_script_chars(token)):
+            found.append(token)
+    return found
+
+
+def untranslated_latin_tokens(text):
+    """Latin-script prose words standing bare in Russian text.
+
+    Identifiers, acronyms, bibliographic ids, Latin terms of art and the small
+    abbreviation set are not prose and are skipped; anything else carrying a
+    lowercase Latin letter is a foreign word the learner was promised would be
+    rendered in Russian.
+    """
+    found = []
+    for token in re.split(r"[^\w'@.\-/+]+", text):
+        if not token or not _HAS_LATIN_RE.search(token):
+            continue
+        if any(char in token for char in _IDENTIFIER_CHARS):
+            continue                       # path, filename, env var, coordinate
+        if _BIBLIO_RE.match(token):
+            continue                       # arXiv, DOI, ISBN, ORCID
+        if token.lower() in _LATIN_TERMS_OF_ART:
+            continue
+        if _ACRONYM_RE.match(token):
+            continue                       # DOI, API, OCR - used as-is
+        if not _HAS_LOWER_LATIN_RE.search(token):
+            continue                       # not prose-shaped
+        found.append(token)
+    return found
+
+
+def language_violations(text, language="ru"):
+    """Foreign-language leakage in student-facing prose. Empty list means clean.
+
+    Applies only when the course language is Russian: a rule about Russian prose
+    has nothing to say about a course taught in another language, and pretending
+    otherwise would flag every legitimate response in it.
+    """
+    if not text or (language or "ru") != "ru":
+        return []
+
+    text = str(text)
+    violations = []
+    prose = strip_protected_spans(text)
+
+    # The weld check runs on the original text, not the stripped one: a welded
+    # token is corrupt wherever it sits, including inside a gloss.
+    welded = welded_tokens(text)
+    if welded:
+        violations.append({
+            "code": "RESPONSE_SCRIPT_WELD",
+            "message_ru": ("\u0441\u043b\u043e\u0432\u0430 \u0441\u043c\u0435\u0448\u0430\u043b\u0438 \u0434\u0432\u0435 \u043f\u0438\u0441\u044c\u043c\u0435\u043d\u043d\u043e\u0441\u0442\u0438 \u0432 \u043e\u0434\u043d\u043e\u043c \u0441\u043b\u043e\u0432\u0435 "
+                           "(%s): \u0442\u0430\u043a\u043e\u0435 \u0441\u043b\u043e\u0432\u043e \u043d\u0435 \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044f, \u043f\u0435\u0440\u0435\u043f\u0438\u0448\u0438\u0442\u0435 \u0435\u0433\u043e "
+                           "\u043f\u043e-\u0440\u0443\u0441\u0441\u043a\u0438" % ", ".join(welded[:5])),
+            "samples": ", ".join(welded[:5]),
+        })
+
+    leaked = foreign_script_chars(prose)
+    if leaked:
+        sample = "".join(leaked[:8])
+        violations.append({
+            "code": "RESPONSE_FOREIGN_SCRIPT",
+            "message_ru": ("\u0432 \u043e\u0442\u0432\u0435\u0442\u0435 \u0432\u0441\u0442\u0440\u0435\u0442\u0438\u043b\u0438\u0441\u044c \u0441\u0438\u043c\u0432\u043e\u043b\u044b \u0447\u0443\u0436\u043e\u0439 \u043f\u0438\u0441\u044c\u043c\u0435\u043d\u043d\u043e\u0441\u0442\u0438 "
+                           "\u00ab%s\u00bb: \u043f\u043e \u043f\u0440\u0430\u0432\u0438\u043b\u0443 0 \u043e\u0442\u0432\u0435\u0442 \u043f\u0438\u0448\u0435\u0442\u0441\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u044f\u0437\u044b\u043a\u0435 "
+                           "\u0443\u0447\u0435\u043d\u0438\u043a\u0430" % sample),
+            "samples": sample,
+        })
+
+    tokens = untranslated_latin_tokens(prose)
+    if tokens:
+        shown = ", ".join(tokens[:6])
+        violations.append({
+            "code": "RESPONSE_UNTRANSLATED_LATIN",
+            "message_ru": ("\u0432 \u0440\u0443\u0441\u0441\u043a\u043e\u043c \u043e\u0442\u0432\u0435\u0442\u0435 \u043e\u0441\u0442\u0430\u043b\u0438\u0441\u044c \u043d\u0435\u043f\u0435\u0440\u0435\u0432\u0435\u0434\u0451\u043d\u043d\u044b\u0435 "
+                           "\u043b\u0430\u0442\u0438\u043d\u0441\u043a\u0438\u0435 \u0441\u043b\u043e\u0432\u0430 (%s): \u0437\u0430\u043c\u0435\u043d\u0438\u0442\u0435 \u0440\u0443\u0441\u0441\u043a\u0438\u043c "
+                           "\u0442\u0435\u0440\u043c\u0438\u043d\u043e\u043c, \u0430 \u0438\u043d\u043e\u0441\u0442\u0440\u0430\u043d\u043d\u044b\u0439 \u0434\u0430\u0439\u0442\u0435 \u043e\u0434\u0438\u043d \u0440\u0430\u0437 "
+                           "\u0432 \u0441\u043a\u043e\u0431\u043a\u0430\u0445" % shown),
+            "samples": shown,
+        })
+    return violations
+
+
+def _prose_of(response):
+    """The student-facing prose of a response, joined into one string.
+
+    `question` may be a string or a list. Citations are skipped: their
+    `verbatim` field is a quotation original and is foreign by requirement.
+    """
+    parts = []
+    for field in PROSE_FIELDS:
+        value = response.get(field)
+        if isinstance(value, str):
+            parts.append(value)
+        elif isinstance(value, (list, tuple)):
+            parts.extend(item for item in value if isinstance(item, str))
+    return "\n".join(parts)
 
 
 def validate_response(course, session, response, *, directive=None):
@@ -1036,6 +1293,14 @@ def validate_response(course, session, response, *, directive=None):
                 "message_ru": "цитата не проверена по источнику: нельзя показывать "
                               "как точную",
             })
+
+    # Language consistency, computed here rather than left to the prompt:
+    # the policy text alone demonstrably did not stop the leakage.
+    language = None
+    if course is not None:
+        language = (getattr(course, "contract", None) or {}).get("language")
+    for violation in language_violations(_prose_of(response), language):
+        violations.append(violation)
 
     explanation = response.get("explanation") or ""
     if explanation and len(explanation.split()) > MAX_EXPLANATION_WORDS:

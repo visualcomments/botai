@@ -1,7 +1,7 @@
 ---
 name: explaining-concepts
 description: Explain course material at the student's current level, Socratic-first, with examples, one idea per step. Use when a student asks "what does X mean", when a lesson did not land, when a concept's prerequisite is missing, or when the course text is unclear and a plain-language explanation plus a worked example is needed.
-verified: 2026-08-12
+verified: 2026-09-19
 ---
 
 # Explaining Concepts
@@ -44,6 +44,91 @@ student asks to look ahead.
    course is unclear, say so and offer a supplement.
 6. **Confirm, then close.** End with a quick check (see
    `assessing-understanding`) and record the outcome.
+
+## Two levels: plain first, then precise — and they must agree
+
+Explain in **two passes over the same account**, never two different accounts:
+
+1. **Plain level** — the working intuition, in the simplest true form. Say that
+   it is a simplification and in what respect: «на уровне интуиции…», «если
+   упростить до одной мысли…».
+2. **Precise level** — the same claim with the qualifications the discipline
+   requires (the exceptions, the debate, the sense in which the plain version is
+   only roughly right).
+
+The two passes are **the same position at two resolutions**, so the precise
+level may *qualify* the plain one but may never *reverse* it. A reversal is a
+contradiction the student will notice and lose trust over.
+
+**Before delivering the precise level, check it against the plain one.** If the
+precise statement denies something the plain one asserted, do not close the gap
+by abandoning the first: state plainly that the simple form was a
+simplification, say which part of it does not survive, and replace it. The
+honest form of a correction is:
+
+> «Уточнение: на уровне интуиции я сказал, что основа науки — неизменные факты.
+> Это упрощение. Точнее: факт всегда нагружен теорией, и «неизменность» относится
+> к принятой теории, а не к наблюдению как таковому. Простое утверждение было
+> неполным, а не неверным.»
+
+Worked example of the failure this prevents: the agent first says "the basis of
+science is unchanging facts", then, when the student pushes, agrees that facts
+are theory-laden. Both statements cannot be flatly true. The fix is not to
+defend the first, nor to silently adopt the second: mark the first as the plain
+simplification and deliver the second as the precise level of the *same* claim.
+
+## Ask organizational questions — and mark them visibly
+
+Some questions are not about the material but about **how to present it**. Ask
+them when they would change what you produce, and never bury them inside an
+explanation:
+
+- «Подать тему проще или сразу строго?»
+- «Разобрать на примере или сразу в общем виде?»
+- «Идём по шагам или сразу к сути?»
+- «Нужны ли ссылки на источники корпуса или достаточно изложения?»
+
+**Mark them as organizational, distinctly from course content.** Use a leading
+tag the student can scan for, on its own line, visually set apart:
+
+```
+🧭 Организационный вопрос: подать тему проще или сразу строго?
+```
+
+Rules for the marker:
+
+- The tag is always `Организационный вопрос:` (optionally prefixed with 🧭 when
+  the channel renders emoji). It is the same every time, so it is scannable.
+- It sits on its own line/paragraph, never mid-sentence, so it is never confused
+  with a teaching question.
+- **At most one organizational question per turn** — it is a fork in the road,
+  not a questionnaire. Batch the rest for later.
+- Ask at most **twice** per topic. If the student does not engage with the
+  organizational question, choose a sensible default (plain level first),
+  state the default, and proceed — do not keep asking.
+
+## Mark material that is not from the corpus
+
+Rule 4 of AGENTS.md requires supplements to be labeled; rule 9 governs the
+corpus. The marker is **«вне корпуса»** — the same phrase the course itself
+uses for material it discusses but cannot quote (copyright-protected authors).
+
+When any part of an explanation, example, or claim did not come from a verified
+corpus fragment, mark it **where it appears**, not in a footnote:
+
+- A claim with no corpus fragment behind it: append `(вне корпуса)`.
+- A block of such material: prefix the block with
+  `> Вне корпуса — не из проверенного корпуса курса:` and give the source if
+  there is one.
+- A quotation from a copyrighted author: state the idea in your own words and
+  mark it `(вне корпуса)`; never present it as a corpus quotation. A direct
+  quotation is only ever from the corpus, verified, with coordinates
+  «файл · фрагмент #N».
+
+**If the corpus is unavailable locally, everything is «вне корпуса»** and must
+be marked so. Never let an unmarked sentence look like it came from the corpus
+when the corpus was never consulted — that is the failure rule 4 exists to
+prevent.
 
 ## Delivery
 
@@ -95,4 +180,4 @@ Check-in: <one question to confirm the idea landed>
 
 ## Last Validated
 
-2026-08-12. Procedure current as of this date; re-verify when the course material or teaching rules change.
+2026-09-19. Procedure current as of this date; re-verify when the course material or teaching rules change. Added this revision: the two-level (plain → precise) consistency rule, the marked organizational-question convention, and the «вне корпуса» marking rule for material not drawn from the verified corpus.
