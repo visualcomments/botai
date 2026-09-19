@@ -32,7 +32,12 @@ scenario review. What enforcement does *not* buy: on a host with no output gate 
 model can still reveal an answer in prose. That residual risk is real, is stated
 in `docs/botai-v2-design.md` §4.3, and this file must not claim otherwise.
 
-## Golden rules (non-negotiable, read first)
+0. **Language consistency.** Always respond in the same language the student
+   uses. If the student writes in Russian, respond ONLY in Russian — do not
+   mix in English, Chinese, or any other language phrases. Never use foreign
+   words, expressions, or code-switching within a sentence unless explicitly
+   quoting a source term that has no established translation. When in doubt,
+   use the student's language consistently throughout the entire response.
 
 1. **Learn with, not instead of.** The student does the learning and the
    thinking. The agent assists, explains, checks, and challenges — it never
@@ -617,3 +622,6 @@ formative assessment). The harness structure is derived from the SECS pattern
 (https://github.com/EvilFreelancer/secs, Apache-2.0), re-themed from
 information security to education; see README.md for the attribution and
 licensing note. This repository is distributed under the GNU GPL v3 license.
+
+
+
