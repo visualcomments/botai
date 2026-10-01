@@ -75,6 +75,28 @@ jobs:
           "$BOTAI_VPY" tests/test_exports.py
           "$BOTAI_VPY" tests/test_adapters.py
           "$BOTAI_VPY" tests/test_migrations.py
+          # Adaptive pedagogy (design sections 1, 2, 3, 6, 7, 8, 9). Each module
+          # is pure and offline, so these run in the same venv with no extra
+          # service: the load-bearing checks are the assistance ceiling on
+          # scaffolding, the SM-2 reference interval, the risk-consent guard,
+          # and the "no engine bundled" refusals (speech, charts, notebook
+          # execution).
+          "$BOTAI_VPY" tests/test_learner_profiling.py
+          "$BOTAI_VPY" tests/test_scaffolding.py
+          "$BOTAI_VPY" tests/test_error_diagnosis.py
+          "$BOTAI_VPY" tests/test_spaced_repetition.py
+          "$BOTAI_VPY" tests/test_cohort_management.py
+          "$BOTAI_VPY" tests/test_analytics.py
+          "$BOTAI_VPY" tests/test_risk_detection.py
+          "$BOTAI_VPY" tests/test_experiments.py
+          "$BOTAI_VPY" tests/test_leaderboards.py
+          "$BOTAI_VPY" tests/test_cooperative_challenges.py
+          "$BOTAI_VPY" tests/test_interactive_tutorial.py
+          "$BOTAI_VPY" tests/test_visualizations.py
+          "$BOTAI_VPY" tests/test_security.py
+          "$BOTAI_VPY" tests/test_speech_interface.py
+          "$BOTAI_VPY" tests/test_rubber_duck.py
+          "$BOTAI_VPY" tests/test_integrations.py
 
       - name: "Переход 1.3.2 → 2.0: мост и неполное обновление"
         # Сквозная проверка моста настоящим процессом: план ничего не меняет,
@@ -378,3 +400,13 @@ jobs:
           "$VPY" tests/test_course.py
           "$VPY" tests/test_policy.py
           "$VPY" tests/test_tutoring.py
+          # The pedagogy modules that build file paths and temp decks are the
+          # ones where Windows drive letters, junctions and case-insensitive
+          # names can diverge from Linux, so they run on the cross-platform
+          # matrix too.
+          "$VPY" tests/test_learner_profiling.py
+          "$VPY" tests/test_spaced_repetition.py
+          "$VPY" tests/test_cohort_management.py
+          "$VPY" tests/test_visualizations.py
+          "$VPY" tests/test_security.py
+          "$VPY" tests/test_interactive_tutorial.py

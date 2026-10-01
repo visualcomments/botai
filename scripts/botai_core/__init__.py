@@ -45,6 +45,28 @@ true of the tools rather than of the prompt:
   stripped and provenance recorded, so an imported skill cannot grant itself
   standing the policy did not give it.
 
+The adaptive-pedagogy layer (`learner_profiling`, `scaffolding`,
+`error_diagnosis`, `spaced_repetition`, `cohort_management`, `analytics`,
+`risk_detection`, `experiments`, `leaderboards`, `cooperative_challenges`,
+`interactive_tutorial`, `visualizations`, `security`, `speech_interface`,
+`rubber_duck`, `integrations`) extends the same discipline to teaching
+strategy. Two properties carry over unchanged, and they are why these are core
+modules rather than prompt text:
+
+* **Every claim still names its evidence.** A learning profile, a risk score, a
+  leaderboard band and a mastery stage are all computed from stored attempts and
+  checks - none of them is an assertion a model can make.
+* **The assistance ceiling is re-checked wherever help is produced.** Scaffolding,
+  the rubber-duck guard, the Jupyter fix suggester and a cooperative challenge
+  each consult the accepted contract's assessment before revealing anything, so
+  adding a feature cannot open a second path to a graded solution.
+
+What the pedagogy layer deliberately does **not** do, because the honest answer
+is "this harness has no such engine": no TTS/STT, no plotting backend, no
+Graphviz/Manim process, no LMS or GitHub network call. Each of those entry
+points fails closed with a named error rather than pretending to succeed - a
+stub integration that silently returns nothing is worse than one that refuses.
+
 Three mechanisms here are adapted from HKUDS/DeepTutor (Apache-2.0): `claims.py`
 from `services/memory/consolidator/guards.py`, the session step budget in
 `tutoring.py` from its per-loop `ToolBudgets`, and `skills.py` from its "import
@@ -56,9 +78,48 @@ Nothing here calls a language model, opens the network, or executes course code.
 
 from __future__ import annotations
 
-__all__ = ["paths", "schemas", "store", "legacy", "course", "policy",
-           "tutoring", "session", "progress", "corpus", "retrieval",
-           "environment", "actions", "operation", "contribution", "personas",
-           "exports", "teacher", "mcp_handlers", "adapters", "claims", "skills"]
+__all__ = [
+    "paths",
+    "schemas",
+    "store",
+    "legacy",
+    "course",
+    "policy",
+    "tutoring",
+    "session",
+    "progress",
+    "corpus",
+    "retrieval",
+    "environment",
+    "actions",
+    "operation",
+    "contribution",
+    "personas",
+    "exports",
+    "teacher",
+    "mcp_handlers",
+    "adapters",
+    "claims",
+    "skills",
+    # Adaptive pedagogy (design sections 1, 2, 3, 6, 7, 8, 9). Each one
+    # is pure and offline: they compute documents from stored evidence
+    # and never call a model, a network, or a subprocess.
+    "learner_profiling",
+    "scaffolding",
+    "error_diagnosis",
+    "spaced_repetition",
+    "cohort_management",
+    "analytics",
+    "risk_detection",
+    "experiments",
+    "leaderboards",
+    "cooperative_challenges",
+    "interactive_tutorial",
+    "visualizations",
+    "security",
+    "speech_interface",
+    "rubber_duck",
+    "integrations",
+]
 
 SCHEMA_VERSION = 2

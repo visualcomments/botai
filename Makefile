@@ -486,6 +486,22 @@ test:
 	@python3 tests/test_exports.py
 	@python3 tests/test_adapters.py
 	@python3 tests/test_migrations.py
+	@python3 tests/test_learner_profiling.py
+	@python3 tests/test_scaffolding.py
+	@python3 tests/test_error_diagnosis.py
+	@python3 tests/test_spaced_repetition.py
+	@python3 tests/test_cohort_management.py
+	@python3 tests/test_analytics.py
+	@python3 tests/test_risk_detection.py
+	@python3 tests/test_experiments.py
+	@python3 tests/test_leaderboards.py
+	@python3 tests/test_cooperative_challenges.py
+	@python3 tests/test_interactive_tutorial.py
+	@python3 tests/test_visualizations.py
+	@python3 tests/test_security.py
+	@python3 tests/test_speech_interface.py
+	@python3 tests/test_rubber_duck.py
+	@python3 tests/test_integrations.py
 
 lint:
 	@if [ "$(HAS_MARKDOWNLINT)" = yes ]; then \

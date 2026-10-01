@@ -441,11 +441,58 @@ teaching workflow when a Skill covers it.
 - `giving-feedback` — review a student's attempt: what is right, what to fix,
   how to fix it themselves.
 
+**Adaptive pedagogy (routed by evidence, not by preference)**
+- `providing-adaptive-scaffolding` — help at the rung the evidence supports
+  (0..4), fading on success; rung 4 stays refused for a graded or unknown task;
+- `diagnosing-errors` — classify the mistake (conceptual, procedural, missing
+  prerequisite, careless, incomplete, overgeneralisation) *before* speaking, so a
+  typo gets a pointer and a misconception gets a re-teach;
+- `multidimensional-assessment` — Bloom × SOLO per objective, every score tied to
+  evidence; a score is never a grade;
+- `scheduling-reviews` — the SM-2 review ladder; a lapse is information, not a
+  penalty;
+- `generating-visual-explanations` — Mermaid/DOT diagrams matched to the
+  learner's cognitive style. A raster chart needs a plotting backend that is
+  **not** installed; say so rather than pretending to draw one;
+- `narrative-teaching` — quest framing over the real objectives; characters are
+  fiction and never an authority; rewards are evidence-gated;
+- `rubber-duck-debugging` — the duck asks and never answers; a code fence or an
+  imperative fix is refused by the module's own guard.
+
+**Help at the moment of difficulty**
+- `contextual-live-help` — offer help when a struggle signal is visible in work
+  the student has put in front of you. No IDE extension ships: the triggers are
+  read from a pasted diff or log, and this skill says so;
+- `running-interactive-tutorials` — start/step/hint/validate/advance; the
+  harness never executes a `validation` expression or the learner's code.
+
+**Groups and cohorts**
+- `facilitating-peer-learning` — homogeneous vs heterogeneous grouping, peer
+  review pairing, moderated peer review; peer feedback is never a grade;
+- `moderating-discussions` — answer, invite, surface, summarise; toxicity is
+  reported, never silently deleted; the moderator has no grade authority;
+- `facilitating-team-challenges` — the four challenge kinds, evidence-based
+  scoring with a stated denominator, and the assistance ceiling still in force
+  inside a challenge.
+
+**External platforms (offline parts only)**
+- `reviewing-github-assignments` — review a diff and test results the student
+  supplies; never clone, push, or call the GitHub API; the student owns the
+  commit, push, and pull request;
+- `assisting-in-jupyter` — parse the notebook and explain a recorded traceback;
+  **no cell is ever executed**, and a graded task does not get the finished cell.
+
 **Supplements (Supplement mode)**
 - `providing-supplementary-material` — detect gaps in the course and source or
   create labeled supplements;
 - `creating-practice-exercises` — generate additional practice matched to the
-  course objectives.
+  course objectives;
+- `creating-video-explanations` — the offline path: a script, a storyboard, and
+  Mermaid/DOT stills the student can reproduce. No TTS, no Manim, and no
+  recorder is bundled, and this skill never calls an external API;
+- `teaching-offline` — the corpus on disk, scoped search, and the skills, with
+  no bundled local model. Every claim is «вне корпуса» while the corpus is
+  absent.
 
 **Reporting**
 - `reporting-learning-progress` — progress reports for the student or a

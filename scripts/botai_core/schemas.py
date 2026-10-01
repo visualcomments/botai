@@ -30,7 +30,14 @@ SUPPORTED_MAJOR = 2
 # without loading a schema. Kept in sync by `test_schemas.py`, which compares
 # this tuple against the schema's enum: two lists that can drift silently are
 # worse than one.
-SUPPORTED_CHECK_KINDS = ("explain", "predict", "apply", "transfer", "critique", "diagnostic")
+SUPPORTED_CHECK_KINDS = (
+    "explain",
+    "predict",
+    "apply",
+    "transfer",
+    "critique",
+    "diagnostic",
+)
 
 # Contract name -> schema file. Populated explicitly so a typo is a KeyError at
 # the call site, not a silently skipped validation.
@@ -46,6 +53,16 @@ CONTRACTS = {
     "contribution": "contribution.schema.json",
     "persona": "persona.schema.json",
     "achievement": "achievement.schema.json",
+    # Adaptive-pedagogy contracts. Registered here, in the one table, so every
+    # module reaches them through `validate()` rather than each one resolving
+    # its own schema file: a second resolution path is a second set of rules
+    # that can drift from this one.
+    "learning_profile": "learning_profile.schema.json",
+    "assessment": "assessment.schema.json",
+    "spaced_repetition": "spaced_repetition.schema.json",
+    "cohort": "cohort.schema.json",
+    "tutorial": "tutorial.schema.json",
+    "narrative": "narrative.schema.json",
     "packet": "packet.schema.json#/$defs/packet",
     "issue_draft": "packet.schema.json#/$defs/issue_draft",
     "plan": "plan.schema.json#/$defs/plan",
@@ -176,7 +193,8 @@ def schema_for(contract, schema_dir=None):
         if not isinstance(node, dict) or step not in node:
             raise SchemaError(
                 "SCHEMA_FRAGMENT_MISSING",
-                "контракт %r ссылается на отсутствующий фрагмент %r" % (contract, fragment),
+                "контракт %r ссылается на отсутствующий фрагмент %r"
+                % (contract, fragment),
             )
         node = node[step]
     # A `$id` must not carry a fragment (2020-12 metaschema forbids it), so the
@@ -194,8 +212,10 @@ def validate(document, contract, *, schema_dir=None):
     Returns the document so the call reads as a guard clause at the call site.
     """
     if not isinstance(document, dict):
-        raise SchemaError("NOT_AN_OBJECT", "ожидался JSON-объект, получено %s"
-                          % type(document).__name__)
+        raise SchemaError(
+            "NOT_AN_OBJECT",
+            "ожидался JSON-объект, получено %s" % type(document).__name__,
+        )
 
     declared = document.get("schema_version")
     if declared is not None and declared != SUPPORTED_MAJOR:
@@ -213,7 +233,9 @@ def validate(document, contract, *, schema_dir=None):
     validator_cls.check_schema(schema)
     validator = validator_cls(schema, registry=registry)
 
-    errors = sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path))
+    errors = sorted(
+        validator.iter_errors(document), key=lambda e: list(e.absolute_path)
+    )
     if errors:
         rendered = []
         for err in errors[:12]:
@@ -221,7 +243,8 @@ def validate(document, contract, *, schema_dir=None):
             rendered.append("%s: %s" % (location, err.message))
         raise SchemaError(
             "CONTRACT_INVALID",
-            "документ не соответствует контракту %r: %s" % (contract, "; ".join(rendered)),
+            "документ не соответствует контракту %r: %s"
+            % (contract, "; ".join(rendered)),
             errors=errors,
         )
     return document

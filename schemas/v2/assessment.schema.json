@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/assessment.schema.json",
+  "title": "botai assessment",
+  "description": "A multidimensional assessment of one learning objective: Bloom's taxonomy levels plus a SOLO structural level. Every score carries evidence — a `bloom_score` with no evidence string is refused, the same rule the progress record applies to a mastery claim. This is formative: it informs what to teach next and is never itself a course grade.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "assessment_id", "learning_objective", "bloom_levels"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "assessment_id": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "Slug, not UUID: an assessment id is a readable, human-checkable handle (e.g. `intro-regression-check-01`) referenced in progress notes, and a slug keeps those references legible."
+    },
+    "learning_objective": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "The objective this assessment measures, a slug matching `objective_id` in the track."
+    },
+    "bloom_levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["remembering", "understanding", "applying"],
+      "properties": {
+        "remembering": { "$ref": "#/$defs/bloom_score" },
+        "understanding": { "$ref": "#/$defs/bloom_score" },
+        "applying": { "$ref": "#/$defs/bloom_score" },
+        "analyzing": { "$ref": "#/$defs/bloom_score" },
+        "evaluating": { "$ref": "#/$defs/bloom_score" },
+        "creating": { "$ref": "#/$defs/bloom_score" }
+      },
+      "description": "Six Bloom levels. remembering/understanding/applying are required — an assessment that measures no level at all is not an assessment; the higher three are optional because many objectives stop at applying."
+    },
+    "solo_level": {
+      "enum": ["prestructural", "unistructural", "multistructural", "relational", "extended_abstract"],
+      "description": "SOLO structural outcome: from no relevant idea (prestructural) through isolated ideas to integrated understanding (relational, extended_abstract)."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How confident the assessment itself is in these scores. Low confidence means the evidence was thin — not that the learner did badly."
+    },
+    "assessed_at": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "$defs": {
+    "bloom_score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "evidence"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "What was actually demonstrated, in Russian, that justifies this score. A score with no evidence is a guess; requiring the string keeps every claim answerable."
+        }
+      },
+      "description": "One Bloom level: a 0..1 score plus the evidence behind it. Evidence is mandatory — this is the same rule as a mastery claim in the progress record."
+    }
+  }
+}

@@ -2739,6 +2739,804 @@ def default_learner_id(root):
     return learner_id
 
 
+def _core_module(name):
+    """Import one botai_core module, or print why and return None."""
+    import importlib
+
+    try:
+        return importlib.import_module("botai_core.%s" % name)
+    except ImportError as e:
+        print("v2 core недоступен: %s" % e)
+        return None
+
+
+def _profiler(root):
+    """A profiler bound to `<root>/profiles`, never to the repository copy.
+
+    `learner_profiling.profiles_dir` falls back to the repo's `profiles/` when
+    the workspace has no such directory - a workspace command that would then
+    read or reset a profile belonging to somebody else. Passing the resolved
+    directory keeps every read and every write inside `--root`.
+    """
+    from botai_core import learner_profiling
+
+    return learner_profiling.LearnerProfiler(root / "profiles")
+
+
+def _engine(root):
+    """A spaced-repetition engine bound to `<root>/reviews` (same reasoning)."""
+    from botai_core import spaced_repetition
+
+    return spaced_repetition.SpacedRepetitionEngine(root / "reviews")
+
+
+def cmd_profile_show(root, learner, as_json):
+    """Show one learner's presentation profile, or say plainly there is none."""
+    prof = _profiler(root)
+    learner_id = learner or default_learner_id(root)
+    try:
+        profile = prof.load_profile(learner_id)
+    except Exception as e:  # noqa: BLE001 - a corrupt profile is a named report
+        code = getattr(e, "code", type(e).__name__)
+        print("  ошибка (%s): %s" % (code, e))
+        return 3
+    path = prof.path_for(learner_id)
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "learner_id": learner_id,
+                    "path": str(path),
+                    "profile": None if profile is None else profile.to_document(),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    print("== профиль обучающегося: %s ==" % learner_id)
+    print("  файл           : %s" % path)
+    if profile is None:
+        print("  профиля нет - ещё не было ни одного взаимодействия с историей.")
+        print("  Это не ошибка: профиль строится из записанных взаимодействий,")
+        print("  а не выдумывается заранее.")
+        return 0
+    document = profile.to_document()
+    print("  доминант. стиль: %s" % document["dominant_style"])
+    print("  темп            : %d слов/мин" % document["pace"]["measured_wpm"])
+    print("  время на концепт: %d c" % document["pace"]["avg_time_per_concept"])
+    print("  размер куска    : %s" % document["pace"]["preferred_chunk_size"])
+    print("  глубина         : %s" % document["depth_preference"])
+    print("  толерантность   : %.2f" % document["challenge_tolerance"])
+    print("  стиль фидбэка   : %s" % document["feedback_style"])
+    print("  взаимодействий  : %d" % document["interaction_count"])
+    print("  обновлён        : %s" % document["updated_at"])
+    print()
+    print("  Это предпочтение подачи, а не диагноз и не оценка.")
+    return 0
+
+
+def cmd_profile_reset(root, learner, dry):
+    """Recompute the profile from stored history, or preview that nothing changes."""
+    prof = _profiler(root)
+    learner_id = learner or default_learner_id(root)
+    try:
+        history = prof.load_history(learner_id)
+        existing = prof.load_profile(learner_id)
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  ошибка (%s): %s" % (code, e))
+        return 3
+    path = prof.path_for(learner_id)
+    print("== сброс профиля: %s ==" % learner_id)
+    print("  взаимодействий в истории: %d" % len(history))
+    print("  профиль сейчас: %s" % ("есть" if existing is not None else "нет"))
+    print("  файл профиля : %s" % path)
+    print()
+    print("  Это пересчёт из сохранённой истории, а не удаление: профиль")
+    print("  восстанавливается из тех же взаимодействий и остаётся детерминированным.")
+    if dry:
+        print("  Ничего не записано (--dry-run).")
+        return 0
+    if not history:
+        print("  История пуста - пересчитывать нечего; профиль не создан.")
+        print("  Это честный ответ: пустая история не означает отсутствие навыка.")
+        return 0
+    try:
+        profile = prof.rebuild_profile(learner_id)
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  ошибка (%s): %s" % (code, e))
+        return 3
+    document = profile.to_document()
+    print()
+    print("  пересчитано: %d взаимодействий" % document["interaction_count"])
+    print("  доминант. стиль: %s" % document["dominant_style"])
+    print("  темп            : %d слов/мин" % document["pace"]["measured_wpm"])
+    print("  обновлён        : %s" % document["updated_at"])
+    print("  записано в     : %s" % prof.path_for(learner_id))
+    return 0
+
+
+def cmd_review_due(root, learner, as_json):
+    """Cards whose review is due, with the interval each one carries."""
+    engine = _engine(root)
+    learner_id = learner or default_learner_id(root)
+    try:
+        due = engine.get_due_cards(learner_id)
+        summary = engine.due_summary(learner_id)
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  ошибка (%s): %s" % (code, e))
+        return 3
+    cards = [card.to_document() for card in due]
+    if as_json:
+        print(
+            json.dumps(
+                {"learner_id": learner_id, "summary": summary, "cards": cards},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    print("== повторения к сдаче: %s ==" % learner_id)
+    print("  к сдаче      : %d" % summary["due"])
+    print("  всего карточек: %d" % summary["total"])
+    print("  следующее    : %s" % (summary.get("next_due_at") or "-"))
+    print("  файл         : %s" % engine.deck_path(learner_id))
+    print()
+    if not cards:
+        print("  Повторений не пришло время - это не «ничего не выучено».")
+        print("  Интервалы смешанного повторения считаются по времени, а не по навыку.")
+        return 0
+    print("  цель                 интервал  ease  повторы  сбои  ближайшее")
+    for card in cards:
+        print(
+            "  %-22s %5d д  %.2f  %7d  %5d  %s"
+            % (
+                card["objective_id"],
+                card["interval_days"],
+                card["ease_factor"],
+                card["review_count"],
+                card["lapses"],
+                card["next_review"],
+            )
+        )
+    return 0
+
+
+def cmd_cohort_create(root, cohort, title, members, dry):
+    """Create a cohort document on disk, with the members named on the command line."""
+    core_cohort = _core_module("cohort_management")
+    if core_cohort is None:
+        return 2
+    try:
+        member_entries = [
+            {"student_id": str(member), "level": "beginner"}
+            for member in (members or [])
+        ]
+        document = core_cohort.create_cohort(
+            root, cohort_id=cohort, title=title, members=member_entries
+        )
+        path = core_cohort.cohort_path(root, cohort)
+    except core_cohort.CohortManagementError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    print("== создание потока: %s ==" % cohort)
+    print("  название  : %s" % document["title"])
+    print("  участников: %d" % len(document["members"]))
+    print("  файл      : %s" % path)
+    if dry:
+        print()
+        print("  Ничего не записано (--dry-run).")
+        return 0
+    try:
+        written = core_cohort.save_cohort(root, document)
+    except core_cohort.CohortManagementError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    print("  записано  : %s" % written)
+    print()
+    print("  Уровень участника здесь - сказанное самим учащимся при входе в поток,")
+    print("  а не измеренная оценка.")
+    return 0
+
+
+def cmd_cohort_report(root, cohort, as_json):
+    """Summarise a cohort, stating how many students the numbers actually cover."""
+    core_cohort = _core_module("cohort_management")
+    if core_cohort is None:
+        return 2
+    try:
+        report = core_cohort.cohort_report(root, cohort)
+    except core_cohort.CohortManagementError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    print("== поток: %s ==" % report["cohort_id"])
+    print("  название  : %s" % (report.get("title") or "-"))
+    print("  участников: %d" % report["member_count"])
+    breakdown = report["level_breakdown"]
+    print(
+        "  по уровням: beginner %d, intermediate %d, advanced %d"
+        % (
+            breakdown.get("beginner", 0),
+            breakdown.get("intermediate", 0),
+            breakdown.get("advanced", 0),
+        )
+    )
+    print("  учтено    : %d" % report["denominator"])
+    print("  %s" % report["denominator_ru"])
+    print()
+    print("  участник            уровень        продем.  к повтору  завис.")
+    for row in report["members"]:
+
+        def _n(value):
+            return "-" if value is None else str(value)
+
+        print(
+            "  %-20s  %-13s  %8s  %9s  %5s"
+            % (
+                row["student_id"],
+                row["level"],
+                _n(row["demonstrated_count"]),
+                _n(row["review_due_count"]),
+                _n(row["stuck_count"]),
+            )
+        )
+    return 0
+
+
+def cmd_cohort_group(root, cohort, strategy, group_size, as_json):
+    """Split a cohort into study groups by a declared, deterministic strategy."""
+    core_cohort = _core_module("cohort_management")
+    if core_cohort is None:
+        return 2
+    try:
+        document = core_cohort.load_cohort(root, cohort)
+        result = core_cohort.auto_group(
+            document, strategy=strategy, group_size=group_size
+        )
+    except core_cohort.CohortManagementError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    if as_json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    print("== группы потока: %s ==" % cohort)
+    print("  стратегия  : %s" % result["strategy"])
+    print("  размер     : %d" % group_size)
+    print("  участников : %d" % result["denominator"])
+    print("  %s" % result["basis_ru"])
+    print()
+    for group in result["groups"]:
+        print("  %s (%d)" % (group["group_id"], len(group["members"])))
+        print("      %s" % ", ".join(group["members"]))
+        print("      фокус: %s" % group["focus"])
+    print()
+    print("  Группа несёт только состав и фокус: никаких правил помощи, оценки")
+    print("  и допусков - решает принятый договор курса, а не эта команда.")
+    return 0
+
+
+def cmd_analytics_report(root, course, learner, report_format, as_json):
+    """One learner's analytics document, rendered as json / markdown / html."""
+    core_analytics = _core_module("analytics")
+    core_course = _core_module("course")
+    if core_analytics is None or core_course is None:
+        return 2
+    if not course:
+        print(
+            "usage: cli.py analytics-report --course <slug> --learner <id> "
+            "[--format json|markdown|html]"
+        )
+        return 2
+    try:
+        accepted = core_course.load_accepted(root, course)
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  ошибка (%s): %s" % (code, e))
+        return 3
+    learner_id = learner or default_learner_id(root)
+    core_store = _core_module("store")
+    if core_store is None:
+        return 2
+    try:
+        store = core_store.Store.open(root, learner_id, create=False)
+    except Exception as e:  # noqa: BLE001
+        print("  не удалось открыть хранилище: %s" % e)
+        print(
+            "  Сначала начните сессию: python scripts/cli.py session-start "
+            "--course %s --learner %s" % (course, learner_id)
+        )
+        return 3
+    try:
+        document = core_analytics.build_student_analytics(
+            course=accepted,
+            learner_id=learner_id,
+            sessions=store.list_entities("session", course_id=course),
+            objective_states={
+                s["objective_id"]: s
+                for s in store.list_entities("objective_state", course_id=course)
+            },
+            attempts=store.list_entities("attempt", course_id=course),
+            checks=store.list_entities("check", course_id=course),
+        )
+        if as_json or report_format == "json":
+            print(json.dumps(document, ensure_ascii=False, indent=2))
+        elif report_format == "html":
+            print(core_analytics.render_report_html(document))
+        else:
+            print(core_analytics.render_report_markdown(document))
+        return 0
+    except Exception as e:  # noqa: BLE001
+        code = getattr(e, "code", type(e).__name__)
+        print("  ошибка (%s): %s" % (code, e))
+        return 3
+    finally:
+        store.close()
+
+
+def cmd_detect_risk(root, cohort, threshold, as_json):
+    """Score one cohort against the declared rule, and state the coverage."""
+    core_risk = _core_module("risk_detection")
+    core_cohort = _core_module("cohort_management")
+    if core_risk is None or core_cohort is None:
+        return 2
+    if not cohort:
+        print("usage: cli.py detect-risk --cohort <id> [--threshold 0.5] [--json]")
+        return 2
+    try:
+        document = core_cohort.load_cohort(root, cohort)
+    except core_cohort.CohortManagementError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    members = [
+        str(m.get("student_id"))
+        for m in (document.get("members") or [])
+        if m.get("student_id")
+    ]
+    # Facts per member come from that learner's own store when one exists. A
+    # member with no store is scored on an empty record and lands near zero:
+    # "no data" must not read as "at risk", and the module's denominator says so.
+    core_store = _core_module("store")
+    if core_store is None:
+        return 2
+    facts_by_student = {}
+    for student_id in members:
+        try:
+            store = core_store.Store.open(root, student_id, create=False)
+        except Exception:  # noqa: BLE001 - an absent store is absence of evidence
+            continue
+        try:
+            facts_by_student[student_id] = {
+                "sessions": store.list_entities("session"),
+                "attempts": store.list_entities("attempt"),
+                "checks": store.list_entities("check"),
+                "objective_states": {
+                    s["objective_id"]: s for s in store.list_entities("objective_state")
+                },
+            }
+        finally:
+            store.close()
+    try:
+        results = core_risk.detect_at_risk(
+            cohort_id=cohort,
+            members=members,
+            facts_by_student=facts_by_student,
+            threshold=float(threshold),
+        )
+    except core_risk.RiskDetectionError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    tail = {
+        "denominator": 0,
+        "denominator_ru": "не оценивалось",
+        "threshold": float(threshold),
+    }
+    rows = []
+    for item in results:
+        if "student_id" in item:
+            rows.append(item)
+        else:
+            tail = item
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "cohort_id": cohort,
+                    "threshold": float(threshold),
+                    "at_risk": rows,
+                    "denominator": tail.get("denominator"),
+                    "denominator_ru": tail.get("denominator_ru"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    print("== сигнал риска: поток %s ==" % cohort)
+    print("  порог  : %.2f" % tail.get("threshold", float(threshold)))
+    print("  учтено : %d" % tail.get("denominator", 0))
+    print("  %s" % tail.get("denominator_ru", ""))
+    print()
+    if not rows:
+        print("  Никто не достиг порога. Это не «все в порядке» и не «риска нет»:")
+        print("  модуль взвешивает записанные попытки, а не людей.")
+    for row in rows:
+        print(
+            "  %s  score %.2f  %s (%s)"
+            % (row["student_id"], row["score"], row["level"], row["level_ru"])
+        )
+        print("      %s" % row.get("method_ru", ""))
+        print("      %s" % row.get("not_a_grade_ru", ""))
+    print()
+    print("  Сигнал не входит в оценку и не меняет потолок помощи. Показать его")
+    print("  кому-то вне этого пространства можно только при живой согласованной")
+    print("  выгрузке (purpose=teacher_export); здесь только локальный отчёт.")
+    return 0
+
+
+def cmd_experiment_run(root, name, as_json):
+    """Analyse an experiment document already on disk, or say it does not exist."""
+    core_experiments = _core_module("experiments")
+    if core_experiments is None:
+        return 2
+    if not name:
+        print("usage: cli.py experiment-run --name <experiment-id> [--json]")
+        return 2
+    try:
+        experiment = core_experiments.load_experiment(root, name)
+    except core_experiments.ExperimentError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        print()
+        print("  Команда не создаёт эксперимент: если документа нет, вы его не")
+        print(
+            "  получите. Каталог экспериментов: %s"
+            % core_experiments.experiments_dir(root)
+        )
+        return 3
+    try:
+        analysis = core_experiments.analyze(experiment)
+    except core_experiments.ExperimentError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        print()
+        print("  Значит, наблюдений недостаточно или группы несбалансированы -")
+        print("  и это честный отказ, а не нулевой результат.")
+        return 3
+    if as_json:
+        print(json.dumps(analysis, ensure_ascii=False, indent=2))
+        return 0
+    print("== эксперимент: %s ==" % experiment.get("experiment_id"))
+    print("  гипотеза   : %s" % experiment.get("hypothesis"))
+    print("  варианты   : %s" % ", ".join(experiment.get("variants") or []))
+    print("  метрики    : %s" % ", ".join(experiment.get("metrics") or []))
+    print("  наблюдений : %d" % analysis.get("denominator", 0))
+    print("  %s" % analysis.get("denominator_ru", ""))
+    print()
+    print("  %s" % analysis.get("guardrail_ru", ""))
+    for metric_name, block in (analysis.get("metrics") or {}).items():
+        print()
+        print("  метрика: %s" % metric_name)
+        for variant, stats in (block.get("variants") or {}).items():
+            print(
+                "    %-16s n=%d mean=%s stdev=%s"
+                % (variant, stats.get("n", 0), stats.get("mean"), stats.get("stdev"))
+            )
+        for test in block.get("tests") or []:
+            print(
+                "    %s: p=%s d=%s"
+                % (test.get("comparison"), test.get("p"), test.get("cohens_d"))
+            )
+    return 0
+
+
+def cmd_tutorial_start(root, course, tutorial):
+    """Print the first step of a tutorial and point at the next command."""
+    core_tutorial = _core_module("interactive_tutorial")
+    if core_tutorial is None:
+        return 2
+    if not (course and tutorial):
+        print("usage: cli.py tutorial-start --course <slug> --tutorial <id>")
+        return 2
+    try:
+        course_dir = P.course_path(root, course, must_exist=True)
+    except P.PathError as e:
+        print("  файл-ошибка (%s): %s" % (e.code, e.message))
+        return 2
+    try:
+        document = core_tutorial.load_tutorial(root, course_dir, tutorial)
+        runner = core_tutorial.TutorialRunner(document)
+        directive = runner.start()
+    except core_tutorial.TutorialError as e:
+        print("  ошибка (%s): %s" % (e.code, e.message))
+        return 3
+    print("== tutorial: %s ==" % tutorial)
+    print("  название : %s" % document.get("title", tutorial))
+    print("  шаг      : %d из %d" % (directive["step"], directive["progress"]["total"]))
+    print()
+    print("  %s" % directive["instruction"])
+    hints = directive.get("hint_levels") or []
+    if hints:
+        print()
+        print("  подсказки (по одной за раз, от слабой к сильной):")
+        for index, hint in enumerate(hints, start=1):
+            print("    %d) %s" % (index, hint))
+    print()
+    print("  Этот CLI неинтерактивен: цикл подсказок и проверку решения ведёт")
+    print("  хост-агент, а не эта команда. Код не исполняется - поле validation")
+    print("  в файле tutorial'а это имя валидатора, а не программа.")
+    print()
+    print("  Дальше: отдать этот шаг хост-агенту, а здесь запросить следующую")
+    print("  подсказку. Либо продолжить сессию:")
+    print("    python scripts/cli.py session-next --session <id> --course %s" % course)
+    return 0
+
+
+def cmd_security_audit(root, checks, as_json):
+    """Read-only report: RBAC table, rate-limit policy, secret patterns, audit log."""
+    core_security = _core_module("security")
+    if core_security is None:
+        return 2
+    all_known = ("rbac", "rate-limit", "secrets", "audit")
+    wanted = [str(item) for item in (checks or [])]
+    unknown = [item for item in wanted if item not in all_known]
+    if unknown:
+        print("usage: cli.py security-audit [--check %s]" % "|".join(all_known))
+        print("  неизвестные --check: %s" % ", ".join(unknown))
+        return 2
+    selected = wanted or list(all_known)
+    limit = {
+        "max_requests": core_security.DEFAULT_MAX_REQUESTS,
+        "window_seconds": core_security.DEFAULT_WINDOW_SECONDS,
+    }
+
+    # The dict is built in sections; the checker's shape of the whole thing is
+    # narrower than the runtime value, so the sections are typed as we build.
+    report = {}  # type: dict
+    report["checks"] = selected
+    if "rbac" in selected:
+        rbac = dict(core_security.describe_permissions())
+        rbac["rate_limit"] = dict(limit)
+        report["rbac"] = rbac
+    if "rate-limit" in selected:
+        section = dict(limit)
+        section["note_ru"] = (
+            "Лимит считается в памяти одного процесса и не переживает перезапуск; "
+            "это ограничение цикла, а не серверный лимит."
+        )
+        report["rate_limit"] = section
+    if "secrets" in selected:
+        # The pattern table is the module's own; there is no public accessor, and
+        # reading it here reports what the guard actually matches rather than a
+        # restatement of it that could drift.
+        kinds = sorted({kind for kind, _pattern in core_security._SECRET_PATTERNS})
+        report["secrets"] = {
+            "kinds": kinds,
+            "note_ru": (
+                "Распознаются только известные формы токенов; секрет в "
+                "неизвестном формате не найден."
+            ),
+        }
+    if "audit" in selected:
+        audit_path = core_security.audit_log_path(root)
+        report["audit"] = {"path": str(audit_path), "exists": audit_path.is_file()}
+
+    if as_json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+
+    print("== аудит безопасности (только чтение) ==")
+    print("  проверки: %s" % ", ".join(selected))
+    if "rbac" in selected:
+        rbac = report["rbac"]
+        roles = rbac["roles"]
+        capabilities = rbac["capabilities"]
+        matrix = rbac["matrix"]
+        print()
+        print("  роли        : %s" % ", ".join(roles))
+        print("  возможности : %s" % ", ".join(capabilities))
+        print("  таблица прав (текущая роль - та, что выполняет эту команду):")
+        for role in roles:
+            granted = matrix.get(role) or []
+            denied = [c for c in capabilities if c not in granted]
+            print("    %-9s есть : %s" % (role, ", ".join(granted) or "-"))
+            print("    %-9s нет   : %s" % ("", ", ".join(denied) or "-"))
+        print("  %s" % rbac["note_ru"])
+    if "rate-limit" in selected:
+        print()
+        print(
+            "  лимит запросов: %d в %d сек"
+            % (core_security.DEFAULT_MAX_REQUESTS, core_security.DEFAULT_WINDOW_SECONDS)
+        )
+        print("  %s" % report["rate_limit"]["note_ru"])
+    if "secrets" in selected:
+        print()
+        print(
+            "  известные формы секретов: %s"
+            % (", ".join(report["secrets"]["kinds"]) or "(нет)")
+        )
+        print("  %s" % report["secrets"]["note_ru"])
+    if "audit" in selected:
+        print()
+        print("  журнал аудита: %s" % report["audit"]["path"])
+        print("  существует   : %s" % ("да" if report["audit"]["exists"] else "нет"))
+    print()
+    print("  Роли здесь - рекомендация и честный отчёт, а не авторизация:")
+    print("  решающие границы живут в принятом договоре курса и в policy.py.")
+    return 0
+
+
+def cmd_voice_status(root, as_json):
+    """Honest voice-interface status: no STT, no TTS, no network."""
+    core_speech = _core_module("speech_interface")
+    if core_speech is None:
+        return 2
+    status = core_speech.backend_status()
+    if as_json:
+        print(json.dumps(status, ensure_ascii=False, indent=2))
+        return 0
+    print("== голосовой интерфейс ==")
+    print("  STT  : %s" % ("да" if status["stt"] else "нет"))
+    print("  TTS  : %s" % ("да" if status["tts"] else "нет"))
+    print("  сеть : %s" % ("разрешена" if status["network_allowed"] else "запрещена"))
+    print()
+    print("  %s" % status["note_ru"])
+    print()
+    print("  Никакой движок не входит в поставку: это осознанный отказ, а не")
+    print("  недоделка. Пустая строка вместо ответа была бы худшим провалом -")
+    print("  пользователь решил бы, что его услышали.")
+    return 0
+
+
+def _language_state_path(root, learner_id):
+    """`.botai/languages/<learner-id>.json` through the shared containment check."""
+    core_paths = _core_module("paths")
+    if core_paths is None:
+        sys.exit("v2 core недоступен: botai_core.paths")
+    safe = core_paths.safe_name(learner_id, kind="идентификатор обучающегося")
+    base = root / ".botai" / "languages"
+    base.mkdir(parents=True, exist_ok=True)
+    try:
+        return core_paths.ensure_within(base, base / ("%s.json" % safe))
+    except core_paths.PathError as e:
+        sys.exit("  файл-ошибка (%s): %s" % (e.code, e.message))
+
+
+def cmd_set_language(root, lang, course, learner):
+    """Persist the interface language for one learner, and warn when it is not ru."""
+    languages = ("en", "ru", "zh", "es", "fr", "de", "pt", "ar", "hi", "ja")
+    if lang not in languages:
+        print("usage: cli.py set-language --lang %s" % "|".join(languages))
+        return 2
+    learner_id = learner or default_learner_id(root)
+    path = _language_state_path(root, learner_id)
+    previous = None
+    if path.is_file():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            previous = None
+    payload = {
+        "schema_version": 2,
+        "learner_id": learner_id,
+        "language": lang,
+        "course": course,
+        "previous": previous.get("language") if isinstance(previous, dict) else None,
+        "note_ru": (
+            "Материалы курса и корпус остаются на языке оригинала; "
+            "меняется только язык интерфейса этого пространства."
+        ),
+    }
+    print("== язык интерфейса ==")
+    print("  обучающийся: %s" % learner_id)
+    print("  курс       : %s" % (course or "(общий, для всех курсов)"))
+    print("  было       : %s" % (payload["previous"] or "(не задано)"))
+    print("  станет     : %s" % lang)
+    print("  файл       : %s" % path)
+    print()
+    print("  %s" % payload["note_ru"])
+    if lang != "ru":
+        print()
+        print("  ВНИМАНИЕ: выбран язык %s, а не ru. Материалы курса и корпус" % lang)
+        print("  остаются на своём исходном языке - репозиторий учит по-русски.")
+        print("  Меняется только язык интерфейса. Чтобы читать материал на другом")
+        print("  языке, нужен другой курс, а не эта команда.")
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    print()
+    print("  записано в: %s" % path)
+    return 0
+
+
+def cmd_offline_status(root, course, as_json):
+    """Report corpus readiness per accepted course, and that no model is bundled."""
+    core_course = _core_module("course")
+    core_corpus = _core_module("corpus")
+    if core_course is None or core_corpus is None:
+        return 2
+    try:
+        bindings = core_course.list_bindings(root)
+    except Exception as e:  # noqa: BLE001
+        print("  ошибка: %s" % e)
+        return 3
+    if course:
+        bindings = [b for b in bindings if b.get("course_id") == course]
+        if not bindings:
+            print("  Курс %s не принят - офлайн-статусу не на чем смотреть." % course)
+            print("  Сначала: python scripts/cli.py course-accept --course %s" % course)
+            return 3
+    if not bindings:
+        print("Принятых курсов нет - офлайн-режиму не на чем работать.")
+        print("Сначала: python scripts/cli.py course-accept --course <slug>")
+        return 3
+    courses = []
+    for binding in bindings:
+        slug = binding.get("course_id")
+        try:
+            accepted = core_course.load_accepted(root, slug)
+        except Exception as e:  # noqa: BLE001
+            courses.append(
+                {"course_id": slug, "status": "unreadable", "reason": str(e)}
+            )
+            continue
+        manifest_path = accepted.contract.get("corpus_manifest_path")
+        if not manifest_path:
+            courses.append(
+                {
+                    "course_id": slug,
+                    "status": "not_required",
+                    "reason": "в принятом договоре нет манифеста корпуса",
+                }
+            )
+            continue
+        try:
+            base = (Path(root) / accepted.binding["repository_root"]).resolve()
+            manifest, _kind = core_corpus.load_manifest(base / manifest_path)
+        except core_corpus.CorpusError as e:
+            courses.append(
+                {
+                    "course_id": slug,
+                    "status": "failed",
+                    "reason": e.message,
+                    "code": e.code,
+                }
+            )
+            continue
+        result = core_corpus.status(root, accepted.course_id, manifest)
+        result["course_id"] = slug
+        courses.append(result)
+    document = {
+        "courses": courses,
+        "local_model": {
+            "bundled": False,
+            "note_ru": "Локальная модель не входит в поставку: обучение идёт через "
+            "настроенного провайдера, а не через вес, скачанный в это "
+            "хранилище.",
+        },
+    }
+    if as_json:
+        print(json.dumps(document, ensure_ascii=False, indent=2))
+        return 0
+    print("== офлайн-статус ==")
+    for item in courses:
+        print("  %-24s : %s" % (item["course_id"], item["status"]))
+        if item.get("reason"):
+            print("  %-24s   %s" % ("", item["reason"]))
+        if item.get("code"):
+            print("  %-24s   код: %s" % ("", item["code"]))
+        if item.get("checked"):
+            print("  %-24s   проверено файлов: %d" % ("", item["checked"]))
+    print()
+    print("  %s" % document["local_model"]["note_ru"])
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
     ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
@@ -2763,7 +3561,22 @@ def main():
                                         "catalog-check",
                                         "skills-audit", "skill-check",
                                         "state-migrate",
-                                        "doctor", "clean"])
+                                        "doctor", "clean",
+                                        "profile-show",
+                                        "profile-reset",
+                                        "review-due",
+                                        "cohort-create",
+                                        "cohort-report",
+                                        "cohort-group",
+                                        "analytics-report",
+                                        "detect-risk",
+                                        "experiment-run",
+                                        "tutorial-start",
+                                        "security-audit",
+                                        "voice-status",
+                                        "set-language",
+                                        "offline-status",
+                                        ])
     ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
     ap.add_argument("--course", help="course slug for progress/review/course-set/corpus/course-update")
@@ -2887,6 +3700,65 @@ def main():
                     help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
                     help="progress/corpus-status/source-search/quote-verify/env-status: emit JSON")
+    # Adaptive-pedagogy flags. `--check` is already taken above (update /
+    # course-update: report only, and mutually exclusive with --dry-run), so
+    # `security-audit` selects its sections with `--audit-check`. Two meanings
+    # for one flag is how a CLI starts silently doing the wrong thing - the
+    # same reason `--check-kind` exists next to `--kind`.
+    ap.add_argument("--cohort", help="cohort-*: cohort id")
+    ap.add_argument(
+        "--member",
+        action="append",
+        default=[],
+        metavar="LEARNER_ID",
+        help="cohort-create: member id (repeatable)",
+    )
+    ap.add_argument(
+        "--strategy",
+        choices=["homogeneous", "heterogeneous"],
+        default="homogeneous",
+        help="cohort-group: how members are dealt into groups",
+    )
+    ap.add_argument(
+        "--group-size",
+        type=int,
+        default=3,
+        metavar="N",
+        help="cohort-group: members per group (default 3)",
+    )
+    ap.add_argument(
+        "--format",
+        choices=["json", "markdown", "html"],
+        default="markdown",
+        help="analytics-report: output format (default markdown)",
+    )
+    ap.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        metavar="0..1",
+        help="detect-risk: score at or above which a learner is reported",
+    )
+    ap.add_argument(
+        "--experiment",
+        metavar="ID",
+        help="experiment-run: experiment id already on disk under experiments/",
+    )
+    ap.add_argument("--tutorial", help="tutorial-start: tutorial id inside the course")
+    ap.add_argument(
+        "--audit-check",
+        action="append",
+        default=[],
+        dest="audit_check",
+        choices=["rbac", "rate-limit", "secrets", "audit"],
+        help="security-audit: repeatable section selector (default: all)",
+    )
+    ap.add_argument(
+        "--lang",
+        choices=["en", "ru", "zh", "es", "fr", "de", "pt", "ar", "hi", "ja"],
+        help="set-language: interface language to persist",
+    )
+
     args = ap.parse_args()
 
     if args.check and args.dry_run:
@@ -3073,6 +3945,74 @@ def main():
         sys.exit(cmd_skills_audit(root, args.json))
     elif cmd == "skill-check":
         sys.exit(cmd_skill_check(args.packet, args.json))
+    elif cmd == "profile-show":
+        sys.exit(cmd_profile_show(root, args.learner, args.json))
+    elif cmd == "profile-reset":
+        sys.exit(cmd_profile_reset(root, args.learner, args.dry_run))
+    elif cmd == "review-due":
+        sys.exit(cmd_review_due(root, args.learner, args.json))
+    elif cmd == "cohort-create":
+        if not (args.cohort and args.title):
+            sys.exit(
+                "usage: cli.py cohort-create --cohort <id> --title <TITLE> "
+                "[--member <LEARNER_ID> ...]"
+            )
+        sys.exit(
+            cmd_cohort_create(root, args.cohort, args.title, args.member, args.dry_run)
+        )
+    elif cmd == "cohort-report":
+        if not args.cohort:
+            sys.exit("usage: cli.py cohort-report --cohort <id> [--json]")
+        sys.exit(cmd_cohort_report(root, args.cohort, args.json))
+    elif cmd == "cohort-group":
+        if not args.cohort:
+            sys.exit(
+                "usage: cli.py cohort-group --cohort <id> "
+                "[--strategy homogeneous|heterogeneous] [--group-size N] [--json]"
+            )
+        sys.exit(
+            cmd_cohort_group(
+                root, args.cohort, args.strategy, args.group_size, args.json
+            )
+        )
+    elif cmd == "analytics-report":
+        if not (args.course and args.learner):
+            sys.exit(
+                "usage: cli.py analytics-report --course <slug> --learner <id> "
+                "[--format json|markdown|html]"
+            )
+        sys.exit(
+            cmd_analytics_report(
+                root, args.course, args.learner, args.format, args.json
+            )
+        )
+    elif cmd == "detect-risk":
+        if not args.cohort:
+            sys.exit(
+                "usage: cli.py detect-risk --cohort <id> [--threshold 0.5] [--json]"
+            )
+        sys.exit(cmd_detect_risk(root, args.cohort, args.threshold, args.json))
+    elif cmd == "experiment-run":
+        if not args.experiment:
+            sys.exit("usage: cli.py experiment-run --experiment <id> [--json]")
+        sys.exit(cmd_experiment_run(root, args.experiment, args.json))
+    elif cmd == "tutorial-start":
+        if not (args.course and args.tutorial):
+            sys.exit("usage: cli.py tutorial-start --course <slug> --tutorial <id>")
+        sys.exit(cmd_tutorial_start(root, args.course, args.tutorial))
+    elif cmd == "security-audit":
+        sys.exit(cmd_security_audit(root, args.audit_check, args.json))
+    elif cmd == "voice-status":
+        sys.exit(cmd_voice_status(root, args.json))
+    elif cmd == "set-language":
+        if not args.lang:
+            sys.exit(
+                "usage: cli.py set-language --lang "
+                "en|ru|zh|es|fr|de|pt|ar|hi|ja [--course <slug>] [--learner <id>]"
+            )
+        sys.exit(cmd_set_language(root, args.lang, args.course, args.learner))
+    elif cmd == "offline-status":
+        sys.exit(cmd_offline_status(root, args.course, args.json))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":

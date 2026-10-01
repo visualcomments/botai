@@ -384,8 +384,19 @@ opencode читает `AGENTS.md` нативно и загружает прое�
   `starting-course-from-education-club`;
 - **Преподавание** — `breaking-down-assignments`, `explaining-concepts`,
   `assessing-understanding`, `giving-feedback`;
+- **Адаптивная педагогика** — `providing-adaptive-scaffolding`,
+  `diagnosing-errors`, `multidimensional-assessment`, `scheduling-reviews`,
+  `generating-visual-explanations`, `narrative-teaching`,
+  `rubber-duck-debugging` (по доказательствам, а не по предпочтению);
+- **Помощь в момент затруднения** — `contextual-live-help`,
+  `running-interactive-tutorials`;
+- **Группы и потоки** — `facilitating-peer-learning`, `moderating-discussions`,
+  `facilitating-team-challenges`;
+- **Внешние платформы (только офлайн-части)** —
+  `reviewing-github-assignments`, `assisting-in-jupyter`;
 - **Дополнения** — `providing-supplementary-material`,
-  `creating-practice-exercises`;
+  `creating-practice-exercises`, `creating-video-explanations`,
+  `teaching-offline`;
 - **Подготовка материала** — `language-and-translation` (русская терминология
   и перевод цитат рядом с дословным оригиналом), `corpus-acquisition`
   (автоматическое получение корпуса курса по опубликованным ссылкам);

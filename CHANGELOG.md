@@ -4,6 +4,116 @@
 Нумерация этапов (`PR-01`, `PR-02`, …) — это шаги реализации, а не номера
 pull request.
 
+## 2.0.0-rc.3 — адаптивная педагогика
+
+Добавлен слой адаптивного обучения (этапы `PR-13`…`PR-16`): профиль стиля
+обучения, скаффолдинг по доказательствам, диагностика ошибок, интервальные
+повторения, когорты, аналитика, детекция риска, A/B-эксперименты, туториалы,
+визуализация, безопасность, а также честные заглушки для речи и внешних
+платформ.
+
+Те же два инварианта, что и в rc.2, распространены на новый слой:
+
+- **всякое утверждение называет своё доказательство** — профиль, оценка
+  риска, полоса лидерборда и стадия освоения считаются из записанных попыток
+  и проверок, а не объявляются моделью;
+- **потолок помощи перепроверяется там, где рождается помощь** — скаффолдинг,
+  защита «резиновой уточки», подсказка для Jupyter и командный челлендж
+  сверяются с принятым договором, так что новая функция не открывает второй
+  путь к решению оцениваемого задания.
+
+Что слой **не** делает (и говорит об этом прямо): в поставке нет TTS/STT,
+графического бэкенда, Graphviz/Manim и сетевых вызовов LMS/GitHub. Каждая такая
+точка входа отказывает с именованной ошибкой, а не делает вид, что сработала.
+
+### PR-13. Профиль обучения, скаффолдинг, диагностика ошибок
+
+- `scripts/botai_core/learner_profiling.py` — профиль когнитивного стиля,
+  темпа, глубины и стиля обратной связи; пересчитывается по истории каждые 5
+  сессий или раз в 14 дней; `profile-show` / `profile-reset`.
+- `scripts/botai_core/scaffolding.py` — лестница 0..4 (`NONE`…`FULL`) с
+  затуханием при успехе. Уровень `FULL` **отклоняется** для оцениваемого и
+  неизвестного задания (`SOLUTION_NOT_ALLOWED_FOR_ASSESSMENT`); потолок
+  берётся из `tutoring.ASSESSMENT_CEILING`, а не дублируется.
+- `scripts/botai_core/error_diagnosis.py` — шесть типов ошибки
+  (концептуальная, процедурная, отсутствующая предпосылка, описка, неполное
+  рассуждение, сверхобобщение) до выдачи обратной связи. Текст попытки не
+  исполняется.
+- `schemas/v2/learning_profile.schema.json`, `assessment.schema.json`.
+
+### PR-14. Интервальные повторения и интерактивные туториалы
+
+- `scripts/botai_core/spaced_repetition.py` — SM-2 (эталон: quality 5 при
+  интервале 6 и ease 2.5 даёт интервал 15 и ease 2.6). Повреждённая колода —
+  `DECK_UNREADABLE`, а не молчаливый сброс: потеря колоды — это потеря
+  прогресса ученика. `review-due`.
+- `scripts/botai_core/interactive_tutorial.py` — пошаговый сценарий с
+  лестницей подсказок. Поле `validation` — **имя** валидатора, который
+  передаёт вызывающий код; строка вместо него даёт
+  `VALIDATION_NOT_EXECUTABLE`, и код ученика не исполняется.
+- `schemas/v2/spaced_repetition.schema.json`, `tutorial.schema.json`
+  (последняя запрещает поле `full_solution`).
+
+### PR-15. Когорты, аналитика, риск, эксперименты
+
+- `scripts/botai_core/cohort_management.py` — потоки, участники,
+  автоматическая группировка (гомогенная/гетерогенная), взаимное рецензирование
+  без самопроверки, отчёт с явным знаменателем.
+- `scripts/botai_core/analytics.py` — теплокарта прогресса, вложение времени,
+  точки затруднения, прогноз успеваемости (эвристика с названными входами,
+  а не обученная модель) и **анонимное** сравнение по перцентилю.
+- `scripts/botai_core/risk_detection.py` — 15 признаков риска, веса которых
+  обязаны суммироваться в 1.0 (проверяется при импорте); сентимент — счётчик
+  ключевых слов, а не «ИИ». `interventions_allowed(consent)` — реальная защита:
+  без действующего согласия на `teacher_export` вмешательство запрещено.
+- `scripts/botai_core/experiments.py` — A/B только по стилю преподавания;
+  вариант, называющий `assistance_ceiling`/`assessment`/`grading`/`policy`/
+  `permission`, отклоняется. Назначение варианта — `sha256`, не встроенный
+  `hash()`. Тест Уэлча реализован без scipy; при n<2 `p` не выдумывается.
+- `scripts/botai_core/leaderboards.py` — лидерборд только по согласию и
+  только полосами («топ 30%»), именованные ранги отклоняются; персональный
+  рекорд как соревнование с собой.
+- `scripts/botai_core/cooperative_challenges.py` — четыре вида челленджей;
+  оценка по доказательствам с явным знаменателем, время не решает; подбор
+  «наставник-ученик» требует строго более сильного напарника.
+- `schemas/v2/cohort.schema.json`, `narrative.schema.json`.
+
+### PR-16. Визуализация, безопасность, внешние платформы, речь
+
+- `scripts/botai_core/visualizations.py` — Mermaid и Graphviz DOT **текстом**;
+  растровый график требует бэкенда, которого нет
+  (`CHART_BACKEND_UNAVAILABLE`).
+- `scripts/botai_core/security.py` — нейтрализация инъекций в промпт с явным
+  перечнем удалённого, ограничение частоты (100/час), редакция секретов,
+  JSONL-аудит с пропуском битой строки, RBAC, где у роли `student` нет
+  `accept_course`/`install_environment`/`export_privacy`/`admin`.
+- `scripts/botai_core/rubber_duck.py` — «резиновая уточка» задаёт вопросы и
+  никогда не даёт решения; `assert_no_solution` ловит блок кода, присваивание и
+  императивное «исправь на» / «вот решение».
+- `scripts/botai_core/integrations.py` — офлайн-части GitHub Classroom,
+  Jupyter и LMS: разбор ссылки и `.ipynb` без исполнения ячеек, отчёт о
+  покрытии тестов с знаменателем, CSV со стадиями без оценки. Сеть запрещена
+  (`NETWORK_NOT_PERMITTED`); LTI и SSO честно требуют внешней платформы.
+- `scripts/botai_core/speech_interface.py` — заготовка: движок не входит в
+  поставку, каждый вход отказывает (`SPEECH_BACKEND_UNAVAILABLE`), работает
+  только чистка транскрипта и локальный бэкенд, переданный вызывающим кодом.
+- 16 новых навыков в `.agents/skills/` (и в фермах `.opencode`, `.claude`,
+  `.cursor`): `providing-adaptive-scaffolding`, `multidimensional-assessment`,
+  `diagnosing-errors`, `scheduling-reviews`, `contextual-live-help`,
+  `running-interactive-tutorials`, `rubber-duck-debugging`,
+  `facilitating-peer-learning`, `moderating-discussions`,
+  `reviewing-github-assignments`, `assisting-in-jupyter`,
+  `generating-visual-explanations`, `creating-video-explanations`,
+  `narrative-teaching`, `facilitating-team-challenges`, `teaching-offline`.
+- Новые команды CLI: `profile-show`, `profile-reset`, `review-due`,
+  `cohort-create`, `cohort-report`, `cohort-group`, `analytics-report`,
+  `detect-risk`, `experiment-run`, `tutorial-start`, `security-audit`,
+  `voice-status`, `set-language`, `offline-status`.
+- Новые контракты зарегистрированы в единой таблице `schemas.CONTRACTS`;
+  второй путь валидации не создаётся.
+- 16 новых наборов тестов (1144 проверки). Проверки безопасности
+  сформулированы так, что исчезновение защиты их ломает.
+
 ## 2.0.0-rc.2 — кандидат в релиз
 
 Этапы PR-01…PR-12 реализованы. Версия помечена как `rc`, а не как выпуск: код и

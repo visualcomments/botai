@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/cohort.schema.json",
+  "title": "botai cohort",
+  "description": "A cohort of learners with optional study groups. Leaderboards are opt-in and anonymous by design: `leaderboards.anonymous` is `const true` because a rank here is never a named position — the schema refuses to store who is where. Comparison is a possible opt-in feature, never a default, and a leaderboard is never part of a course grade.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cohort_id", "title", "members"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "cohort_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/member" },
+      "description": "Everyone in the cohort. A cohort with no members is a typo, not an empty group."
+    },
+    "study_groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/study_group" },
+      "description": "Optional smaller working groups within the cohort. Absent means the cohort works as one body."
+    },
+    "leaderboards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "anonymous"],
+      "properties": {
+        "enabled": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["fastest_learner", "most_helpful_peer", "best_code_quality", "most_improved"] },
+          "description": "Which opt-in leaderboard dimensions are on. Empty array means all comparison is off — the default posture."
+        },
+        "anonymous": {
+          "const": true,
+          "description": "Always true: ranks are never attached to a name. The schema uses `const true`, so a document declaring a named leaderboard does not validate."
+        }
+      },
+      "description": "Opt-in leaderboards only. `anonymous` is a constant, not a preference — the format itself refuses named ranking."
+    }
+  },
+  "$defs": {
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["student_id", "level"],
+      "properties": {
+        "student_id": {
+          "$ref": "common.schema.json#/$defs/uuid",
+          "description": "UUID, matching `student_id` in the learning profile and `learner_id` in the progress record — one learner, one key, across every schema."
+        },
+        "level": {
+          "enum": ["beginner", "intermediate", "advanced"],
+          "description": "Stated course level for this cohort, per the consent gate. It is what the learner said, not a measured score."
+        },
+        "joined_at": { "$ref": "common.schema.json#/$defs/timestamp" }
+      }
+    },
+    "study_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "members", "focus"],
+      "properties": {
+        "group_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "common.schema.json#/$defs/uuid" },
+          "description": "UUIDs of the learners in this group. They must be members of the containing cohort — a group cannot pull in a stranger."
+        },
+        "focus": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "What this group is working on, in Russian, one short phrase."
+        }
+      }
+    }
+  }
+}

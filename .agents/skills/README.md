@@ -1,14 +1,25 @@
 # Installed education skills
 
-18 curated, non-overlapping Agent Skills that give the co-learner assistant
+34 curated, non-overlapping Agent Skills that give the co-learner assistant
 methodology for the full teaching lifecycle: mapping the course, keeping the
 durable progress record, planning sessions, tutoring (explaining, breaking
 down, assessing, feedback), supplementing the course, presenting material in
 Russian (terminology and translated quotations), acquiring the course corpus
 automatically, onboarding students into open-source course projects as
-co-developers, vetting adopted material, and reporting progress. They are
-loaded automatically by any AGENTS.md/CLAUDE.md-aware agent working in this
-repo and are governed by the guardrails in [../../AGENTS.md](../../AGENTS.md).
+co-developers, vetting adopted material, and reporting progress.
+
+Beyond the original 18, a second group extends teaching strategy itself,
+routed by evidence rather than preference: adaptive scaffolding, error
+diagnosis, multidimensional assessment, spaced review, conceptual
+visualisation, narrative framing, the rubber-duck guard, help at the moment of
+difficulty, interactive tutorials, peer learning and cohort moderation, team
+challenges, the offline parts of GitHub Classroom and Jupyter, offline
+teaching, and video explanations. Each of those states plainly what the
+harness cannot do — there is no TTS/STT engine, no plotting or rendering
+backend, and no network client — and refuses rather than pretending.
+
+They are loaded automatically by any AGENTS.md/CLAUDE.md-aware agent working in
+this repo and are governed by the guardrails in [../../AGENTS.md](../../AGENTS.md).
 
 ## Layout
 

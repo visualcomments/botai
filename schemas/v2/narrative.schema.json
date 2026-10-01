@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/narrative.schema.json",
+  "title": "botai course narrative",
+  "description": "A story/quest frame for a course: a premise, a sequence of quests, and optional fictional characters. The narrative is a motivational wrapper — it may never invent facts about the course, the sources, or the world, and it never substitutes for the accepted contract when deciding what help is allowed. Characters are framing devices only (see `$defs.character`).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "narrative_id", "title", "quests"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "narrative_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "premise": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "The setup the learner steps into («вы — младший специалист по данным в компании X»). A framing device: it sets a scene, it does not assert facts about real people, real companies, or the course's claims."
+    },
+    "quests": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/quest" },
+      "description": "The quest sequence. At least one: an empty narrative has no frame to teach through."
+    },
+    "characters": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/character" },
+      "description": "Optional fictional cast. Absent means the narrative runs on premise and quests alone."
+    }
+  },
+  "$defs": {
+    "quest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quest_id", "title", "objectives"],
+      "properties": {
+        "quest_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "objectives": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "common.schema.json#/$defs/slug" },
+          "description": "Objective ids this quest covers, as slugs matching the track. A quest with no objectives is flavour with nothing to learn."
+        },
+        "reward": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["xp"],
+          "properties": {
+            "xp": { "type": "integer", "minimum": 0 },
+            "badge": { "type": ["string", "null"] }
+          },
+          "description": "Motivational reward, never a course grade. `badge` may be null when the quest grants XP only."
+        }
+      },
+      "description": "One quest: a named cluster of objectives. The reward is flavour for engagement; it has no effect on mastery, which still rests on evidence."
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["character_id", "name", "role"],
+      "properties": {
+        "character_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "role": { "type": "string", "minLength": 1, "maxLength": 200 }
+      },
+      "description": "A character is a fictional framing device used to make the premise concrete. It MUST NOT be presented as a real person or as an authority: a character may not be cited as a source, may not issue grades, and may not override the assistance rules. Real experts are quoted from the corpus with a source; a character is invented and says so."
+    }
+  }
+}
