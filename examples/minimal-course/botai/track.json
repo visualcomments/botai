@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "modules": [
+    {
+      "module_id": "state",
+      "title": "Три состояния файла",
+      "order": 0,
+      "objective_ids": [
+        "explain-diff",
+        "apply-staging"
+      ],
+      "source_refs": [
+        {
+          "path": "lessons/01-working-tree.md",
+          "sha256": "492143650a17bd4ab393a1ce685e42650c56c4a1ea495efe7567bd97cb9b52fa",
+          "locator": {
+            "lines": {
+              "start": 1,
+              "end": 12
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "objective_id": "explain-diff",
+      "module_id": "state",
+      "title": "Объяснить, что сравнивает git diff",
+      "prerequisites": [],
+      "check_kinds": [
+        "explain",
+        "critique"
+      ],
+      "estimated_minutes": 20,
+      "required": true,
+      "source_refs": [
+        {
+          "path": "lessons/01-working-tree.md",
+          "sha256": "492143650a17bd4ab393a1ce685e42650c56c4a1ea495efe7567bd97cb9b52fa",
+          "locator": {
+            "lines": {
+              "start": 1,
+              "end": 12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "objective_id": "apply-staging",
+      "module_id": "state",
+      "title": "Предсказать содержимое коммита",
+      "prerequisites": [
+        "explain-diff"
+      ],
+      "check_kinds": [
+        "predict",
+        "transfer"
+      ],
+      "estimated_minutes": 30,
+      "required": true,
+      "source_refs": [
+        {
+          "path": "lessons/01-working-tree.md",
+          "sha256": "492143650a17bd4ab393a1ce685e42650c56c4a1ea495efe7567bd97cb9b52fa",
+          "locator": {
+            "lines": {
+              "start": 7,
+              "end": 12
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

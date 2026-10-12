@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Session progress entry",
+  "description": "Structured per-session progress entry produced by maintaining-course-progress. One entry per session per student, appended to progress/<course-slug>.md or stored as JSONL for machine processing.",
+  "type": "object",
+  "required": [
+    "date",
+    "student",
+    "course",
+    "mode",
+    "module",
+    "objectives",
+    "demonstrated",
+    "difficult",
+    "delivery_preference",
+    "open_questions"
+  ],
+  "properties": {
+    "date": { "type": "string", "format": "date" },
+    "student": { "type": "string" },
+    "course": { "type": "string" },
+    "mode": {
+      "type": "string",
+      "enum": ["co-learning", "tutoring", "supplement"]
+    },
+    "module": { "type": "string" },
+    "objectives": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "demonstrated": { "type": "string" },
+    "difficult": { "type": "string" },
+    "mastery": {
+      "type": "string",
+      "enum": ["new", "learning", "practising", "mastered", "blocked"]
+    },
+    "delivery_preference": {
+      "type": "string",
+      "enum": ["hints", "hints-then-solution", "solution-first", "prefer-ask"]
+    },
+    "consent": {
+      "type": "string",
+      "enum": ["consented", "defaulted", "partial"]
+    },
+    "dead_ends": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "graded_vs_practice": {
+      "type": "string",
+      "description": "Which assignments are graded (no ready answers) vs practice, per the consent gate."
+    }
+  }
+}

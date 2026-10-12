@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/progress.schema.json",
+  "title": "botai progress record (v2)",
+  "description": "What a learner demonstrated, with the evidence that supports it. This is the machine-readable form of the durable record; the Markdown file is a projection of it, not a second source of truth.",
+  "$defs": {
+    "objective_state": {
+      "type": "object",
+      "description": "Validated on its own as well as inside a progress document. An entity is written individually, so a rule that only applied to the containing document would not be enforced at the moment of the write.",
+      "additionalProperties": false,
+      "required": ["schema_version", "objective_id", "stage"],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "objective_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "stage": { "$ref": "common.schema.json#/$defs/mastery_stage" },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/uuid" }
+        },
+        "latest_check_id": { "type": ["string", "null"] },
+        "assistance_max": { "$ref": "common.schema.json#/$defs/assistance_max" },
+        "review_due_at": { "type": ["string", "null"] },
+        "blocked_reason": { "type": ["string", "null"], "maxLength": 500 },
+        "consecutive_stuck_sessions": { "type": "integer", "minimum": 0 },
+        "legacy_claim": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "learner_id", "course_id", "course_revision",
+    "objective_states", "sessions"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "learner_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "course_revision": { "$ref": "common.schema.json#/$defs/course_revision" },
+    "accepted_contract_hash": { "$ref": "common.schema.json#/$defs/sha256" },
+    "exported_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "objective_states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["objective_id", "stage"],
+        "properties": {
+          "objective_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "stage": { "$ref": "common.schema.json#/$defs/mastery_stage" },
+          "evidence_ids": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/uuid" },
+            "description": "Every state change points at the attempts/checks that justify it. A stage without evidence is not rendered as demonstrated."
+          },
+          "latest_check_id": { "type": ["string", "null"] },
+          "assistance_max": { "$ref": "common.schema.json#/$defs/assistance_max" },
+          "review_due_at": { "type": ["string", "null"] },
+          "blocked_reason": { "type": ["string", "null"], "maxLength": 500 },
+          "consecutive_stuck_sessions": { "type": "integer", "minimum": 0 },
+          "legacy_claim": {
+            "type": ["string", "null"],
+            "description": "What a v1 record claimed before verification existed (e.g. `mastered`). Preserved so the import never silently upgrades a claim into evidence."
+          }
+        }
+      }
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["session_id", "state", "modes", "started_at"],
+        "properties": {
+          "session_id": { "$ref": "common.schema.json#/$defs/uuid" },
+          "state": { "$ref": "common.schema.json#/$defs/session_state" },
+          "modes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["co-learning", "tutoring", "supplement", "contributor"] },
+            "description": "A session may legitimately mix modes; the v1 schema stored exactly one and lost the rest."
+          },
+          "objective_ids": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/slug" }
+          },
+          "started_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+          "ended_at": { "type": ["string", "null"] },
+          "next_step": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "enum": [
+                  "resume_attempt", "review_prerequisite", "do_check",
+                  "read_source", "prepare_environment", "ask_teacher",
+                  "choose_goal", "rest"
+                ]
+              },
+              "objective_id": { "type": ["string", "null"] },
+              "reason_ru": { "type": "string", "maxLength": 500 }
+            }
+          }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 500 }
+    },
+    "blocked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["objective_id", "reason"],
+        "properties": {
+          "objective_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    }
+  }
+}

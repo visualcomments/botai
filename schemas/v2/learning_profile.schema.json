@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/learning_profile.schema.json",
+  "title": "botai learning profile",
+  "description": "A learner's learning-style profile: preferences and measured parameters, not a diagnosis. Every score is a hint for choosing how to present material, never a claim about ability and never a grading input. `dominant_style` is stored rather than recomputed so consumers read one consistent value; it is derived from the four style scores at update time. The profile is recomputed every 5 sessions — `interaction_count` and `sessions_since_update` exist so a consumer can tell a profile built from many interactions from a fresh one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "student_id", "cognitive_style", "updated_at"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "student_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "UUID, not slug: the learner id is the same identity key used by `learner_id` in the progress and session records, and a UUID is not guessable from a display name — the profile travels with the learner, not with a username."
+    },
+    "cognitive_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visual", "verbal", "kinesthetic", "auditory"],
+      "properties": {
+        "visual": { "type": "number", "minimum": 0, "maximum": 1 },
+        "verbal": { "type": "number", "minimum": 0, "maximum": 1 },
+        "kinesthetic": { "type": "number", "minimum": 0, "maximum": 1 },
+        "auditory": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "description": "Four preference scores, each independently 0..1. They are preferences, not measured skill: a high visual score says how this learner likes material presented, not how well they read diagrams."
+    },
+    "pace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "measured_wpm": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 500,
+          "description": "Measured reading speed in words per minute. Bounded 50..500: outside that band the number is a measurement error, not a learner."
+        },
+        "avg_time_per_concept": {
+          "type": "integer",
+          "minimum": 60,
+          "description": "Average seconds spent per concept. Floor of 60 seconds: a faster average means the concept was skipped, not learned."
+        },
+        "preferred_chunk_size": { "enum": ["small", "medium", "large"] }
+      },
+      "description": "How fast this learner moves. Measured values, not targets — the harness paces to the learner, never to an expected number."
+    },
+    "depth_preference": {
+      "enum": ["surface", "strategic", "deep"],
+      "description": "How much depth the learner asks for: surface = definitions, strategic = enough to pass, deep = derivations and edge cases."
+    },
+    "challenge_tolerance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How much difficulty the learner welcomes before disengaging. 0 = wants scaffolding, 1 = wants to be pushed."
+    },
+    "feedback_style": {
+      "enum": ["direct", "socratic", "exploratory", "socratic_then_direct"],
+      "description": "How feedback is delivered. Socratic-first is the policy default; `socratic_then_direct` escalates to direct only after the learner asks or stalls."
+    },
+    "dominant_style": {
+      "enum": ["visual", "verbal", "kinesthetic", "auditory"],
+      "description": "The derived dominant style, stored so consumers need not recompute it. Derived at update time from the four cognitive_style scores; omitted until the first recompute."
+    },
+    "interaction_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many interactions the profile was built from. A profile from 2 interactions is a guess; this field says so."
+    },
+    "sessions_since_update": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Sessions since the profile was last recomputed. The design recomputes every 5 sessions; a value above 5 means the recompute is overdue."
+    },
+    "updated_at": { "$ref": "common.schema.json#/$defs/timestamp" }
+  }
+}

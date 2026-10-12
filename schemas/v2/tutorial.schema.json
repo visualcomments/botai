@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/tutorial.schema.json",
+  "title": "botai interactive tutorial",
+  "description": "An interactive, step-by-step tutorial. This schema deliberately has NO `full_solution` field anywhere — not in `$defs.step`, not in `$defs`, nowhere. The harness never stores a ready solution inside a learner-facing tutorial file: a tutorial teaches by stepping the learner through the reasoning, and a stored solution would be a graded-answer leak sitting in the content itself. Help escalation (HINT → EXAMPLE → SOLUTION) happens through the assistance ladder and the policy check, never by reading an answer out of this file. `hint_levels` is the escalation ladder the tutorial actually ships: 0..5 hints, from nudge to near-answer, none of them a finished result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tutorial_id", "steps"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "tutorial_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" },
+      "description": "The ordered steps. At least one: a zero-step tutorial is an empty file, not a tutorial."
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "instruction", "hint_levels"],
+      "properties": {
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based step number, in ascending order with no gaps."
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "What the learner does at this step, in Russian. An instruction to act, not a worked answer."
+        },
+        "validation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Name of the validation expression that checks this step's result — a reference to a named check, never the check's answer."
+        },
+        "hint_levels": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "description": "The hint escalation ladder for this step: 0 to 5 hints in Russian, weakest nudge first. 0 entries means the step ships no hints yet. No entry here may be a finished solution — hints reveal a direction, not a result."
+        }
+      },
+      "description": "One tutorial step. Note what is absent: there is no `full_solution` property, and `additionalProperties: false` means one cannot be smuggled in — a tutorial file containing a ready solution fails validation."
+    }
+  }
+}

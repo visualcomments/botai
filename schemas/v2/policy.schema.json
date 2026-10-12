@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/policy.schema.json",
+  "title": "botai policy decision",
+  "description": "The answer to one question: may this help be given? The decision is produced by code from the accepted course contract, never by the model, and it names its reason. A refusal that cannot point at a rule is indistinguishable from an invented refusal, and a permission that cannot point at a rule is how a graded task quietly becomes practice.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "decision", "reason_code", "message_ru"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "decision": {
+      "enum": ["allow", "deny", "needs_confirmation"],
+      "description": "`needs_confirmation` is not a softer `allow`: it means the operation has an effect outside the session and a human must approve this exact plan."
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "Stable machine code. Tests and callers branch on this, not on the message text."
+    },
+    "message_ru": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "assessment": { "$ref": "common.schema.json#/$defs/assessment" },
+    "assignment_id": { "type": ["string", "null"] },
+    "objective_id": { "type": ["string", "null"] },
+    "assistance_ceiling": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/assistance_level" },
+        { "type": "null" }
+      ],
+      "description": "The highest level of help this intent may reach. null means no help may be given at all."
+    },
+    "requested_level": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/assistance_level" },
+        { "type": "null" }
+      ]
+    },
+    "rule_ref": {
+      "type": ["string", "null"],
+      "maxLength": 200,
+      "description": "Which rule decided it — a contract field such as assignments[practice-diff].assessment, or a named policy rule. A decision with no rule_ref must not be trusted."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 }
+    },
+    "alternatives": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 500 },
+      "description": "What the agent may offer instead. A refusal without an alternative teaches nothing."
+    }
+  }
+}

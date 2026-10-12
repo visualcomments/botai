@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/track.schema.json",
+  "title": "botai course track",
+  "description": "Modules, objectives and their prerequisites: the graph the agent plans along. It decides what comes next; the model only phrases it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "modules", "objectives"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["module_id", "title", "order", "objective_ids"],
+        "properties": {
+          "module_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "order": { "type": "integer", "minimum": 0 },
+          "objective_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "common.schema.json#/$defs/slug" }
+          },
+          "source_refs": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/source_ref" }
+          }
+        }
+      }
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["objective_id", "module_id", "title", "prerequisites", "check_kinds"],
+        "properties": {
+          "objective_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "module_id": { "$ref": "common.schema.json#/$defs/slug" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "prerequisites": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/slug" }
+          },
+          "source_refs": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/source_ref" }
+          },
+          "check_kinds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "common.schema.json#/$defs/check_kind" }
+          },
+          "estimated_minutes": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "The author's estimate, not a service-level promise."
+          },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "description": "Objectives proposed but not yet accepted by a human. They never count as course coverage.",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "proposed" },
+        "objectives": { "type": "array" }
+      }
+    }
+  }
+}

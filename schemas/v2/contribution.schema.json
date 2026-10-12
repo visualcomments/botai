@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/contribution.schema.json",
+  "title": "botai contribution",
+  "description": "One piece of work a student is preparing to offer to a course repository. The record exists to keep three claims apart that are easy to blur: what the student says they did, what a local command observed, and what the remote actually accepted. Only the last is ACCEPTED, and it never comes from a model's text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "contribution_id", "course_id", "role",
+    "state", "publication_choice", "rights_status", "ai_disclosure",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "contribution_id": { "$ref": "common.schema.json#/$defs/uuid" },
+    "session_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "The teaching session this contribution came out of, or null when the student starts contributing outside a session. null is honest here: inventing a session id would attach the work to a sitting that never happened."
+    },
+    "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+    "role": {
+      "$ref": "common.schema.json#/$defs/role",
+      "description": "Expert, researcher or developer. A documentation fix and a code change are both contributions; this records which kind of work is being prepared."
+    },
+    "state": { "$ref": "common.schema.json#/$defs/contribution_state" },
+    "task_ref": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "Link or local description of the task, as the student gave it."
+    },
+    "repository_root": { "type": ["string", "null"], "maxLength": 1000 },
+    "base_oid": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/git_oid" },
+        { "type": "null" }
+      ],
+      "description": "The commit the work started from. A real Git OID or null — a course without its own repository has no OID to report."
+    },
+    "head_oid": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/git_oid" },
+        { "type": "null" }
+      ]
+    },
+    "diff_hash": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/sha256" },
+        { "type": "null" }
+      ],
+      "description": "Digest of the change as observed. A force-push or a reopened PR changes it, which invalidates the checks recorded against the older revision rather than silently carrying them over."
+    },
+    "branch": { "type": ["string", "null"], "maxLength": 255 },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status"],
+        "properties": {
+          "check_id": { "type": "string", "maxLength": 200 },
+          "status": { "enum": ["pass", "fail", "skipped", "not_applicable"] },
+          "observed": { "type": ["string", "null"], "maxLength": 2000 },
+          "diff_hash": { "type": ["string", "null"] },
+          "note_ru": { "type": ["string", "null"], "maxLength": 500 }
+        }
+      },
+      "description": "An empty list does not satisfy LOCAL_CHECKED: either every required check passed, or the role's non-programmatic checks are recorded explicitly."
+    },
+    "rights_status": { "enum": ["unknown", "reviewed_allowed", "restricted", "blocked"] },
+    "ai_disclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "text", "confirmed_by_learner"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "text": { "type": "string", "maxLength": 4000 },
+        "confirmed_by_learner": {
+          "type": "boolean",
+          "description": "Set only from a human channel. A value arriving from a model proposal stays model_reported and does not authorise publication."
+        }
+      }
+    },
+    "publication_choice": { "enum": ["undecided", "public_pr", "private_package"] },
+    "external_ref": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "The PR URL or id, once one exists."
+    },
+    "observation_source": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/observation_source" },
+        { "type": "null" }
+      ],
+      "description": "How the last transition was learned. `learner_report` is kept distinct from `remote_api`: a student saying they opened a PR is information, not verification."
+    },
+    "observation_note": { "type": ["string", "null"], "maxLength": 2000 },
+    "created_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updated_at": { "type": ["string", "null"] },
+    "version": { "type": "integer", "minimum": 0 }
+  }
+}

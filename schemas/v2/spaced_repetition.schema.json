@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/spaced_repetition.schema.json",
+  "title": "botai spaced repetition deck",
+  "description": "An SM-2 review deck for one learner: when each learning objective is due next, and how it is going. The deck schedules reviews; it never decides mastery — that still requires evidence in the progress record. Cards are per-objective, so a due review points at a specific thing to revisit rather than at a course in general.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "student_id", "cards"],
+  "properties": {
+    "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+    "student_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "UUID, the same identity key as `learner_id` in the progress and session records and `student_id` in the learning profile — one deck per learner, keyed the same way everywhere."
+    },
+    "cards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/review_card" },
+      "description": "One card per learning objective being reviewed. Empty is valid: a learner with nothing yet scheduled has an empty deck, not a broken one."
+    },
+    "updated_at": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "$defs": {
+    "review_card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective_id", "last_review", "next_review", "interval_days", "ease_factor", "review_count", "lapses"],
+      "properties": {
+        "objective_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "last_review": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "next_review": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "interval_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current SM-2 interval in whole days. Floor of 1: a sub-day interval is not a spaced review."
+        },
+        "ease_factor": {
+          "type": "number",
+          "minimum": 1.3,
+          "description": "SM-2 ease factor. The floor is 1.3 — SM-2 clamps it there so repeated failures stop shrinking the interval toward zero; a lower value is an algorithm bug, not a struggling learner."
+        },
+        "review_count": { "type": "integer", "minimum": 0 },
+        "lapses": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Times a review was failed after having been learned. Distinct from review_count: lapses drive relearning, attempts drive interval growth."
+        }
+      },
+      "description": "One review card, keyed by objective. All fields are scheduling state — none of them is a mastery claim."
+    }
+  }
+}

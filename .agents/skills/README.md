@@ -1,0 +1,111 @@
+# Installed education skills
+
+34 curated, non-overlapping Agent Skills that give the co-learner assistant
+methodology for the full teaching lifecycle: mapping the course, keeping the
+durable progress record, planning sessions, tutoring (explaining, breaking
+down, assessing, feedback), supplementing the course, presenting material in
+Russian (terminology and translated quotations), acquiring the course corpus
+automatically, onboarding students into open-source course projects as
+co-developers, vetting adopted material, and reporting progress.
+
+Beyond the original 18, a second group extends teaching strategy itself,
+routed by evidence rather than preference: adaptive scaffolding, error
+diagnosis, multidimensional assessment, spaced review, conceptual
+visualisation, narrative framing, the rubber-duck guard, help at the moment of
+difficulty, interactive tutorials, peer learning and cohort moderation, team
+challenges, the offline parts of GitHub Classroom and Jupyter, offline
+teaching, and video explanations. Each of those states plainly what the
+harness cannot do — there is no TTS/STT engine, no plotting or rendering
+backend, and no network client — and refuses rather than pretending.
+
+They are loaded automatically by any AGENTS.md/CLAUDE.md-aware agent working in
+this repo and are governed by the guardrails in [../../AGENTS.md](../../AGENTS.md).
+
+## Layout
+
+The skill folders physically live here in `.agents/skills/`. Each is exposed to
+Claude Code through a relative symlink at `.claude/skills/<name>` pointing back
+to `../../.agents/skills/<name>`, and to Cursor through `.cursor/skills/<name>`,
+matching the repo-wide convention. Edit skills here; the symlinks pick up
+changes automatically.
+
+## Sources and attribution
+
+These skills were written for this project in its own house style. The teaching
+practices they encode draw on established pedagogy - the Socratic method,
+scaffolded instruction, formative assessment, and spaced practice - and on the
+educational Agent Skills ecosystem:
+
+- the wider educational skill ecosystem is cataloged in
+  [../../docs/course-agent-skills.md](../../docs/course-agent-skills.md);
+- the harness structure follows the SECS pattern -
+  https://github.com/evilfreelancer/secs.
+
+Before relying on any skill for a real teaching session, re-read its `SKILL.md`:
+skills are instructions the agent will follow, and student needs change over
+time.
+
+## What is installed
+
+Course lifecycle: `mapping-course-syllabus`, `maintaining-course-progress`,
+`planning-study-sessions`, `multi-course-workspace`,
+`starting-course-from-education-club`, `keeping-harness-and-course-current`.
+
+Teaching: `breaking-down-assignments`, `explaining-concepts`,
+`assessing-understanding`, `giving-feedback`.
+
+Supplements: `providing-supplementary-material`, `creating-practice-exercises`.
+
+Corpus and RAG: `rag-corpus-operations` — searching a course corpus through its
+RAG index (embeddings + Annoy + chunks), installing the index from Google
+Drive (manifest + SHA-256), citing with `file · фрагмент #N` coordinates,
+freshness and verification discipline, and the local RAG API.
+
+Keeping current: `keeping-harness-and-course-current` — updating the harness
+itself and the course repositories: what an update may overwrite (never the
+student's material), how to read a "locally edited, kept" report, what to do
+when an update stops on uncommitted or diverged work, and how to schedule
+routine updates without letting a scheduler touch a course checkout.
+
+Corpus acquisition: `corpus-acquisition` — obtaining the corpus automatically
+when a course publishes it as links (Google Drive, HTTPS/S3, GitHub Releases,
+HuggingFace), the index **and** the texts, hash verification before unpacking,
+atomic install, what to do when a link or a hash fails, and the rule that a
+course is not ready to teach until its corpus is installed.
+
+Presentation language: `language-and-translation` — Russian terminology instead
+of untranslated foreign words, and quotations from foreign-language sources
+given as the verbatim original plus a marked Russian translation; what is never
+translated (paths, coordinates, commands, identifiers), and why the corpus
+itself is never translated.
+
+Open-source course development: `onboarding-open-source-contributors`.
+
+Trust and vetting: `vetting-educational-material`.
+
+Reporting: `reporting-learning-progress`.
+
+## These skills stay in the project
+
+These skills are scoped to this project, and so are the agent files that load
+them: `AGENTS.md`, `CLAUDE.md`, the opencode agents (`agent.md` and the
+subagents under `.opencode/agent/`), the slash commands, and `opencode.json`.
+Installing botai never copies any of them into global configuration — nothing
+is written to `~/.claude/skills/`, `~/.config/opencode/`, `~/.cursor/`, or any
+other framework-wide location, so the harness can never leak into your other
+projects.
+
+To use botai in another course or workspace, install a **separate project**
+instead of reaching for global dirs:
+
+```bash
+cd botai
+make install DEST=my-other-botai     # or: python3 scripts/install.py --dest my-other-botai
+cd my-other-botai
+```
+
+Each installed project is self-contained: the policy, the skills, and the agent
+files live only inside it. Do not symlink or copy `.agents/skills/` (or
+`AGENTS.md`, `agent.md`, `opencode.json`) into a global config directory — that
+would make the education policy and agents apply to every project you open,
+which this harness is explicitly designed against.

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "botai",
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "references": {
+    "docs": {
+      "path": "docs",
+      "description": "botai reference docs: teaching-method catalog, course-agent-skills ecosystem, open-source contribution reference"
+    }
+  },
+  "permission": {
+    "edit": "deny",
+    "write": "deny",
+    "apply_patch": "deny",
+    "bash": {
+      "make *": "allow",
+      "git *": "allow",
+      "*": "ask"
+    },
+    "webfetch": "deny",
+    "websearch": "deny",
+    "task": "deny",
+    "wait_for_user": "deny",
+    "cancel_task": "deny",
+    "doom_loop": "deny",
+    "ast_grep_replace": "deny",
+    "ast_grep_search": "deny",
+    "submit_plan": "deny",
+    "context7_*": "deny",
+    "education-club_*": "deny",
+    "engram_*": "deny",
+    "g4f-tools_*": "deny",
+    "gh_grep_*": "deny",
+    "github_*": "deny",
+    "roblox-studio_*": "deny",
+    "read": "allow",
+    "list": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "codesearch": "allow",
+    "lsp": "allow",
+    "question": "allow",
+    "skill": "allow",
+    "todowrite": "allow"
+  },
+  "mcp": {
+    "education-club": {
+      "type": "local",
+      "command": [
+        "python3",
+        "{env:EDUCATION_CLUB_CATALOG}/mcp/catalog-mcp.py"
+      ],
+      "enabled": false,
+      "cwd": "{env:EDUCATION_CLUB_CATALOG}"
+    }
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/plan.schema.json",
+  "title": "botai action plan and approval",
+  "description": "The exact operations a human is being asked to permit, and the record of their answer. A plan exists so that consent is given to a specific set of effects rather than to an intention: the plan hash covers the steps and the inputs, and an approval names that hash, so a plan edited after approval stops matching and stops being executable.",
+  "$defs": {
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "operation_id", "workspace_id", "course_id",
+        "accepted_revision", "input_hashes", "steps", "effects", "limits",
+        "created_at", "expires_at", "plan_hash"
+      ],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "operation_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "workspace_id": { "type": "string", "minLength": 1 },
+        "course_id": { "$ref": "common.schema.json#/$defs/slug" },
+        "accepted_revision": { "$ref": "common.schema.json#/$defs/course_revision" },
+        "environment_hash": { "type": ["string", "null"] },
+        "profile_id": { "type": ["string", "null"] },
+        "input_hashes": {
+          "type": "object",
+          "description": "Map of input id to the hash the plan was built against. Re-checked immediately before every step: an input that changed since approval invalidates the plan rather than silently running new bytes."
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step_id", "kind", "parameters", "risk", "explanation_ru"],
+            "properties": {
+              "step_id": { "type": "string", "minLength": 1 },
+              "kind": { "type": "string", "minLength": 1 },
+              "parameters": { "type": "object" },
+              "risk": { "type": "string" },
+              "explanation_ru": { "type": "string" },
+              "timeout_seconds": { "type": ["integer", "null"] },
+              "network": { "type": "boolean" },
+              "depends_on": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read_roots", "write_roots", "network_destinations",
+                       "external_publications", "system_changes", "estimated_cost"],
+          "properties": {
+            "read_roots": { "type": "array", "items": { "type": "string" } },
+            "write_roots": { "type": "array", "items": { "type": "string" } },
+            "network_destinations": { "type": "array", "items": { "type": "string" } },
+            "external_publications": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Empty by default. A plan that would publish something is not something the tutoring surface can execute at all."
+            },
+            "system_changes": { "type": "array", "items": { "type": "string" } },
+            "estimated_cost": {
+              "type": ["object", "null"],
+              "description": "null means the cost is unknown, not that it is free. A paid operation cannot be auto-approved, and 'unknown' is never read as zero."
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["plan_timeout_seconds", "step_timeout_seconds", "install_timeout_seconds", "max_log_bytes"],
+          "properties": {
+            "plan_timeout_seconds": { "type": "integer", "minimum": 1 },
+            "step_timeout_seconds": { "type": "integer", "minimum": 1 },
+            "install_timeout_seconds": { "type": "integer", "minimum": 1 },
+            "max_log_bytes": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "created_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "expires_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "plan_hash": { "$ref": "common.schema.json#/$defs/sha256" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approval_id", "operation_id", "plan_hash", "expires_at", "decision", "human_channel"],
+      "properties": {
+        "approval_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "operation_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "plan_hash": {
+          "$ref": "common.schema.json#/$defs/sha256",
+          "description": "The exact plan this approval covers. There is no 'approved: true' field anywhere, because a boolean is a permission that outlives the thing it was about."
+        },
+        "expires_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "consumed_at": {
+          "type": ["string", "null"],
+          "description": "Set when the operation first enters APPLYING. An approval is spent once; a retry after an unclear failure reconciles state instead of re-running the effect."
+        },
+        "decision": { "enum": ["granted", "denied"] },
+        "human_channel": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Which human interface produced this. Recorded so an audit can tell a terminal approval from a claimed one."
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "operation_id", "course_id", "plan_hash", "status", "next_step"],
+      "properties": {
+        "schema_version": { "$ref": "common.schema.json#/$defs/schema_version" },
+        "operation_id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "course_id": { "type": "string" },
+        "plan_hash": { "$ref": "common.schema.json#/$defs/sha256" },
+        "status": {
+          "enum": [
+            "UNINSPECTED", "INSPECTED", "PLAN_READY", "AWAITING_APPROVAL",
+            "AWAITING_COURSE_ACCEPTANCE", "APPLYING", "VERIFYING", "READY",
+            "PARTIAL", "FAILED", "CANCELLED", "STALE_PLAN"
+          ],
+          "description": "PARTIAL is a real outcome: some steps succeeded and some did not. Reporting it as READY would claim an environment that does not exist."
+        },
+        "next_step": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Index of the first step not yet finished, so a resumed operation continues rather than restarting from a clean slate it cannot actually reach."
+        },
+        "cancellation_requested": { "type": "boolean" },
+        "lease_owner": { "type": ["string", "null"] },
+        "lease_expires_at": { "type": ["string", "null"] },
+        "results": { "type": "array" },
+        "started_at": { "type": ["string", "null"] },
+        "finished_at": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

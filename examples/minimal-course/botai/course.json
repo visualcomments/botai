@@ -1,0 +1,46 @@
+{
+  "schema_version": 2,
+  "course_id": "minimal-diff",
+  "title": "Учебный пример: различие версий",
+  "language": "ru",
+  "syllabus_path": "syllabus.md",
+  "track_path": "botai/track.json",
+  "student_material_roots": [
+    "lessons",
+    "references",
+    "assignments"
+  ],
+  "excluded_material_roots": [
+    "teacher"
+  ],
+  "licenses": {
+    "code": "MIT",
+    "materials": "CC-BY-4.0"
+  },
+  "contribution": {
+    "enabled": false,
+    "guide_path": null,
+    "private_submission_allowed": true,
+    "ai_disclosure_required": true
+  },
+  "assignments": [
+    {
+      "assignment_id": "practice-diff",
+      "path": "assignments/practice-diff.md",
+      "objective_ids": [
+        "explain-diff"
+      ],
+      "assessment": "practice",
+      "assessment_source": {
+        "path": "syllabus.md",
+        "sha256": "2d9b0cb61dbb9c919326d74be91ae0ec27408e70274afd91a3e379c3d361b9e5",
+        "locator": {
+          "lines": {
+            "start": 7,
+            "end": 8
+          }
+        }
+      }
+    }
+  ]
+}
