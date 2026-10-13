@@ -238,6 +238,12 @@ corpus:
 # students is refused: attributing one person's lines to another is worse than
 # asking. The original file is preserved verbatim either way.
 # ============================================================================
+# SelfSearch: Reward-free agent self-improvement (arXiv:2609.37968).
+# ----------------------------------------------------------------------------
+self-improve:
+	@python3 scripts/cli.py self-improve $(if $(GEN),--generations "$(GEN)",) $(if $(LINEAGE),--lineage "$(LINEAGE)",)
+
+# ============================================================================
 state-migrate:
 	@python3 scripts/cli.py state-migrate --course "$(COURSE)" $(if $(APPLY),--apply,) $(if $(LEARNER),--learner "$(LEARNER)",) $(if $(SPLIT),--confirm-split "$(SPLIT)",)
 

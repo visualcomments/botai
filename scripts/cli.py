@@ -120,7 +120,10 @@ def cmd_new_course(root, name, title, dry):
         newline="\n",
     )
     print("course scaffolded: %s" % d)
-    print("next: fill in syllabus.md, then run: python scripts/cli.py progress --course %s" % slug)
+    print(
+        "next: fill in syllabus.md, then run: python scripts/cli.py progress --course %s"
+        % slug
+    )
 
 
 def cmd_progress(root, course, dry):
@@ -206,8 +209,16 @@ def cmd_doctor(root, dry):
     print("root       : %s" % root)
     for tool in ("git", "python3", "python", "node", "markdownlint-cli2", "make"):
         print("  %-14s: %s" % (tool, "yes" if shutil.which(tool) else "no"))
-    cs = [p.name for p in (root / "courses").glob("*") if p.is_dir()] if (root / "courses").exists() else []
-    ps = [p.name for p in (root / "progress").glob("*.md")] if (root / "progress").exists() else []
+    cs = (
+        [p.name for p in (root / "courses").glob("*") if p.is_dir()]
+        if (root / "courses").exists()
+        else []
+    )
+    ps = (
+        [p.name for p in (root / "progress").glob("*.md")]
+        if (root / "progress").exists()
+        else []
+    )
     print("courses     : %s" % (" ".join(cs) or "(none - run setup)"))
     print("progress    : %s" % (" ".join(ps) or "(none)"))
     for slug in cs:
@@ -220,14 +231,20 @@ def cmd_doctor(root, dry):
     print("harness     : %s" % (H.read_version(root) or "(no VERSION yet)"))
     print("  source    : %s" % (rec.get("source") or H.DEFAULT_SOURCE))
     print("  ref       : %s" % (rec.get("ref") or H.DEFAULT_REF))
-    print("  updated   : %s" % (rec.get("updated_at") or rec.get("installed_at") or "(never recorded)"))
+    print(
+        "  updated   : %s"
+        % (rec.get("updated_at") or rec.get("installed_at") or "(never recorded)")
+    )
     if rec.get("files"):
         print("  fingerprint: %d files" % len(rec["files"]))
     else:
         print("  fingerprint: none - first `cli.py update` will record one")
     for cdir in sorted((root / "courses").glob("*")):
         if cdir.is_dir():
-            print("  course %-20s: %s" % (cdir.name, C.course_url(cdir) or "(no source recorded)"))
+            print(
+                "  course %-20s: %s"
+                % (cdir.name, C.course_url(cdir) or "(no source recorded)")
+            )
 
     # A half-finished 2.0 update leaves a workspace whose cli.py imports modules
     # that were never installed. The check is stdlib-only precisely so that it
@@ -235,7 +252,10 @@ def cmd_doctor(root, dry):
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import importlib.util as _ilu
-        spec = _ilu.spec_from_file_location("upgrade_v2", Path(__file__).resolve().parent / "upgrade_v2.py")
+
+        spec = _ilu.spec_from_file_location(
+            "upgrade_v2", Path(__file__).resolve().parent / "upgrade_v2.py"
+        )
         if spec and spec.loader:
             bridge = _ilu.module_from_spec(spec)
             spec.loader.exec_module(bridge)
@@ -269,19 +289,33 @@ def corpus_state(course_dir):
     Returns a dict with keys: summary, manifests, installed, fetcher.
     """
     if not course_dir.is_dir():
-        return {"summary": "(no such course)", "manifests": [], "installed": False, "fetcher": None}
+        return {
+            "summary": "(no such course)",
+            "manifests": [],
+            "installed": False,
+            "fetcher": None,
+        }
 
-    manifests = [m for m in ("index-manifest.json", "corpus-manifest.json")
-                 if (course_dir / m).exists()]
+    manifests = [
+        m
+        for m in ("index-manifest.json", "corpus-manifest.json")
+        if (course_dir / m).exists()
+    ]
     fetcher = course_dir / "tools" / "corpus_fetch.py"
     if not fetcher.exists():
-        fetcher = course_dir / "tools" / "index_fetch.py" if (course_dir / "tools" / "index_fetch.py").exists() else None
+        fetcher = (
+            course_dir / "tools" / "index_fetch.py"
+            if (course_dir / "tools" / "index_fetch.py").exists()
+            else None
+        )
 
     root = os.environ.get("COURSE_CORPUS_ROOT")
     if not root:
         return {
             "summary": "COURSE_CORPUS_ROOT not set - cannot tell where the corpus lives",
-            "manifests": manifests, "installed": False, "fetcher": fetcher,
+            "manifests": manifests,
+            "installed": False,
+            "fetcher": fetcher,
         }
 
     idx = Path(root) / "index"
@@ -296,8 +330,15 @@ def corpus_state(course_dir):
     elif n_txt:
         summary = "PARTIAL - %d texts but no index under %s" % (n_txt, idx)
     else:
-        summary = "MISSING - run: python scripts/cli.py corpus --course %s" % course_dir.name
-    return {"summary": summary, "manifests": manifests, "installed": have_index and bool(n_txt), "fetcher": fetcher}
+        summary = (
+            "MISSING - run: python scripts/cli.py corpus --course %s" % course_dir.name
+        )
+    return {
+        "summary": summary,
+        "manifests": manifests,
+        "installed": have_index and bool(n_txt),
+        "fetcher": fetcher,
+    }
 
 
 def cmd_corpus(root, course, dry, force):
@@ -312,7 +353,9 @@ def cmd_corpus(root, course, dry, force):
 
     st = corpus_state(cdir)
     print("== corpus: %s ==" % course)
-    print("  manifests : %s" % (", ".join(st["manifests"]) or "(none in the course repo)"))
+    print(
+        "  manifests : %s" % (", ".join(st["manifests"]) or "(none in the course repo)")
+    )
 
     if not st["manifests"]:
         print("  this course publishes no corpus manifest - nothing to acquire.")
@@ -326,7 +369,9 @@ def cmd_corpus(root, course, dry, force):
         return 0
 
     if not st["fetcher"]:
-        print("  no tools/corpus_fetch.py in the course - fetch manually per its CORPUS.md.")
+        print(
+            "  no tools/corpus_fetch.py in the course - fetch manually per its CORPUS.md."
+        )
         return 1
 
     if dry:
@@ -334,14 +379,19 @@ def cmd_corpus(root, course, dry, force):
         return 0
 
     if not os.environ.get("COURSE_CORPUS_ROOT"):
-        print("  COURSE_CORPUS_ROOT is not set - set it (see CORPUS.md) before fetching.")
+        print(
+            "  COURSE_CORPUS_ROOT is not set - set it (see CORPUS.md) before fetching."
+        )
         return 2
 
     print("  running: %s" % st["fetcher"])
     py = sys.executable or "python3"
     rc = subprocess.run([py, str(st["fetcher"])], cwd=str(cdir)).returncode
     if rc != 0:
-        print("  corpus fetch FAILED (exit %d) - report the cause, do not substitute a URL" % rc)
+        print(
+            "  corpus fetch FAILED (exit %d) - report the cause, do not substitute a URL"
+            % rc
+        )
         return rc
     st2 = corpus_state(cdir)
     print("  after fetch: %s" % st2["summary"])
@@ -373,13 +423,17 @@ def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False)
         from botai_core import legacy, store as core_store
     except ImportError as e:
         print("ядро v2 недоступно: %s" % e)
-        print("установите зависимости: python3 -m pip install --require-hashes "
-              "-r requirements-core.lock")
+        print(
+            "установите зависимости: python3 -m pip install --require-hashes "
+            "-r requirements-core.lock"
+        )
         return 2
 
     if not course:
-        print("usage: cli.py state-migrate --course <slug> [--learner <id>] "
-              "[--confirm-split stu-01=<id>] [--apply]")
+        print(
+            "usage: cli.py state-migrate --course <slug> [--learner <id>] "
+            "[--confirm-split stu-01=<id>] [--apply]"
+        )
         return 2
 
     try:
@@ -398,23 +452,41 @@ def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False)
     print("== миграция записи прогресса: %s ==" % course)
     print("  источник      : %s" % legacy_file)
     print("  sha256        : %s" % parsed.source_sha256)
-    print("  строк         : %d (распознано %d)" % (parsed.total_lines, parsed.parsed_lines))
+    print(
+        "  строк         : %d (распознано %d)"
+        % (parsed.total_lines, parsed.parsed_lines)
+    )
     print("  обучающихся   : %d" % len(parsed.students))
     for student in report["students"]:
-        print("    %s %s" % (student["legacy_id"],
-                             ("(%s)" % student["name"]) if student["name"] else ""))
+        print(
+            "    %s %s"
+            % (
+                student["legacy_id"],
+                ("(%s)" % student["name"]) if student["name"] else "",
+            )
+        )
         if student["legacy_claim"]:
-            print("      заявлено: %s -> импортируется как %s (%s)"
-                  % (student["legacy_claim"], student["imported_stage"], student["stage_basis"]))
+            print(
+                "      заявлено: %s -> импортируется как %s (%s)"
+                % (
+                    student["legacy_claim"],
+                    student["imported_stage"],
+                    student["stage_basis"],
+                )
+            )
         if student["module_hint"]:
             print("      привязка: %s" % student["module_hint"])
         else:
-            print("      привязка: не указана — цель не угадывается, запись останется на проверку")
+            print(
+                "      привязка: не указана — цель не угадывается, запись останется на проверку"
+            )
     print("  оцениваемые   : %s" % (", ".join(parsed.graded) or "(не указаны)"))
     print("  тренировочные : %s" % (", ".join(parsed.practice) or "(не указаны)"))
     print("  тупиков       : %d" % len(parsed.dead_ends))
-    print("  на проверку   : %d строк (догадки не подставляются)"
-          % len(parsed.pending_review))
+    print(
+        "  на проверку   : %d строк (догадки не подставляются)"
+        % len(parsed.pending_review)
+    )
     for warning in report["warnings"]:
         print("  ВНИМАНИЕ: %s" % warning)
 
@@ -437,7 +509,9 @@ def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False)
     try:
         with core_store.Store.open(root, learner_id) as st:
             result = legacy.import_into_store(
-                st, parsed, course_id=course,
+                st,
+                parsed,
+                course_id=course,
                 course_revision={"kind": "local_snapshot", "id": parsed.source_sha256},
                 confirm_split=confirm_split,
             )
@@ -457,11 +531,14 @@ def _load_core():
     """Import the v2 core, or explain what is missing and return None."""
     try:
         from botai_core import course as core_course, policy as core_policy
+
         return core_course, core_policy
     except ImportError as e:
         print("ядро v2 недоступно: %s" % e)
-        print("установите зависимости: python3 -m pip install --require-hashes "
-              "-r requirements-core.lock")
+        print(
+            "установите зависимости: python3 -m pip install --require-hashes "
+            "-r requirements-core.lock"
+        )
         return None
 
 
@@ -495,30 +572,55 @@ def cmd_course_inspect(root, course, dry):
 
     print("== осмотр курса: %s ==" % course)
     print("  каталог     : %s" % report["course_dir"])
-    print("  контракт    : %s" % ("есть" if report["has_contract"]
-                                  else "НЕТ (%s)" % report["contract_path"]))
+    print(
+        "  контракт    : %s"
+        % ("есть" if report["has_contract"] else "НЕТ (%s)" % report["contract_path"])
+    )
     if report["has_contract"]:
         print("  course_id   : %s" % report["course_id"])
         print("  название    : %s" % report["title"])
         licenses = report["licenses"]
-        print("  права       : %s" % ("не объявлены — публичное распространение "
-                                      "заблокировано до уточнения"
-                                      if licenses is None else licenses))
-        print("  вклад       : %s" % ("разрешён" if report["contribution_enabled"]
-                                      else "не предусмотрен контрактом"))
-        print("  оцениваемость заданий: %s"
-              % (", ".join(report.get("assessment_kinds") or []) or "(заданий нет)"))
+        print(
+            "  права       : %s"
+            % (
+                "не объявлены — публичное распространение заблокировано до уточнения"
+                if licenses is None
+                else licenses
+            )
+        )
+        print(
+            "  вклад       : %s"
+            % (
+                "разрешён"
+                if report["contribution_enabled"]
+                else "не предусмотрен контрактом"
+            )
+        )
+        print(
+            "  оцениваемость заданий: %s"
+            % (", ".join(report.get("assessment_kinds") or []) or "(заданий нет)")
+        )
         if report["unknown_assessment_count"]:
-            print("    из них с неизвестной оцениваемостью: %d "
-                  "(действует строгий режим)" % report["unknown_assessment_count"])
+            print(
+                "    из них с неизвестной оцениваемостью: %d "
+                "(действует строгий режим)" % report["unknown_assessment_count"]
+            )
         print("  задания:")
         for assignment in report["assignments"]:
             mark = "" if assignment["present"] else "  [ФАЙЛ ОТСУТСТВУЕТ]"
-            print("    %-24s %-9s %s%s" % (assignment["assignment_id"],
-                                           assignment["assessment"],
-                                           assignment["path"], mark))
-        print("  цели        : %d в %d модулях"
-              % (len(report["objectives"]), len(report["modules"])))
+            print(
+                "    %-24s %-9s %s%s"
+                % (
+                    assignment["assignment_id"],
+                    assignment["assessment"],
+                    assignment["path"],
+                    mark,
+                )
+            )
+        print(
+            "  цели        : %d в %d модулях"
+            % (len(report["objectives"]), len(report["modules"]))
+        )
     print("  готовность  : %s" % report["readiness"])
 
     if report["problems"]:
@@ -543,8 +645,16 @@ def cmd_course_inspect(root, course, dry):
     return 0
 
 
-def cmd_course_accept(root, course, dry, kind=None, url=None, teaching_remote=None,
-                      teaching_branch=None, contribution_remote=None):
+def cmd_course_accept(
+    root,
+    course,
+    dry,
+    kind=None,
+    url=None,
+    teaching_remote=None,
+    teaching_branch=None,
+    contribution_remote=None,
+):
     """Accept the course contract as the policy that governs this course.
 
     This is a human operation on purpose. There is no equivalent tool in the
@@ -575,7 +685,10 @@ def cmd_course_accept(root, course, dry, kind=None, url=None, teaching_remote=No
         return 2
 
     if not report["has_contract"]:
-        print("  курс %s не объявляет условий (%s отсутствует)" % (course, report["contract_path"]))
+        print(
+            "  курс %s не объявляет условий (%s отсутствует)"
+            % (course, report["contract_path"])
+        )
         print("  принять нечего: не выдумывайте оцениваемость — создайте контракт")
         return 3
 
@@ -587,11 +700,15 @@ def cmd_course_accept(root, course, dry, kind=None, url=None, teaching_remote=No
     if dry:
         print("== принятие курса (предпросмотр): %s ==" % course)
         print("  course_id   : %s" % report["course_id"])
-        print("  будет принято: оцениваемость заданий %s"
-              % (", ".join(report.get("assessment_kinds") or []) or "(заданий нет)"))
+        print(
+            "  будет принято: оцениваемость заданий %s"
+            % (", ".join(report.get("assessment_kinds") or []) or "(заданий нет)")
+        )
         if report["problems"]:
-            print("  замечания, из-за которых принятие будет отклонено: %d"
-                  % len(report["problems"]))
+            print(
+                "  замечания, из-за которых принятие будет отклонено: %d"
+                % len(report["problems"])
+            )
             for problem in report["problems"][:6]:
                 print("    [%s] %s" % (problem["code"], problem["message_ru"]))
         print("  ничего не записано (--dry-run)")
@@ -599,9 +716,14 @@ def cmd_course_accept(root, course, dry, kind=None, url=None, teaching_remote=No
 
     try:
         binding = core_course.accept(
-            root, course_dir, slug=course, source_url=url,
-            teaching_remote=teaching_remote, teaching_branch=teaching_branch,
-            contribution_remote=contribution_remote, acceptance_kind=kind,
+            root,
+            course_dir,
+            slug=course,
+            source_url=url,
+            teaching_remote=teaching_remote,
+            teaching_branch=teaching_branch,
+            contribution_remote=contribution_remote,
+            acceptance_kind=kind,
             repository_root=relative,
         )
     except core_course.CourseError as e:
@@ -610,8 +732,13 @@ def cmd_course_accept(root, course, dry, kind=None, url=None, teaching_remote=No
         return 2
 
     print("== курс принят: %s ==" % binding["course_id"])
-    print("  ревизия     : %s %s" % (binding["accepted_revision"]["kind"],
-                                     binding["accepted_revision"]["id"][:16]))
+    print(
+        "  ревизия     : %s %s"
+        % (
+            binding["accepted_revision"]["kind"],
+            binding["accepted_revision"]["id"][:16],
+        )
+    )
     print("  контракт    : %s" % binding["accepted_contract_hash"][:16])
     print("  программа   : %s" % binding["accepted_track_hash"][:16])
     print("  снимок      : %s" % binding["material_snapshot"])
@@ -632,18 +759,27 @@ def cmd_course_status(root, course, dry):
     bindings = core_course.list_bindings(root)
     if not course and not bindings:
         print("ни один курс не принят")
-        print("посмотрите условия и примите: python scripts/cli.py course-inspect "
-              "--course <slug>")
+        print(
+            "посмотрите условия и примите: python scripts/cli.py course-inspect "
+            "--course <slug>"
+        )
         return 0
 
     if not course:
         print("== принятые курсы ==")
         for binding in bindings:
-            print("  %-24s %-9s контракт %s"
-                  % (binding["course_id"], binding["slug"],
-                     binding["accepted_contract_hash"][:16]))
-            print("    оцениваемость: %s"
-                  % (", ".join(binding.get("assessment_kinds") or []) or "(заданий нет)"))
+            print(
+                "  %-24s %-9s контракт %s"
+                % (
+                    binding["course_id"],
+                    binding["slug"],
+                    binding["accepted_contract_hash"][:16],
+                )
+            )
+            print(
+                "    оцениваемость: %s"
+                % (", ".join(binding.get("assessment_kinds") or []) or "(заданий нет)")
+            )
         return 0
 
     try:
@@ -653,7 +789,10 @@ def cmd_course_status(root, course, dry):
         return 2
     if binding is None:
         print("курс %s не принят" % course)
-        print("посмотрите условия: python scripts/cli.py course-inspect --course %s" % course)
+        print(
+            "посмотрите условия: python scripts/cli.py course-inspect --course %s"
+            % course
+        )
         return 3
 
     try:
@@ -664,13 +803,19 @@ def cmd_course_status(root, course, dry):
 
     print("== принятый курс: %s ==" % course)
     print("  название    : %s" % accepted.contract["title"])
-    print("  ревизия     : %s %s" % (accepted.revision["kind"], accepted.revision["id"]))
-    print("  принят      : %s (%s)" % (binding["accepted_at"], binding["acceptance_kind"]))
+    print(
+        "  ревизия     : %s %s" % (accepted.revision["kind"], accepted.revision["id"])
+    )
+    print(
+        "  принят      : %s (%s)" % (binding["accepted_at"], binding["acceptance_kind"])
+    )
     print("  контракт    : %s" % binding["accepted_contract_hash"])
     print("  программа   : %s" % binding["accepted_track_hash"])
     print("  материал    : %s" % binding["material_snapshot"])
-    print("  оцениваемость заданий: %s"
-          % (", ".join(binding.get("assessment_kinds") or []) or "(заданий нет)"))
+    print(
+        "  оцениваемость заданий: %s"
+        % (", ".join(binding.get("assessment_kinds") or []) or "(заданий нет)")
+    )
 
     try:
         course_dir = P.course_path(root, course, must_exist=True)
@@ -692,9 +837,15 @@ def cmd_course_status(root, course, dry):
         print("  ВНИМАНИЕ: изменилась оцениваемость. Принятая политика в силе,")
         print("  рабочая копия её не меняет — новая ревизия принимается отдельно:")
         for change in diff["assessment_changed"]:
-            print("    %s.%s: принято %r -> в копии %r"
-                  % (change["assignment_id"], change["field"],
-                     change["accepted"], change["on_disk"]))
+            print(
+                "    %s.%s: принято %r -> в копии %r"
+                % (
+                    change["assignment_id"],
+                    change["field"],
+                    change["accepted"],
+                    change["on_disk"],
+                )
+            )
     if diff["new_assignments"]:
         print()
         print("  Новые задания в рабочей копии (в принятом контракте их нет,")
@@ -703,13 +854,20 @@ def cmd_course_status(root, course, dry):
             print("    %s (%s)" % (entry["assignment_id"], entry["assessment"]))
     if diff["missing_from_contract"]:
         print()
-        print("  Задания принятого контракта исчезли из рабочей копии: %s"
-              % ", ".join(diff["missing_from_contract"]))
+        print(
+            "  Задания принятого контракта исчезли из рабочей копии: %s"
+            % ", ".join(diff["missing_from_contract"])
+        )
     if diff["on_disk_revision"] and diff["accepted_revision"]:
-        same = (diff["on_disk_revision"]["id"] == diff["accepted_revision"]["id"])
-        print("  ревизия на диске : %s %s%s"
-              % (diff["on_disk_revision"]["kind"], diff["on_disk_revision"]["id"][:16],
-                 "" if same else "  (отличается от принятой)"))
+        same = diff["on_disk_revision"]["id"] == diff["accepted_revision"]["id"]
+        print(
+            "  ревизия на диске : %s %s%s"
+            % (
+                diff["on_disk_revision"]["kind"],
+                diff["on_disk_revision"]["id"][:16],
+                "" if same else "  (отличается от принятой)",
+            )
+        )
 
     if diff["contract_changed"] or diff["track_changed"] or diff["problems"]:
         print()
@@ -731,8 +889,10 @@ def cmd_policy_check(root, course, assignment, level, preference):
     core_course, core_policy = loaded
 
     if not course or not assignment:
-        print("usage: cli.py policy-check --course <slug> --assignment <id> "
-              "[--level HINT|EXAMPLE|SOLUTION] [--preference <style>]")
+        print(
+            "usage: cli.py policy-check --course <slug> --assignment <id> "
+            "[--level HINT|EXAMPLE|SOLUTION] [--preference <style>]"
+        )
         return 2
 
     try:
@@ -743,9 +903,13 @@ def cmd_policy_check(root, course, assignment, level, preference):
 
     try:
         decision = core_policy.request_help(
-            accepted, assignment_id=assignment, intent="solution" if level == "SOLUTION"
+            accepted,
+            assignment_id=assignment,
+            intent="solution"
+            if level == "SOLUTION"
             else ("example" if level == "EXAMPLE" else "hint"),
-            preference=preference, student_requested=True,
+            preference=preference,
+            student_requested=True,
         )
         core_policy.validate_decision(decision)
     except ValueError as e:  # pragma: no cover - schema regression guard
@@ -776,16 +940,19 @@ def _open_session(root, course, learner=None, *, create=True):
         from botai_core import course as core_course, session as core_session
     except ImportError as e:
         print("ядро v2 недоступно: %s" % e)
-        print("установите зависимости: python3 -m pip install --require-hashes "
-              "-r requirements-core.lock")
+        print(
+            "установите зависимости: python3 -m pip install --require-hashes "
+            "-r requirements-core.lock"
+        )
         return None, None
     if not course:
         print("нужен --course <slug>")
         return None, None
     learner_id = learner or default_learner_id(root)
     try:
-        service = core_session.SessionService.open(root, learner_id, course,
-                                                   create=create)
+        service = core_session.SessionService.open(
+            root, learner_id, course, create=create
+        )
     except core_course.CourseError as e:
         print("  отказ (%s): %s" % (e.code, e.message))
         return None, None
@@ -823,7 +990,9 @@ def cmd_session_start(root, course, learner, objectives, minutes, modes, dry):
                 break
 
         body, result, replayed = service.start(
-            objective_ids=objectives, modes=tuple(modes), session_minutes=minutes,
+            objective_ids=objectives,
+            modes=tuple(modes),
+            session_minutes=minutes,
             consent_version=consent_version,
         )
         print("== занятие открыто ==")
@@ -836,8 +1005,10 @@ def cmd_session_start(root, course, learner, objectives, minutes, modes, dry):
             print("  Записано согласие на обработку данных не найдено, поэтому")
             print("  занятие не начинается. Оформите согласие отдельно:")
             print("    python scripts/cli.py consent-set --course %s" % course)
-        print("  следующий шаг: python scripts/cli.py session-next "
-              "--session %s" % body["session_id"])
+        print(
+            "  следующий шаг: python scripts/cli.py session-next "
+            "--session %s" % body["session_id"]
+        )
         return 0
     finally:
         service.close()
@@ -850,15 +1021,21 @@ def cmd_session_next(root, course, session, learner):
         return 2
     try:
         from botai_core import tutoring as core_tutoring
+
         body, directive = service.next_step(session)
         print("== следующий шаг ==")
         print("  сессия      : %s" % session)
         print("  состояние   : %s" % directive["state"])
         print("  действие    : %s" % directive["next_action"])
         print("  цель        : %s" % (directive["objective_id"] or "—"))
-        print("  предел помощи: %s" % (directive["assistance_ceiling"] or "помощь не выдаётся"))
-        print("  допустимые намерения: %s"
-              % (", ".join(directive["allowed_intents"]) or "(нет)"))
+        print(
+            "  предел помощи: %s"
+            % (directive["assistance_ceiling"] or "помощь не выдаётся")
+        )
+        print(
+            "  допустимые намерения: %s"
+            % (", ".join(directive["allowed_intents"]) or "(нет)")
+        )
         if directive["needed_inputs"]:
             print("  требуется   : %s" % ", ".join(directive["needed_inputs"]))
         print("  причина     : %s" % directive["reason"])
@@ -879,13 +1056,17 @@ def cmd_session_goal(root, course, session, objective, assignment, learner, conf
         return 2
     try:
         from botai_core import tutoring as core_tutoring
+
         _, version = service.get_session(session)
         if version == 0:
             print("сессия не найдена: %s" % session)
             return 2
         body, _, _ = service.configure_goal(
-            session, objective, expected_version=version,
-            assignment_id=assignment, confirm=confirm,
+            session,
+            objective,
+            expected_version=version,
+            assignment_id=assignment,
+            confirm=confirm,
         )
         print("== цель занятия ==")
         print("  цель        : %s" % objective)
@@ -895,8 +1076,10 @@ def cmd_session_goal(root, course, session, objective, assignment, learner, conf
         if not confirm:
             print()
             print("  Цель выбрана. Начать работу по ней:")
-            print("    python scripts/cli.py session-goal --session %s "
-                  "--objective %s --confirm" % (session, objective))
+            print(
+                "    python scripts/cli.py session-goal --session %s "
+                "--objective %s --confirm" % (session, objective)
+            )
         return 0
     except core_tutoring.TutoringError as e:
         print("  отказ (%s): %s" % (e.code, e.message))
@@ -905,13 +1088,16 @@ def cmd_session_goal(root, course, session, objective, assignment, learner, conf
         service.close()
 
 
-def cmd_session_attempt(root, course, session, objective, assignment, learner, text_file):
+def cmd_session_attempt(
+    root, course, session, objective, assignment, learner, text_file
+):
     """Record the learner's own attempt."""
     service, _ = _open_session(root, course, learner)
     if service is None:
         return 2
     try:
         from botai_core import tutoring as core_tutoring
+
         if text_file:
             path = Path(text_file)
             if not path.is_file():
@@ -928,8 +1114,11 @@ def cmd_session_attempt(root, course, session, objective, assignment, learner, t
             return 2
 
         document, _, _ = service.record_attempt(
-            session, objective_id=objective, assignment_id=assignment,
-            text_excerpt=text[:65536], source="learner_report",
+            session,
+            objective_id=objective,
+            assignment_id=assignment,
+            text_excerpt=text[:65536],
+            source="learner_report",
         )
         print("== попытка записана ==")
         print("  attempt_id  : %s" % document["attempt_id"])
@@ -946,13 +1135,16 @@ def cmd_session_attempt(root, course, session, objective, assignment, learner, t
         service.close()
 
 
-def cmd_session_check(root, course, session, attempt, kind, verdict, criterion, learner):
+def cmd_session_check(
+    root, course, session, attempt, kind, verdict, criterion, learner
+):
     """Record a check result and let the reducer update mastery."""
     service, _ = _open_session(root, course, learner)
     if service is None:
         return 2
     try:
         from botai_core import tutoring as core_tutoring
+
         results = []
         for item in criterion or []:
             # criterion_id=pass|partial|fail|unknown[:evidence,evidence]
@@ -960,18 +1152,28 @@ def cmd_session_check(root, course, session, attempt, kind, verdict, criterion, 
             criterion_id, _, outcome = head.partition("=")
             refs = [e for e in evidence.split(",") if e.strip()]
             if outcome == "pass" and not refs:
-                print("критерий %r зачтён без доказательства: укажите "
-                      "criterion_id=pass:attempt_id" % criterion_id)
+                print(
+                    "критерий %r зачтён без доказательства: укажите "
+                    "criterion_id=pass:attempt_id" % criterion_id
+                )
                 return 2
-            results.append({"criterion_id": criterion_id.strip(),
-                            "result": outcome.strip() or "unknown",
-                            "evidence_refs": refs, "required": True})
+            results.append(
+                {
+                    "criterion_id": criterion_id.strip(),
+                    "result": outcome.strip() or "unknown",
+                    "evidence_refs": refs,
+                    "required": True,
+                }
+            )
         if not results:
             print("нужен хотя бы один --criterion criterion_id=pass|partial|fail")
             return 2
 
         document, state, reasoning, _, _ = service.record_check(
-            session, attempt_id=attempt, kind=kind, verdict=verdict,
+            session,
+            attempt_id=attempt,
+            kind=kind,
+            verdict=verdict,
             criterion_results=results,
         )
         print("== проверка записана ==")
@@ -1008,6 +1210,7 @@ def cmd_session_pause(root, course, session, learner, target, reason, resume):
         return 2
     try:
         from botai_core import tutoring as core_tutoring
+
         body, version = service.get_session(session)
         if body is None:
             print("сессия не найдена: %s" % session)
@@ -1016,17 +1219,24 @@ def cmd_session_pause(root, course, session, learner, target, reason, resume):
         if body["state"] in ("PAUSED", "BLOCKED"):
             saved = body.get("resume_state")
             if resume and resume != saved:
-                print("  отказ (RESUME_STATE_MISMATCH): сессия остановлена в "
-                      "состоянии %s, а не %s" % (saved, resume))
+                print(
+                    "  отказ (RESUME_STATE_MISMATCH): сессия остановлена в "
+                    "состоянии %s, а не %s" % (saved, resume)
+                )
                 return 2
             target_state = saved or resume
             if not target_state:
-                print("  отказ (RESUME_STATE_MISSING): неизвестно, куда возвращать "
-                      "сессию: сохранённое состояние потеряно")
+                print(
+                    "  отказ (RESUME_STATE_MISSING): неизвестно, куда возвращать "
+                    "сессию: сохранённое состояние потеряно"
+                )
                 return 2
-            updated, _, _ = service.transition(session, target_state,
-                                               expected_version=version,
-                                               resume_state=target_state)
+            updated, _, _ = service.transition(
+                session,
+                target_state,
+                expected_version=version,
+                resume_state=target_state,
+            )
             print("== состояние занятия ==")
             print("  было        : %s" % body["state"])
             print("  стало       : %s" % updated["state"])
@@ -1034,14 +1244,19 @@ def cmd_session_pause(root, course, session, learner, target, reason, resume):
             return 0
 
         if not target:
-            print("usage: cli.py session-pause --session <id> "
-                  "--target PAUSED|BLOCKED|COMPLETED|CANCELLED [--reason ...]")
+            print(
+                "usage: cli.py session-pause --session <id> "
+                "--target PAUSED|BLOCKED|COMPLETED|CANCELLED [--reason ...]"
+            )
             print("       (для продолжения остановленного занятия: без --target,")
             print("        необязательно --resume <состояние>)")
             return 2
 
         updated, _, _ = service.transition(
-            session, target, expected_version=version, resume_state=resume,
+            session,
+            target,
+            expected_version=version,
+            resume_state=resume,
             reason=reason,
         )
         print("== состояние занятия ==")
@@ -1071,8 +1286,10 @@ def cmd_progress_v2(root, course, learner, as_json):
         return 0
     try:
         from botai_core import progress as core_progress
+
         document = core_progress.build_progress(
-            course=service.course, learner_id=learner_id,
+            course=service.course,
+            learner_id=learner_id,
             sessions=service.store.list_entities("session", course_id=course),
             objective_states=service.objective_states(),
             attempts=service.store.list_entities("attempt", course_id=course),
@@ -1110,7 +1327,9 @@ def cmd_consent_set(root, course, learner, purposes, provider, retention, dry):
 
     learner_id = learner or default_learner_id(root)
     valid = {"learning_storage", "model_processing", "teacher_export", "publication"}
-    selected = sorted({p.strip() for p in (purposes or []) if p.strip()}) or ["learning_storage"]
+    selected = sorted({p.strip() for p in (purposes or []) if p.strip()}) or [
+        "learning_storage"
+    ]
     unknown = [p for p in selected if p not in valid]
     if unknown:
         print("неизвестные назначения обработки: %s" % ", ".join(unknown))
@@ -1158,22 +1377,28 @@ def cmd_consent_set(root, course, learner, purposes, provider, retention, dry):
                 "withdrawn_at": None,
             }
             result, replayed = store.apply(
-                kind="consent", entity_id=consent_id,
-                events=["consent.changed"], course_id=course,
+                kind="consent",
+                entity_id=consent_id,
+                events=["consent.changed"],
+                course_id=course,
                 new_body=body,
-                event_payloads=[{
-                    "consent_id": consent_id,
-                    "purposes": selected,
-                    "decision": "granted",
-                    "human_channel": "cli",
-                    "_actor": "learner_cli",
-                    "_provenance": "human_input",
-                }],
+                event_payloads=[
+                    {
+                        "consent_id": consent_id,
+                        "purposes": selected,
+                        "decision": "granted",
+                        "human_channel": "cli",
+                        "_actor": "learner_cli",
+                        "_provenance": "human_input",
+                    }
+                ],
             )
             print()
             print("  согласие записано: %s" % consent_id)
-            print("  отозвать: python scripts/cli.py consent-withdraw "
-                  "--course %s --consent %s" % (course, consent_id))
+            print(
+                "  отозвать: python scripts/cli.py consent-withdraw "
+                "--course %s --consent %s" % (course, consent_id)
+            )
             return 0
     except Exception as e:  # noqa: BLE001
         code = getattr(e, "code", type(e).__name__)
@@ -1217,24 +1442,31 @@ def cmd_consent_withdraw(root, course, learner, consent_id, dry):
             updated = dict(body)
             updated["withdrawn_at"] = core_store.now_iso()
             store.apply(
-                kind="consent", entity_id=consent_id,
-                events=["consent.changed"], course_id=course,
-                expected_version=version, new_body=updated,
-                event_payloads=[{
-                    "consent_id": consent_id,
-                    "purposes": body.get("purposes") or [],
-                    "decision": "withdrawn",
-                    "human_channel": "cli",
-                    "_actor": "learner_cli",
-                    "_provenance": "human_input",
-                }],
+                kind="consent",
+                entity_id=consent_id,
+                events=["consent.changed"],
+                course_id=course,
+                expected_version=version,
+                new_body=updated,
+                event_payloads=[
+                    {
+                        "consent_id": consent_id,
+                        "purposes": body.get("purposes") or [],
+                        "decision": "withdrawn",
+                        "human_channel": "cli",
+                        "_actor": "learner_cli",
+                        "_provenance": "human_input",
+                    }
+                ],
             )
             print("  отозвано    : %s" % updated["withdrawn_at"])
             print()
             print("  Новые занятия по этим назначениям не начнутся.")
             print("  Уже сохранённые записи не удалены: удаление — отдельное")
             print("  решение. План удаления:")
-            print("    python scripts/cli.py privacy-delete --course %s --plan" % course)
+            print(
+                "    python scripts/cli.py privacy-delete --course %s --plan" % course
+            )
             return 0
     except Exception as e:  # noqa: BLE001
         code = getattr(e, "code", type(e).__name__)
@@ -1260,15 +1492,22 @@ def cmd_corpus_status(root, course, as_json):
 
     manifest_path = accepted.contract.get("corpus_manifest_path")
     if not manifest_path:
-        result = {"status": "not_required", "course_id": accepted.course_id,
-                  "reason": "принятый контракт не объявляет корпус"}
+        result = {
+            "status": "not_required",
+            "course_id": accepted.course_id,
+            "reason": "принятый контракт не объявляет корпус",
+        }
     else:
         try:
             base = (Path(root) / accepted.binding["repository_root"]).resolve()
             manifest, kind = core_corpus.load_manifest(base / manifest_path)
         except core_corpus.CorpusError as e:
-            result = {"status": "failed", "course_id": accepted.course_id,
-                      "reason": e.message, "code": e.code}
+            result = {
+                "status": "failed",
+                "course_id": accepted.course_id,
+                "reason": e.message,
+                "code": e.code,
+            }
         else:
             result = core_corpus.status(root, accepted.course_id, manifest)
             result["manifest_kind"] = kind
@@ -1288,8 +1527,11 @@ def cmd_corpus_status(root, course, as_json):
         print("  каталог     : %s" % result["directory"])
     if result.get("checked"):
         print("  проверено   : %d файлов" % result["checked"])
-    for label, key in (("отсутствуют", "missing"), ("не совпали", "mismatched"),
-                       ("без хешей", "unverified_files")):
+    for label, key in (
+        ("отсутствуют", "missing"),
+        ("не совпали", "mismatched"),
+        ("без хешей", "unverified_files"),
+    ):
         if result.get(key):
             print("  %-12s: %s" % (label, result[key][:3]))
     if result["status"] == "ready":
@@ -1334,12 +1576,15 @@ def cmd_corpus_acquire(root, course, dry, offline):
         print("  отказ (%s): %s" % (e.code, e.message))
         return 2
 
-    report = core_corpus.acquire(root, accepted.course_id, manifest,
-                                 dry_run=dry, offline=offline)
+    report = core_corpus.acquire(
+        root, accepted.course_id, manifest, dry_run=dry, offline=offline
+    )
 
     print("== корпус: %s ==" % accepted.course_id)
-    print("  манифест    : %s%s" % (manifest_path,
-                                    " (преобразован из v1)" if kind == "legacy_adapted" else ""))
+    print(
+        "  манифест    : %s%s"
+        % (manifest_path, " (преобразован из v1)" if kind == "legacy_adapted" else "")
+    )
     print("  состояние   : %s" % report["status"])
     for item in report["downloaded"]:
         if "would_verify" in item:
@@ -1351,8 +1596,10 @@ def cmd_corpus_acquire(root, course, dry, offline):
     for warning in report["warnings"]:
         print("  ВНИМАНИЕ: %s" % warning)
     if report.get("error"):
-        print("  ошибка      : [%s] %s" % (report["error"]["code"],
-                                           report["error"]["message"]))
+        print(
+            "  ошибка      : [%s] %s"
+            % (report["error"]["code"], report["error"]["message"])
+        )
 
     if report["status"] == "ready":
         print()
@@ -1380,8 +1627,12 @@ def cmd_source_search(root, course, query, limit, as_json):
         return 3 if e.code == "COURSE_NOT_ACCEPTED" else 2
 
     try:
-        result = retrieval.search(accepted, query, limit=limit,
-                                  material_snapshot=accepted.binding.get("material_snapshot"))
+        result = retrieval.search(
+            accepted,
+            query,
+            limit=limit,
+            material_snapshot=accepted.binding.get("material_snapshot"),
+        )
     except retrieval.RetrievalError as e:
         print("  отказ (%s): %s" % (e.code, e.message))
         return 2
@@ -1392,10 +1643,16 @@ def cmd_source_search(root, course, query, limit, as_json):
         return 0
 
     print("== поиск по материалам курса ==")
-    print("  область     : %s (файлов %d, %s)"
-          % (result["scope"]["course_id"], result["scope"]["files_searched"],
-             "снимок принятой ревизии" if result["scope"]["using_snapshot"]
-             else "рабочая копия — не принятый снимок"))
+    print(
+        "  область     : %s (файлов %d, %s)"
+        % (
+            result["scope"]["course_id"],
+            result["scope"]["files_searched"],
+            "снимок принятой ревизии"
+            if result["scope"]["using_snapshot"]
+            else "рабочая копия — не принятый снимок",
+        )
+    )
     print("  исключено   : %s" % (", ".join(result["scope"]["exclude_roots"]) or "—"))
     print("  способ      : %s" % result["retrieval_method"])
     if not result["hits"]:
@@ -1407,7 +1664,10 @@ def cmd_source_search(root, course, query, limit, as_json):
     for index, hit in enumerate(result["hits"], 1):
         locator = hit["locator"]
         if "lines" in locator:
-            where = "строки %d–%d" % (locator["lines"]["start"], locator["lines"]["end"])
+            where = "строки %d–%d" % (
+                locator["lines"]["start"],
+                locator["lines"]["end"],
+            )
         elif "chunk" in locator:
             where = "фрагмент %d" % locator["chunk"]["chunk_id"]
         else:
@@ -1445,8 +1705,10 @@ def cmd_quote_verify(root, course, citation_path, as_json):
 
     try:
         report = retrieval.verify_quote(
-            accepted, citation,
-            material_snapshot=accepted.binding.get("material_snapshot"))
+            accepted,
+            citation,
+            material_snapshot=accepted.binding.get("material_snapshot"),
+        )
     except retrieval.RetrievalError as e:
         print("  отказ (%s): %s" % (e.code, e.message))
         return 2
@@ -1460,8 +1722,10 @@ def cmd_quote_verify(root, course, citation_path, as_json):
     print("== проверка цитаты ==")
     print("  статус текста : %s" % report["quote_status"])
     print("  координаты    : %s" % report["coordinate_check"])
-    print("  смысл         : %s (строка не доказывает утверждение)"
-          % report["support_status"])
+    print(
+        "  смысл         : %s (строка не доказывает утверждение)"
+        % report["support_status"]
+    )
     print("  %s" % report["quote_status_reason"])
     if warnings:
         for warning in warnings:
@@ -1504,6 +1768,7 @@ def cmd_env_plan(root, course, spec_path, learner):
     try:
         spec = json.loads(spec_file.read_text(encoding="utf-8-sig"))
         from botai_core import schemas
+
         schemas.validate(spec, "environment")
     except (OSError, ValueError) as e:
         print("не удалось прочитать спецификацию: %s" % e)
@@ -1521,14 +1786,18 @@ def cmd_env_plan(root, course, spec_path, learner):
             candidate = Path(root) / accepted.binding["repository_root"] / entry["path"]
             if candidate.is_file():
                 from botai_core import corpus as core_corpus
+
                 input_hashes[entry["input_id"]] = core_corpus.sha256_file(candidate)
             else:
-                print("  ВНИМАНИЕ: вход %s не найден (%s)"
-                      % (entry["input_id"], entry["path"]))
+                print(
+                    "  ВНИМАНИЕ: вход %s не найден (%s)"
+                    % (entry["input_id"], entry["path"])
+                )
 
         try:
-            plan, operation = service.create_plan(spec, course=accepted,
-                                                  input_hashes=input_hashes)
+            plan, operation = service.create_plan(
+                spec, course=accepted, input_hashes=input_hashes
+            )
         except core_env.EnvironmentError as e:
             print("  план не собран (%s): %s" % (e.code, e.message))
             return 2
@@ -1566,6 +1835,7 @@ def cmd_env_apply(root, operation_id, learner, wait):
         # time is a real comparison and not a formality.
         input_hashes = {}
         from botai_core import corpus as core_corpus
+
         for input_id, _expected in (plan.get("input_hashes") or {}).items():
             for step in plan["steps"]:
                 for path in step["parameters"].get("write_roots") or []:
@@ -1574,8 +1844,9 @@ def cmd_env_apply(root, operation_id, learner, wait):
                         input_hashes[input_id] = core_corpus.sha256_file(candidate)
 
         try:
-            result = service.apply(operation_id, actor="human_cli",
-                                   current_hashes=input_hashes or None)
+            result = service.apply(
+                operation_id, actor="human_cli", current_hashes=input_hashes or None
+            )
         except core_operation.OperationError as e:
             print("  отказ (%s): %s" % (e.code, e.message))
             if e.detail.get("decision"):
@@ -1619,6 +1890,7 @@ def cmd_action_approve(root, operation_id, learner, decision, dry):
             return 2
 
         from botai_core import environment as core_env
+
         print(core_env.render_plan(plan))
         print()
 
@@ -1633,17 +1905,24 @@ def cmd_action_approve(root, operation_id, learner, decision, dry):
                 return 0
 
         try:
-            approval = service.approve(operation_id, decision=decision,
-                                       human_channel="cli:%s" % _terminal_label())
+            approval = service.approve(
+                operation_id,
+                decision=decision,
+                human_channel="cli:%s" % _terminal_label(),
+            )
         except Exception as e:  # noqa: BLE001
             print("  отказ (%s): %s" % (getattr(e, "code", type(e).__name__), e))
             return 3
 
-        print("разрешение записано: %s (%s)" % (approval["approval_id"][:8],
-                                                approval["decision"]))
+        print(
+            "разрешение записано: %s (%s)"
+            % (approval["approval_id"][:8], approval["decision"])
+        )
         if decision == "granted":
-            print("выполнить: python scripts/cli.py env-apply --operation %s"
-                  % operation_id)
+            print(
+                "выполнить: python scripts/cli.py env-apply --operation %s"
+                % operation_id
+            )
         return 0
     finally:
         service.close()
@@ -1673,9 +1952,10 @@ def cmd_env_status(root, operation_id, course, learner, as_json):
                 return 0
             print("== операции ==")
             for item in items:
-                print("  %s  %-22s шаг %d/%s"
-                      % (item["operation_id"][:8], item["status"],
-                         item["next_step"], "?"))
+                print(
+                    "  %s  %-22s шаг %d/%s"
+                    % (item["operation_id"][:8], item["status"], item["next_step"], "?")
+                )
             return 0
 
         operation = service.get_operation(operation_id)
@@ -1684,15 +1964,20 @@ def cmd_env_status(root, operation_id, course, learner, as_json):
             return 2
         plan = service.get_plan(operation_id)
         if as_json:
-            print(json.dumps({"operation": operation, "plan": plan},
-                             ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    {"operation": operation, "plan": plan}, ensure_ascii=False, indent=2
+                )
+            )
             return 0
 
         print("== операция %s ==" % operation_id)
         print("  состояние   : %s" % operation["status"])
         print("  план-хеш    : %s" % operation["plan_hash"][:32])
-        print("  шагов       : %d, выполнено до %d"
-              % (len(plan["steps"]) if plan else 0, operation["next_step"]))
+        print(
+            "  шагов       : %d, выполнено до %d"
+            % (len(plan["steps"]) if plan else 0, operation["next_step"])
+        )
         if operation.get("started_at"):
             print("  начата      : %s" % operation["started_at"])
         if operation.get("finished_at"):
@@ -1714,15 +1999,23 @@ def cmd_operation_cancel(root, operation_id, learner, reason, reconcile):
     if service is None:
         return 2
     if not operation_id:
-        print("usage: cli.py operation-cancel --operation <id> [--reconcile] "
-              "[--reason ...]")
+        print(
+            "usage: cli.py operation-cancel --operation <id> [--reconcile] "
+            "[--reason ...]"
+        )
         return 2
     try:
         if reconcile:
             report = service.reconcile(operation_id)
             print("== восстановление операции %s ==" % operation_id)
-            for key in ("status", "next_step", "steps_total", "steps_finished",
-                        "failed_steps", "cancellation_requested"):
+            for key in (
+                "status",
+                "next_step",
+                "steps_total",
+                "steps_finished",
+                "failed_steps",
+                "cancellation_requested",
+            ):
                 print("  %-20s: %s" % (key, report.get(key)))
             print("  %s" % report["message_ru"])
             return 0
@@ -1760,14 +2053,20 @@ def cmd_contribute_start(root, course, session, role, task, repo, publish, learn
     store, core_contribution = opened
     try:
         import uuid as _uuid
+
         contribution_id = str(_uuid.uuid4())
         accepts_private = True
         try:
             from botai_core import course as core_course
+
             accepted = core_course.load_accepted(root, course)
             contribution_cfg = accepted.contract.get("contribution") or {}
-            accepts_private = bool(contribution_cfg.get("private_submission_allowed", True))
-            disclosure_required = bool(contribution_cfg.get("ai_disclosure_required", False))
+            accepts_private = bool(
+                contribution_cfg.get("private_submission_allowed", True)
+            )
+            disclosure_required = bool(
+                contribution_cfg.get("ai_disclosure_required", False)
+            )
             if not contribution_cfg.get("enabled"):
                 print("  контракт курса не включает вклад: %s" % course)
                 print("  это не ошибка агента, а условие курса")
@@ -1781,20 +2080,32 @@ def cmd_contribute_start(root, course, session, role, task, repo, publish, learn
             return 3
 
         document = core_contribution.new_contribution(
-            contribution_id=contribution_id, session_id=session, course_id=course,
-            role=role, task_ref=task, publication_choice=publish or "undecided",
+            contribution_id=contribution_id,
+            session_id=session,
+            course_id=course,
+            role=role,
+            task_ref=task,
+            publication_choice=publish or "undecided",
             ai_disclosure_required=disclosure_required,
             repository_root=repo,
         )
         document = core_contribution.select_task(document, task_ref=task, role=role)
         core_contribution.validate(document)
         store.apply(
-            kind=CONTRIBUTION_KIND, entity_id=contribution_id,
-            events=["contribution.started"], course_id=course,
+            kind=CONTRIBUTION_KIND,
+            entity_id=contribution_id,
+            events=["contribution.started"],
+            course_id=course,
             new_body=document,
-            event_payloads=[{"role": role, "task_ref": task,
-                             "publication_choice": document["publication_choice"],
-                             "_actor": "learner_cli", "_provenance": "human_input"}],
+            event_payloads=[
+                {
+                    "role": role,
+                    "task_ref": task,
+                    "publication_choice": document["publication_choice"],
+                    "_actor": "learner_cli",
+                    "_provenance": "human_input",
+                }
+            ],
         )
         print("== вклад открыт ==")
         print("  contribution_id : %s" % contribution_id)
@@ -1818,24 +2129,36 @@ def cmd_contribute_status(root, course, contribution_id, learner, as_json):
     store, core_contribution = opened
     try:
         if not contribution_id:
-            items = store.list_entities(CONTRIBUTION_KIND, course_id=course) if course else []
+            items = (
+                store.list_entities(CONTRIBUTION_KIND, course_id=course)
+                if course
+                else []
+            )
             if as_json:
                 print(json.dumps(items, ensure_ascii=False, indent=2))
                 return 0
             if not items:
                 print("вкладов не заведено")
-                print("начать: python scripts/cli.py contribute-start --course <slug> "
-                      "--task <ссылка>")
+                print(
+                    "начать: python scripts/cli.py contribute-start --course <slug> "
+                    "--task <ссылка>"
+                )
                 return 0
             print("== вклады ==")
             for item in items:
-                print("  %s  %-24s %s"
-                      % (item["contribution_id"][:8], item["state"],
-                         item.get("task_ref") or "—"))
+                print(
+                    "  %s  %-24s %s"
+                    % (
+                        item["contribution_id"][:8],
+                        item["state"],
+                        item.get("task_ref") or "—",
+                    )
+                )
             return 0
 
-        document, _version = store.get(CONTRIBUTION_KIND, contribution_id,
-                                       course_id=course)
+        document, _version = store.get(
+            CONTRIBUTION_KIND, contribution_id, course_id=course
+        )
         if document is None:
             print("вклад не найден: %s" % contribution_id)
             return 2
@@ -1849,8 +2172,13 @@ def cmd_contribute_status(root, course, contribution_id, learner, as_json):
                 snapshot = {"error": e.message, "code": e.code}
 
         if as_json:
-            print(json.dumps({"contribution": document, "git": snapshot},
-                             ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    {"contribution": document, "git": snapshot},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
             return 0
 
         print("== вклад %s ==" % contribution_id[:8])
@@ -1877,12 +2205,17 @@ def cmd_contribute_status(root, course, contribution_id, learner, as_json):
             print("  файлов в diff: %d" % len(snapshot.get("files_changed") or []))
             for path in (snapshot.get("files_changed") or [])[:10]:
                 print("    %s" % path)
-            if document.get("diff_hash") and snapshot.get("diff_hash") != document["diff_hash"]:
+            if (
+                document.get("diff_hash")
+                and snapshot.get("diff_hash") != document["diff_hash"]
+            ):
                 print()
                 print("  ВНИМАНИЕ: изменение изменилось после проверки.")
                 print("  Записанные проверки относятся к другой ревизии.")
 
-        ok, blocking, advisory = core_contribution.validate_draft(document, snapshot=snapshot)
+        ok, blocking, advisory = core_contribution.validate_draft(
+            document, snapshot=snapshot
+        )
         print()
         print("== готовность к публикации: %s ==" % ("да" if ok else "нет"))
         for item in blocking:
@@ -1909,7 +2242,10 @@ def cmd_contribute_draft(root, course, contribution_id, learner, out_path):
             return 2
 
         snapshot = None
-        if document.get("repository_root") and Path(document["repository_root"]).is_dir():
+        if (
+            document.get("repository_root")
+            and Path(document["repository_root"]).is_dir()
+        ):
             try:
                 snapshot = core_contribution.working_diff(document["repository_root"])
             except core_contribution.ContributionError:
@@ -1952,11 +2288,12 @@ def cmd_contribute_rehearsal(root, target_dir, dry):
 
     steps = [
         ("Создать учебный репозиторий", ["init", "-q"]),
-        ("Настроить локальную идентичность",
-         ["config", "user.email", "student@example.invalid"]),
+        (
+            "Настроить локальную идентичность",
+            ["config", "user.email", "student@example.invalid"],
+        ),
         ("Настроить имя", ["config", "user.name", "Учебный ученик"]),
-        ("Создать первый файл и коммит",
-         ["commit", "--allow-empty", "-qm", "initial"]),
+        ("Создать первый файл и коммит", ["commit", "--allow-empty", "-qm", "initial"]),
     ]
     if dry:
         print("== репетиция (предпросмотр) ==")
@@ -1984,13 +2321,24 @@ def cmd_contribute_rehearsal(root, target_dir, dry):
         student's identity, which is why the agent never makes one.
         """
         import subprocess as sp
+
         env = dict(os.environ)
-        env.update({"GIT_AUTHOR_NAME": "Учебный ученик",
-                    "GIT_AUTHOR_EMAIL": "student@example.invalid",
-                    "GIT_COMMITTER_NAME": "Учебный ученик",
-                    "GIT_COMMITTER_EMAIL": "student@example.invalid"})
-        return sp.run([git, *args], cwd=str(target), capture_output=True,
-                      text=True, env=env, timeout=30)
+        env.update(
+            {
+                "GIT_AUTHOR_NAME": "Учебный ученик",
+                "GIT_AUTHOR_EMAIL": "student@example.invalid",
+                "GIT_COMMITTER_NAME": "Учебный ученик",
+                "GIT_COMMITTER_EMAIL": "student@example.invalid",
+            }
+        )
+        return sp.run(
+            [git, *args],
+            cwd=str(target),
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
 
     setup_git("init", "-q")
     setup_git("config", "user.email", "student@example.invalid")
@@ -2000,7 +2348,9 @@ def cmd_contribute_rehearsal(root, target_dir, dry):
     setup_git("add", "hello.txt")
     setup_git("commit", "-qm", "initial: hello.txt")
 
-    (target / "hello.txt").write_text("первая строка\nвторая строка\n", encoding="utf-8")
+    (target / "hello.txt").write_text(
+        "первая строка\nвторая строка\n", encoding="utf-8"
+    )
     (target / "notes.txt").write_text("новый файл\n", encoding="utf-8")
     setup_git("add", "notes.txt")
 
@@ -2022,8 +2372,9 @@ def cmd_contribute_rehearsal(root, target_dir, dry):
     return 0
 
 
-def cmd_persona_set(root, persona_id, learner, course, low_stimulus, gamification,
-                    list_only):
+def cmd_persona_set(
+    root, persona_id, learner, course, low_stimulus, gamification, list_only
+):
     """Choose a presentation style. Style only — it changes no rules."""
     try:
         from botai_core import personas as core_personas
@@ -2050,12 +2401,15 @@ def cmd_persona_set(root, persona_id, learner, course, low_stimulus, gamificatio
         print("  задания, источники, правила помощи и оценивание.")
         return 0
 
-    settings = core_personas.resolve(persona_id, low_stimulus=low_stimulus,
-                                     gamification=gamification)
+    settings = core_personas.resolve(
+        persona_id, low_stimulus=low_stimulus, gamification=gamification
+    )
     print("== оформление занятия ==")
     print("  персона     : %s (%s)" % (settings["persona_id"], settings["title"]))
     print("  тон         : %s" % settings["tone"])
-    print("  награды     : %s" % ("включены" if settings["gamification"] else "выключены"))
+    print(
+        "  награды     : %s" % ("включены" if settings["gamification"] else "выключены")
+    )
     print("  без стимуляции: %s" % ("да" if settings["low_stimulus"] else "нет"))
     for note in settings["notes_ru"]:
         print("  примечание  : %s" % note)
@@ -2074,22 +2428,35 @@ def cmd_persona_set(root, persona_id, learner, course, low_stimulus, gamificatio
             entity_id = "%s:presentation" % course
             body, version = store.get("presentation", entity_id, course_id=course)
             document = dict(body or {})
-            document.update({
-                "schema_version": 2,
-                "course_id": course,
-                "persona_id": settings["persona_id"],
-                "gamification": settings["gamification"],
-                "low_stimulus": settings["low_stimulus"],
-            })
-            store.apply(kind="presentation", entity_id=entity_id,
-                        events=["profile.configured"], course_id=course,
-                        expected_version=version if body else None,
-                        new_body=document,
-                        event_payloads=[{"changed_fields": ["persona_id", "gamification",
-                                                            "low_stimulus"],
-                                         "provenance": "human_input",
-                                         "_actor": "learner_cli",
-                                         "_provenance": "human_input"}])
+            document.update(
+                {
+                    "schema_version": 2,
+                    "course_id": course,
+                    "persona_id": settings["persona_id"],
+                    "gamification": settings["gamification"],
+                    "low_stimulus": settings["low_stimulus"],
+                }
+            )
+            store.apply(
+                kind="presentation",
+                entity_id=entity_id,
+                events=["profile.configured"],
+                course_id=course,
+                expected_version=version if body else None,
+                new_body=document,
+                event_payloads=[
+                    {
+                        "changed_fields": [
+                            "persona_id",
+                            "gamification",
+                            "low_stimulus",
+                        ],
+                        "provenance": "human_input",
+                        "_actor": "learner_cli",
+                        "_provenance": "human_input",
+                    }
+                ],
+            )
             print()
             print("  Выбор сохранён для курса %s." % course)
         finally:
@@ -2117,8 +2484,9 @@ def cmd_achievements(root, course, learner, as_json):
         return 0
     try:
         awards = store.list_entities("achievement", course_id=course)
-        presentation, _ = store.get("presentation", "%s:presentation" % course,
-                                    course_id=course)
+        presentation, _ = store.get(
+            "presentation", "%s:presentation" % course, course_id=course
+        )
         gamification = bool((presentation or {}).get("gamification"))
         rendered = core_personas.render_achievements(awards, gamification=gamification)
 
@@ -2130,8 +2498,10 @@ def cmd_achievements(root, course, learner, as_json):
         if not rendered["shown"]:
             print("  %s" % rendered["reason_ru"])
             print()
-            print("  Включить: python scripts/cli.py persona-set --persona neutral "
-                  "--course %s --gamification" % course)
+            print(
+                "  Включить: python scripts/cli.py persona-set --persona neutral "
+                "--course %s --gamification" % course
+            )
             return 0
 
         if not rendered["items"]:
@@ -2148,7 +2518,10 @@ def cmd_achievements(root, course, learner, as_json):
             print()
             print("  Снятые награды:")
             for award in revoked:
-                print("    %s — %s" % (award.get("title_ru"), award.get("revocation_reason_ru")))
+                print(
+                    "    %s — %s"
+                    % (award.get("title_ru"), award.get("revocation_reason_ru"))
+                )
         return 0
     finally:
         store.close()
@@ -2184,8 +2557,10 @@ def cmd_privacy_preview(root, course, learner, objectives, recipient, include):
         print("ядро v2 недоступно: %s" % e)
         return 2
     if not course:
-        print("usage: cli.py privacy-preview --course <slug> "
-              "[--objective <id> ...] [--recipient <метка>]")
+        print(
+            "usage: cli.py privacy-preview --course <slug> "
+            "[--objective <id> ...] [--recipient <метка>]"
+        )
         return 2
     try:
         accepted = core_course.load_accepted(root, course)
@@ -2206,18 +2581,24 @@ def cmd_privacy_preview(root, course, learner, objectives, recipient, include):
         print("  Записей ещё нет: экспортировать нечего.")
         print()
         print("  Чего в пакете не будет никогда:")
-        for item in ("полные тексты попыток и сырой чат",
-                     "имя, контакты и любые прямые идентификаторы личности",
-                     "секреты, токены и переменные окружения",
-                     "работы других обучающихся"):
+        for item in (
+            "полные тексты попыток и сырой чат",
+            "имя, контакты и любые прямые идентификаторы личности",
+            "секреты, токены и переменные окружения",
+            "работы других обучающихся",
+        ):
             print("    - %s" % item)
         print()
         print("  Согласие на передачу преподавателю тоже не записано.")
         return 3
     try:
         preview = core_exports.preview(
-            store, accepted, course_revision=accepted.revision, selection={},
-            objective_ids=objectives, recipient_label=recipient,
+            store,
+            accepted,
+            course_revision=accepted.revision,
+            selection={},
+            objective_ids=objectives,
+            recipient_label=recipient,
             include_evidence="evidence" in include,
             include_questions="questions" in include,
             include_environment="environment" in include,
@@ -2229,8 +2610,10 @@ def cmd_privacy_preview(root, course, learner, objectives, recipient, include):
         print("  согласие    : %s" % preview["consent"]["message_ru"])
         print()
         print("  Состав:")
-        print("    цели           : %s"
-              % (", ".join(preview["will_include"]["objective_states"]) or "(ничего)"))
+        print(
+            "    цели           : %s"
+            % (", ".join(preview["will_include"]["objective_states"]) or "(ничего)")
+        )
         print("    доказательств  : %d" % preview["will_include"]["evidence_items"])
         print("    выдержек текста: %d" % preview["will_include"]["text_excerpts"])
         print("    вопросов       : %d" % preview["will_include"]["questions"])
@@ -2244,16 +2627,17 @@ def cmd_privacy_preview(root, course, learner, objectives, recipient, include):
             print()
             print("  Согласие на передачу не записано, поэтому создание пакета")
             print("  будет отклонено. Оформить:")
-            print("    python scripts/cli.py consent-set --course %s "
-                  "--purpose teacher_export" % course)
+            print(
+                "    python scripts/cli.py consent-set --course %s "
+                "--purpose teacher_export" % course
+            )
             return 3
         return 0
     finally:
         store.close()
 
 
-def cmd_privacy_export(root, course, learner, objectives, out_dir, include,
-                       dry):
+def cmd_privacy_export(root, course, learner, objectives, out_dir, include, dry):
     """Create the packet file. A human operation; nothing is sent anywhere."""
     try:
         from botai_core import course as core_course, exports as core_exports
@@ -2262,8 +2646,10 @@ def cmd_privacy_export(root, course, learner, objectives, out_dir, include,
         print("ядро v2 недоступно: %s" % e)
         return 2
     if not course:
-        print("usage: cli.py privacy-export --course <slug> [--objective <id> ...] "
-              "[--out <каталог>]")
+        print(
+            "usage: cli.py privacy-export --course <slug> [--objective <id> ...] "
+            "[--out <каталог>]"
+        )
         return 2
     try:
         accepted = core_course.load_accepted(root, course)
@@ -2271,16 +2657,22 @@ def cmd_privacy_export(root, course, learner, objectives, out_dir, include,
         print("  отказ (%s): %s" % (e.code, e.message))
         return 3
 
-    store = core_store.Store.open(root, learner or default_learner_id(root),
-                                  create=False)
+    store = core_store.Store.open(
+        root, learner or default_learner_id(root), create=False
+    )
     try:
         if not objectives:
-            print("нужен хотя бы один --objective: пустой выбор не экспортирует "
-                  "ничего, а «всё подряд» здесь не предусмотрено")
+            print(
+                "нужен хотя бы один --objective: пустой выбор не экспортирует "
+                "ничего, а «всё подряд» здесь не предусмотрено"
+            )
             return 2
         try:
             packet = core_exports.build_packet(
-                store, accepted, course_revision=accepted.revision, selection={},
+                store,
+                accepted,
+                course_revision=accepted.revision,
+                selection={},
                 objective_ids=objectives,
                 include_evidence="evidence" in include,
                 include_questions="questions" in include,
@@ -2323,8 +2715,9 @@ def cmd_privacy_delete(root, course, learner, plan_only):
         print("ядро v2 недоступно: %s" % e)
         return 2
 
-    store = core_store.Store.open(root, learner or default_learner_id(root),
-                                  create=False)
+    store = core_store.Store.open(
+        root, learner or default_learner_id(root), create=False
+    )
     try:
         plan = core_exports.deletion_plan(store, course_id=course)
         print("== план удаления ==")
@@ -2333,7 +2726,10 @@ def cmd_privacy_delete(root, course, learner, plan_only):
         for kind, count in (plan["would_delete"]["entities"] or {}).items():
             print("    %-24s %d" % (kind, count))
         print("    %-24s %d" % ("события", plan["would_delete"]["events"]))
-        print("    %-24s %d" % ("ссылки на артефакты", plan["would_delete"]["artifact_refs"]))
+        print(
+            "    %-24s %d"
+            % ("ссылки на артефакты", plan["would_delete"]["artifact_refs"])
+        )
         print("  останется:")
         print("    %s" % plan["would_keep"]["reason_ru"])
         print()
@@ -2393,7 +2789,8 @@ def cmd_teacher_import(root, learner, packet_path):
     try:
         try:
             record, version, replayed = core_teacher.import_packet(
-                store, document, source_label=path.name)
+                store, document, source_label=path.name
+            )
         except core_teacher.TeacherError as e:
             print("  отказ (%s): %s" % (e.code, e.message))
             return 3
@@ -2492,8 +2889,9 @@ def _detect_host_version(host):
     for command in commands:
         use_shell = isinstance(command, str)
         try:
-            completed = subprocess.run(command, capture_output=True, text=True,
-                                       timeout=30, shell=use_shell)
+            completed = subprocess.run(
+                command, capture_output=True, text=True, timeout=30, shell=use_shell
+            )
         except (OSError, subprocess.SubprocessError):
             continue
         text = ((completed.stdout or "") + (completed.stderr or "")).strip()
@@ -2511,8 +2909,10 @@ def cmd_adapter_check(root, host, config_path, version, as_json):
         print("ядро v2 недоступно: %s" % e)
         return 2
     if not host:
-        print("usage: cli.py adapter-check --host opencode [--config <файл>] "
-              "[--version <версия>]")
+        print(
+            "usage: cli.py adapter-check --host opencode [--config <файл>] "
+            "[--version <версия>]"
+        )
         print()
         print("Хосты с адаптером: %s" % ", ".join(core_adapters.KNOWN_HOSTS))
         return 2
@@ -2533,8 +2933,13 @@ def cmd_adapter_check(root, host, config_path, version, as_json):
 
     report = core_adapters.adapter_check(
         host,
-        config_path=Path(config_path) if config_path else (candidate if candidate.is_file() else None),
-        document=document, version=version, workspace_root=root)
+        config_path=Path(config_path)
+        if config_path
+        else (candidate if candidate.is_file() else None),
+        document=document,
+        version=version,
+        workspace_root=root,
+    )
 
     if as_json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -2573,8 +2978,11 @@ def cmd_adapter_install(root, host, dry):
         print("  ничего не записано (--dry-run)")
         return 0
 
-    target.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
-                      encoding="utf-8", newline="\n")
+    target.write_text(
+        json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     print()
     print("  Профиль записан только в этот проект; глобальные настройки не тронуты.")
     print("  Проверьте итоговую конфигурацию хоста:")
@@ -2629,8 +3037,11 @@ def cmd_skills_audit(root, as_json):
     total = len(list(skills_root.rglob("SKILL.md")))
 
     if as_json:
-        print(json.dumps({"skills": total, "findings": findings},
-                         ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"skills": total, "findings": findings}, ensure_ascii=False, indent=2
+            )
+        )
         return 0 if not findings else 3
 
     print("== проверка навыков ==")
@@ -2674,9 +3085,13 @@ def cmd_skill_check(path, as_json):
         report = core_skills.normalise_skill(text, source=str(target))
     except core_skills.SkillRejected as e:
         if as_json:
-            print(json.dumps({"ok": False, "code": e.code,
-                              "message_ru": e.message}, ensure_ascii=False,
-                             indent=2))
+            print(
+                json.dumps(
+                    {"ok": False, "code": e.code, "message_ru": e.message},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         else:
             print("  отказ (%s): %s" % (e.code, e.message))
         return 3
@@ -2693,8 +3108,11 @@ def cmd_skill_check(path, as_json):
         print()
         print("  Будет снято:")
         for item in report["removed_fields"]:
-            reason = ("повышает навык в правах" if item["reason"] == "self_promoting"
-                      else "поле не из формата botai")
+            reason = (
+                "повышает навык в правах"
+                if item["reason"] == "self_promoting"
+                else "поле не из формата botai"
+            )
             print("    %-18s %s" % (item["field"], reason))
     print()
     print("  %s" % report["note_ru"])
@@ -2706,7 +3124,10 @@ def parse_confirm_split(values):
     mapping = {}
     for item in values or []:
         if "=" not in item:
-            sys.exit("--confirm-split ожидает вид stu-01=<id-обучающегося>, получено: %r" % item)
+            sys.exit(
+                "--confirm-split ожидает вид stu-01=<id-обучающегося>, получено: %r"
+                % item
+            )
         legacy_id, _, learner_id = item.partition("=")
         legacy_id, learner_id = legacy_id.strip(), learner_id.strip()
         if not legacy_id or not learner_id:
@@ -2734,8 +3155,15 @@ def default_learner_id(root):
             pass
     learner_id = str(_uuid.uuid4())
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(_json.dumps({"schema_version": 2, "learner_id": learner_id},
-                                  ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    marker.write_text(
+        _json.dumps(
+            {"schema_version": 2, "learner_id": learner_id},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return learner_id
 
 
@@ -3539,167 +3967,354 @@ def cmd_offline_status(root, course, as_json):
 
 def main():
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
-    ap.add_argument("command", choices=["setup", "new-course", "progress", "review",
-                                        "courses", "course-set", "active", "corpus",
-                                        "update", "course-add", "course-update",
-                                        "course-inspect", "course-accept", "course-status",
-                                        "policy-check",
-                                        "session-start", "session-next", "session-goal",
-                                        "session-attempt", "session-check", "session-pause",
-                                        "consent-set", "consent-withdraw",
-                                        "corpus-status", "corpus-acquire",
-                                        "source-search", "quote-verify",
-                                        "env-plan", "action-approve", "env-apply",
-                                        "env-status", "operation-cancel",
-                                        "contribute-start", "contribute-status",
-                                        "contribute-draft", "contribute-rehearsal",
-                                        "persona-set", "achievements",
-                                        "privacy-preview", "privacy-export",
-                                        "privacy-delete",
-                                        "teacher-import", "teacher-summary",
-                                        "adapter-check", "adapter-install",
-                                        "catalog-check",
-                                        "skills-audit", "skill-check",
-                                        "state-migrate",
-                                        "doctor", "clean",
-                                        "profile-show",
-                                        "profile-reset",
-                                        "review-due",
-                                        "cohort-create",
-                                        "cohort-report",
-                                        "cohort-group",
-                                        "analytics-report",
-                                        "detect-risk",
-                                        "experiment-run",
-                                        "tutorial-start",
-                                        "security-audit",
-                                        "voice-status",
-                                        "set-language",
-                                        "offline-status",
-                                        ])
+    ap.add_argument(
+        "command",
+        choices=[
+            "setup",
+            "new-course",
+            "progress",
+            "review",
+            "courses",
+            "course-set",
+            "active",
+            "corpus",
+            "update",
+            "course-add",
+            "course-update",
+            "course-inspect",
+            "course-accept",
+            "course-status",
+            "policy-check",
+            "session-start",
+            "session-next",
+            "session-goal",
+            "session-attempt",
+            "session-check",
+            "session-pause",
+            "consent-set",
+            "consent-withdraw",
+            "corpus-status",
+            "corpus-acquire",
+            "source-search",
+            "quote-verify",
+            "env-plan",
+            "action-approve",
+            "env-apply",
+            "env-status",
+            "operation-cancel",
+            "contribute-start",
+            "contribute-status",
+            "contribute-draft",
+            "contribute-rehearsal",
+            "persona-set",
+            "achievements",
+            "privacy-preview",
+            "privacy-export",
+            "privacy-delete",
+            "teacher-import",
+            "teacher-summary",
+            "adapter-check",
+            "adapter-install",
+            "catalog-check",
+            "skills-audit",
+            "skill-check",
+            "state-migrate",
+            "doctor",
+            "clean",
+            "profile-show",
+            "profile-reset",
+            "review-due",
+            "cohort-create",
+            "cohort-report",
+            "cohort-group",
+            "analytics-report",
+            "detect-risk",
+            "experiment-run",
+            "tutorial-start",
+            "security-audit",
+            "voice-status",
+            "set-language",
+            "self-improve",
+            "offline-status",
+        ],
+    )
     ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
-    ap.add_argument("--course", help="course slug for progress/review/course-set/corpus/course-update")
+    ap.add_argument(
+        "--course",
+        help="course slug for progress/review/course-set/corpus/course-update",
+    )
     ap.add_argument("--url", help="git URL of the course repository (course-add)")
     ap.add_argument("--ref", help="branch/tag/commit (update/course-add/course-update)")
     ap.add_argument("--source", help="upstream harness repository (update)")
-    ap.add_argument("--mode", choices=["auto", "git", "archive"], default="auto",
-                    help="update: how to update the harness (auto by default)")
-    ap.add_argument("--check", action="store_true",
-                    help="update/course-update: report only (exit code 10 = update available)")
-    ap.add_argument("--overwrite", action="store_true",
-                    help="update: also replace locally edited harness files (backed up first)")
-    ap.add_argument("--take-upstream", action="store_true",
-                    help="course-update: also replace locally edited course files (backed up first)")
-    ap.add_argument("--commit-and-update", dest="commit", action="store_true",
-                    help="course-update: commit the course's pending work first, then update it")
-    ap.add_argument("--prune", action="store_true",
-                    help="update: remove files the harness no longer ships (backed up first)")
+    ap.add_argument(
+        "--mode",
+        choices=["auto", "git", "archive"],
+        default="auto",
+        help="update: how to update the harness (auto by default)",
+    )
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="update/course-update: report only (exit code 10 = update available)",
+    )
+    ap.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="update: also replace locally edited harness files (backed up first)",
+    )
+    ap.add_argument(
+        "--take-upstream",
+        action="store_true",
+        help="course-update: also replace locally edited course files (backed up first)",
+    )
+    ap.add_argument(
+        "--commit-and-update",
+        dest="commit",
+        action="store_true",
+        help="course-update: commit the course's pending work first, then update it",
+    )
+    ap.add_argument(
+        "--prune",
+        action="store_true",
+        help="update: remove files the harness no longer ships (backed up first)",
+    )
     ap.add_argument("--root", help="project root (default: cwd or BOTAI_ROOT)")
-    ap.add_argument("--force", action="store_true",
-                    help="corpus: refetch even when installed; course-add: replace the directory")
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="corpus: refetch even when installed; course-add: replace the directory",
+    )
     ap.add_argument("--dry-run", action="store_true", help="preview, change nothing")
-    ap.add_argument("--apply", action="store_true",
-                    help="state-migrate: actually import (without it the command only reports)")
+    ap.add_argument(
+        "--apply",
+        action="store_true",
+        help="state-migrate: actually import (without it the command only reports)",
+    )
     ap.add_argument("--learner", help="state-migrate: learner id the record belongs to")
-    ap.add_argument("--confirm-split", action="append", default=[],
-                    metavar="LEGACY_ID=LEARNER_ID",
-                    help="state-migrate: explicit attribution for a multi-student file")
-    ap.add_argument("--assignment",
-                    help="policy-check / session-attempt: assignment id from the accepted contract")
-    ap.add_argument("--level", choices=["HINT", "EXAMPLE", "SOLUTION"], default="HINT",
-                    help="policy-check / session: level of help being considered")
-    ap.add_argument("--preference", default="prefer-ask",
-                    choices=["hints", "hints-then-solution", "solution-first", "prefer-ask"],
-                    help="policy-check: the learner's recorded feedback preference")
-    ap.add_argument("--kind", choices=["maintainer_manifest", "human_adapted_legacy"],
-                    help="course-accept: how acceptance came about")
-    ap.add_argument("--teaching-remote", help="course-accept: remote course updates come from")
-    ap.add_argument("--teaching-branch", help="course-accept: branch course updates come from")
-    ap.add_argument("--contribution-remote",
-                    help="course-accept: the student's fork, when there is one")
+    ap.add_argument(
+        "--confirm-split",
+        action="append",
+        default=[],
+        metavar="LEGACY_ID=LEARNER_ID",
+        help="state-migrate: explicit attribution for a multi-student file",
+    )
+    ap.add_argument(
+        "--generations",
+        type=int,
+        default=1,
+        help="self-improve: number of self-improvement generations (default: 1)",
+    )
+    ap.add_argument(
+        "--lineage",
+        choices=["all", "pedagogical_capability", "adaptive_scaffolding"],
+        default="all",
+        help="self-improve: lineage filter (all, pedagogical_capability, adaptive_scaffolding)",
+    )
+    ap.add_argument(
+        "--assignment",
+        help="policy-check / session-attempt: assignment id from the accepted contract",
+    )
+    ap.add_argument(
+        "--level",
+        choices=["HINT", "EXAMPLE", "SOLUTION"],
+        default="HINT",
+        help="policy-check / session: level of help being considered",
+    )
+    ap.add_argument(
+        "--preference",
+        default="prefer-ask",
+        choices=["hints", "hints-then-solution", "solution-first", "prefer-ask"],
+        help="policy-check: the learner's recorded feedback preference",
+    )
+    ap.add_argument(
+        "--kind",
+        choices=["maintainer_manifest", "human_adapted_legacy"],
+        help="course-accept: how acceptance came about",
+    )
+    ap.add_argument(
+        "--teaching-remote", help="course-accept: remote course updates come from"
+    )
+    ap.add_argument(
+        "--teaching-branch", help="course-accept: branch course updates come from"
+    )
+    ap.add_argument(
+        "--contribution-remote",
+        help="course-accept: the student's fork, when there is one",
+    )
     ap.add_argument("--session", help="session id for the session-* commands")
     ap.add_argument("--objective", help="objective id (session-goal/session-attempt)")
-    ap.add_argument("--objectives", action="append", default=[],
-                    metavar="OBJECTIVE_ID", help="session-start: objective for this sitting")
-    ap.add_argument("--minutes", type=int, default=30,
-                    help="session-start: agreed length of the sitting (5-120)")
-    ap.add_argument("--modes", action="append", default=[],
-                    help="session-start: tutoring/co-learning/supplement/contributor")
-    ap.add_argument("--confirm", action="store_true",
-                    help="session-goal: start work on the chosen objective")
+    ap.add_argument(
+        "--objectives",
+        action="append",
+        default=[],
+        metavar="OBJECTIVE_ID",
+        help="session-start: objective for this sitting",
+    )
+    ap.add_argument(
+        "--minutes",
+        type=int,
+        default=30,
+        help="session-start: agreed length of the sitting (5-120)",
+    )
+    ap.add_argument(
+        "--modes",
+        action="append",
+        default=[],
+        help="session-start: tutoring/co-learning/supplement/contributor",
+    )
+    ap.add_argument(
+        "--confirm",
+        action="store_true",
+        help="session-goal: start work on the chosen objective",
+    )
     ap.add_argument("--attempt", help="session-check: attempt id being checked")
     # Named `--check-kind` rather than `--kind`: `--kind` is already the
     # acceptance kind for `course-accept`, and two meanings for one flag is how
     # a CLI starts silently doing the wrong thing.
-    ap.add_argument("--check-kind",
-                    choices=["explain", "predict", "apply", "transfer", "critique",
-                             "diagnostic"],
-                    help="session-check: kind of check being recorded")
-    ap.add_argument("--attempt-file", help="session-attempt: read the attempt text from a file")
-    ap.add_argument("--criterion", action="append", default=[],
-                    metavar="ID=RESULT[:EVIDENCE,...]",
-                    help="session-check: criterion result (pass needs evidence)")
-    ap.add_argument("--verdict", choices=["pass", "partial", "fail", "uncertain"],
-                    help="session-check: overall verdict")
-    ap.add_argument("--target", choices=["PAUSED", "BLOCKED", "COMPLETED", "CANCELLED"],
-                    help="session-pause: where the session moves to")
+    ap.add_argument(
+        "--check-kind",
+        choices=["explain", "predict", "apply", "transfer", "critique", "diagnostic"],
+        help="session-check: kind of check being recorded",
+    )
+    ap.add_argument(
+        "--attempt-file", help="session-attempt: read the attempt text from a file"
+    )
+    ap.add_argument(
+        "--criterion",
+        action="append",
+        default=[],
+        metavar="ID=RESULT[:EVIDENCE,...]",
+        help="session-check: criterion result (pass needs evidence)",
+    )
+    ap.add_argument(
+        "--verdict",
+        choices=["pass", "partial", "fail", "uncertain"],
+        help="session-check: overall verdict",
+    )
+    ap.add_argument(
+        "--target",
+        choices=["PAUSED", "BLOCKED", "COMPLETED", "CANCELLED"],
+        help="session-pause: where the session moves to",
+    )
     ap.add_argument("--reason", help="session-pause: why (required for BLOCKED)")
     ap.add_argument("--resume", help="session-pause: state to return to on resume")
-    ap.add_argument("--purpose", action="append", default=[],
-                    metavar="PURPOSE",
-                    help="consent-set: learning_storage/model_processing/"
-                         "teacher_export/publication")
-    ap.add_argument("--provider", help="consent-set: which model provider sees the data")
-    ap.add_argument("--retention", type=int, default=180,
-                    help="consent-set: how many days learning data is kept")
+    ap.add_argument(
+        "--purpose",
+        action="append",
+        default=[],
+        metavar="PURPOSE",
+        help="consent-set: learning_storage/model_processing/"
+        "teacher_export/publication",
+    )
+    ap.add_argument(
+        "--provider", help="consent-set: which model provider sees the data"
+    )
+    ap.add_argument(
+        "--retention",
+        type=int,
+        default=180,
+        help="consent-set: how many days learning data is kept",
+    )
     ap.add_argument("--consent", help="consent-withdraw: consent id to withdraw")
     ap.add_argument("--query", help="source-search: what to look for")
-    ap.add_argument("--limit", type=int, default=5, help="source-search: max hits (1-8)")
+    ap.add_argument(
+        "--limit", type=int, default=5, help="source-search: max hits (1-8)"
+    )
     ap.add_argument("--citation", help="quote-verify: JSON file with the citation")
-    ap.add_argument("--offline", action="store_true",
-                    help="corpus-acquire: use only what is already local")
+    ap.add_argument(
+        "--offline",
+        action="store_true",
+        help="corpus-acquire: use only what is already local",
+    )
     ap.add_argument("--spec", help="env-plan: environment spec JSON file")
-    ap.add_argument("--operation", help="operation id (env-apply/action-approve/env-status)")
-    ap.add_argument("--deny", action="store_true",
-                    help="action-approve: record a refusal instead of a grant")
-    ap.add_argument("--reconcile", action="store_true",
-                    help="operation-cancel: inspect state instead of cancelling")
-    ap.add_argument("--role", choices=["expert", "researcher", "developer"],
-                    default="developer", help="contribute-start: kind of contribution")
+    ap.add_argument(
+        "--operation", help="operation id (env-apply/action-approve/env-status)"
+    )
+    ap.add_argument(
+        "--deny",
+        action="store_true",
+        help="action-approve: record a refusal instead of a grant",
+    )
+    ap.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="operation-cancel: inspect state instead of cancelling",
+    )
+    ap.add_argument(
+        "--role",
+        choices=["expert", "researcher", "developer"],
+        default="developer",
+        help="contribute-start: kind of contribution",
+    )
     ap.add_argument("--task", help="contribute-start: link or description of the task")
     ap.add_argument("--repo", help="contribute-start: path to the course repository")
-    ap.add_argument("--publish", choices=["public_pr", "private_package", "undecided"],
-                    default="undecided", help="contribute-start: how the student will submit")
+    ap.add_argument(
+        "--publish",
+        choices=["public_pr", "private_package", "undecided"],
+        default="undecided",
+        help="contribute-start: how the student will submit",
+    )
     ap.add_argument("--contribution", help="contribution id (contribute-status/draft)")
-    ap.add_argument("--dest", help="contribute-rehearsal: where to build the practice repo")
+    ap.add_argument(
+        "--dest", help="contribute-rehearsal: where to build the practice repo"
+    )
     ap.add_argument("--out", help="contribute-draft: write the draft to this file")
     ap.add_argument("--persona", help="persona-set: neutral/colleague/expedition")
-    ap.add_argument("--list", action="store_true",
-                    help="persona-set: list the available personas")
-    ap.add_argument("--low-stimulus", dest="low_stimulus", action="store_true",
-                    help="persona-set: disable role insertions and badges")
-    ap.add_argument("--gamification", action="store_true",
-                    help="persona-set: opt in to personal badges")
+    ap.add_argument(
+        "--list", action="store_true", help="persona-set: list the available personas"
+    )
+    ap.add_argument(
+        "--low-stimulus",
+        dest="low_stimulus",
+        action="store_true",
+        help="persona-set: disable role insertions and badges",
+    )
+    ap.add_argument(
+        "--gamification",
+        action="store_true",
+        help="persona-set: opt in to personal badges",
+    )
     ap.add_argument("--recipient", help="privacy-preview: label of the recipient")
-    ap.add_argument("--include", action="append", default=[],
-                    choices=["evidence", "questions", "environment", "excerpts"],
-                    help="privacy-*: what the packet should include (repeatable)")
-    ap.add_argument("--out-dir", dest="out_dir",
-                    help="privacy-export: directory for the packet file")
-    ap.add_argument("--plan", action="store_true",
-                    help="privacy-delete: show the plan and stop")
+    ap.add_argument(
+        "--include",
+        action="append",
+        default=[],
+        choices=["evidence", "questions", "environment", "excerpts"],
+        help="privacy-*: what the packet should include (repeatable)",
+    )
+    ap.add_argument(
+        "--out-dir",
+        dest="out_dir",
+        help="privacy-export: directory for the packet file",
+    )
+    ap.add_argument(
+        "--plan", action="store_true", help="privacy-delete: show the plan and stop"
+    )
     ap.add_argument("--packet", help="teacher-import: packet JSON file")
-    ap.add_argument("--queue", action="store_true",
-                    help="teacher-summary: show the triage queue instead of the summary")
-    ap.add_argument("--host", help="adapter-check/install: opencode, claude-code, cursor, …")
-    ap.add_argument("--config", help="adapter-check: host configuration file to inspect")
+    ap.add_argument(
+        "--queue",
+        action="store_true",
+        help="teacher-summary: show the triage queue instead of the summary",
+    )
+    ap.add_argument(
+        "--host", help="adapter-check/install: opencode, claude-code, cursor, …"
+    )
+    ap.add_argument(
+        "--config", help="adapter-check: host configuration file to inspect"
+    )
     ap.add_argument("--version", help="adapter-check: host version actually in use")
     ap.add_argument("--catalog", help="catalog-check: path to the external catalogue")
-    ap.add_argument("--wait", action="store_true",
-                    help="env-apply: wait for completion (default in this CLI)")
-    ap.add_argument("--json", action="store_true",
-                    help="progress/corpus-status/source-search/quote-verify/env-status: emit JSON")
+    ap.add_argument(
+        "--wait",
+        action="store_true",
+        help="env-apply: wait for completion (default in this CLI)",
+    )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="progress/corpus-status/source-search/quote-verify/env-status: emit JSON",
+    )
     # Adaptive-pedagogy flags. `--check` is already taken above (update /
     # course-update: report only, and mutually exclusive with --dry-run), so
     # `security-audit` selects its sections with `--audit-check`. Two meanings
@@ -3794,12 +4409,23 @@ def main():
     elif cmd == "corpus":
         sys.exit(cmd_corpus(root, args.course, args.dry_run, args.force))
     elif cmd == "update":
-        sys.exit(U.run(root=root, source=args.source, ref=args.ref, mode=args.mode,
-                       check=args.check, dry_run=args.dry_run,
-                       overwrite=args.overwrite, prune=args.prune))
+        sys.exit(
+            U.run(
+                root=root,
+                source=args.source,
+                ref=args.ref,
+                mode=args.mode,
+                check=args.check,
+                dry_run=args.dry_run,
+                overwrite=args.overwrite,
+                prune=args.prune,
+            )
+        )
     elif cmd == "course-add":
         if not args.url:
-            sys.exit("usage: cli.py course-add --url <git-url> [--name <slug>] [--ref <ref>]")
+            sys.exit(
+                "usage: cli.py course-add --url <git-url> [--name <slug>] [--ref <ref>]"
+            )
         # --dry-run must reach fetch_course: a preview that still clones is not
         # a preview, and the previous wiring dropped the flag on the floor.
         if args.force:
@@ -3809,134 +4435,289 @@ def main():
                 "  python scripts/cli.py course-update --course <slug>\n"
                 "или получите рядом другую копию: --name <slug>-2"
             )
-        sys.exit(C.fetch_course(root, args.url, args.name, args.ref,
-                                force=False, dry=args.dry_run))
+        sys.exit(
+            C.fetch_course(
+                root, args.url, args.name, args.ref, force=False, dry=args.dry_run
+            )
+        )
     elif cmd == "course-update":
         if not args.course:
             sys.exit("usage: cli.py course-update --course <slug> [--check|--dry-run]")
-        sys.exit(C.update_course(root, args.course, check=args.check, dry=args.dry_run,
-                                 take_upstream=args.take_upstream, ref=args.ref,
-                                 commit=args.commit))
+        sys.exit(
+            C.update_course(
+                root,
+                args.course,
+                check=args.check,
+                dry=args.dry_run,
+                take_upstream=args.take_upstream,
+                ref=args.ref,
+                commit=args.commit,
+            )
+        )
     elif cmd == "state-migrate":
-        sys.exit(cmd_state_migrate(root, args.course, args.dry_run, args.learner,
-                                   parse_confirm_split(args.confirm_split), apply=args.apply))
+        sys.exit(
+            cmd_state_migrate(
+                root,
+                args.course,
+                args.dry_run,
+                args.learner,
+                parse_confirm_split(args.confirm_split),
+                apply=args.apply,
+            )
+        )
     elif cmd == "course-inspect":
         sys.exit(cmd_course_inspect(root, args.course, args.dry_run))
     elif cmd == "course-accept":
-        sys.exit(cmd_course_accept(root, args.course, args.dry_run, kind=args.kind,
-                                   url=args.url, teaching_remote=args.teaching_remote,
-                                   teaching_branch=args.teaching_branch,
-                                   contribution_remote=args.contribution_remote))
+        sys.exit(
+            cmd_course_accept(
+                root,
+                args.course,
+                args.dry_run,
+                kind=args.kind,
+                url=args.url,
+                teaching_remote=args.teaching_remote,
+                teaching_branch=args.teaching_branch,
+                contribution_remote=args.contribution_remote,
+            )
+        )
     elif cmd == "course-status":
         sys.exit(cmd_course_status(root, args.course, args.dry_run))
     elif cmd == "policy-check":
-        sys.exit(cmd_policy_check(root, args.course, args.assignment, args.level,
-                                  args.preference))
+        sys.exit(
+            cmd_policy_check(
+                root, args.course, args.assignment, args.level, args.preference
+            )
+        )
     elif cmd == "session-start":
-        sys.exit(cmd_session_start(root, args.course, args.learner, args.objectives,
-                                   args.minutes, args.modes or ["tutoring"],
-                                   args.dry_run))
+        sys.exit(
+            cmd_session_start(
+                root,
+                args.course,
+                args.learner,
+                args.objectives,
+                args.minutes,
+                args.modes or ["tutoring"],
+                args.dry_run,
+            )
+        )
     elif cmd == "session-next":
         if not args.session:
             sys.exit("usage: cli.py session-next --session <id> --course <slug>")
         sys.exit(cmd_session_next(root, args.course, args.session, args.learner))
     elif cmd == "session-goal":
         if not (args.session and args.objective):
-            sys.exit("usage: cli.py session-goal --session <id> --objective <id> "
-                     "[--assignment <id>] [--confirm]")
-        sys.exit(cmd_session_goal(root, args.course, args.session, args.objective,
-                                  args.assignment, args.learner, args.confirm))
+            sys.exit(
+                "usage: cli.py session-goal --session <id> --objective <id> "
+                "[--assignment <id>] [--confirm]"
+            )
+        sys.exit(
+            cmd_session_goal(
+                root,
+                args.course,
+                args.session,
+                args.objective,
+                args.assignment,
+                args.learner,
+                args.confirm,
+            )
+        )
     elif cmd == "session-attempt":
         if not args.session:
-            sys.exit("usage: cli.py session-attempt --session <id> [--attempt-file <path>]")
-        sys.exit(cmd_session_attempt(root, args.course, args.session, args.objective,
-                                     args.assignment, args.learner, args.attempt_file))
+            sys.exit(
+                "usage: cli.py session-attempt --session <id> [--attempt-file <path>]"
+            )
+        sys.exit(
+            cmd_session_attempt(
+                root,
+                args.course,
+                args.session,
+                args.objective,
+                args.assignment,
+                args.learner,
+                args.attempt_file,
+            )
+        )
     elif cmd == "session-check":
         if not (args.session and args.attempt and args.verdict and args.check_kind):
-            sys.exit("usage: cli.py session-check --session <id> --attempt <id> "
-                     "--check-kind explain|predict|apply|transfer|critique "
-                     "--verdict pass|partial|fail|uncertain "
-                     "--criterion <criterion_id>=<result>[:<evidence>]")
-        sys.exit(cmd_session_check(root, args.course, args.session, args.attempt,
-                                   args.check_kind, args.verdict, args.criterion,
-                                   args.learner))
+            sys.exit(
+                "usage: cli.py session-check --session <id> --attempt <id> "
+                "--check-kind explain|predict|apply|transfer|critique "
+                "--verdict pass|partial|fail|uncertain "
+                "--criterion <criterion_id>=<result>[:<evidence>]"
+            )
+        sys.exit(
+            cmd_session_check(
+                root,
+                args.course,
+                args.session,
+                args.attempt,
+                args.check_kind,
+                args.verdict,
+                args.criterion,
+                args.learner,
+            )
+        )
     elif cmd == "session-pause":
         if not args.session:
-            sys.exit("usage: cli.py session-pause --session <id> "
-                     "--target PAUSED|BLOCKED|COMPLETED|CANCELLED [--reason ...]")
+            sys.exit(
+                "usage: cli.py session-pause --session <id> "
+                "--target PAUSED|BLOCKED|COMPLETED|CANCELLED [--reason ...]"
+            )
         if args.target == "BLOCKED" and not args.reason:
-            sys.exit("session-pause --target BLOCKED требует --reason: "
-                     "блокировка без причины не сообщает, что устранять")
-        sys.exit(cmd_session_pause(root, args.course, args.session, args.learner,
-                                   args.target, args.reason, args.resume))
+            sys.exit(
+                "session-pause --target BLOCKED требует --reason: "
+                "блокировка без причины не сообщает, что устранять"
+            )
+        sys.exit(
+            cmd_session_pause(
+                root,
+                args.course,
+                args.session,
+                args.learner,
+                args.target,
+                args.reason,
+                args.resume,
+            )
+        )
     elif cmd == "consent-set":
-        sys.exit(cmd_consent_set(root, args.course, args.learner, args.purpose,
-                                 args.provider, args.retention, args.dry_run))
+        sys.exit(
+            cmd_consent_set(
+                root,
+                args.course,
+                args.learner,
+                args.purpose,
+                args.provider,
+                args.retention,
+                args.dry_run,
+            )
+        )
     elif cmd == "consent-withdraw":
-        sys.exit(cmd_consent_withdraw(root, args.course, args.learner, args.consent,
-                                      args.dry_run))
+        sys.exit(
+            cmd_consent_withdraw(
+                root, args.course, args.learner, args.consent, args.dry_run
+            )
+        )
     elif cmd == "corpus-status":
         sys.exit(cmd_corpus_status(root, args.course, args.json))
     elif cmd == "corpus-acquire":
         sys.exit(cmd_corpus_acquire(root, args.course, args.dry_run, args.offline))
     elif cmd == "source-search":
-        sys.exit(cmd_source_search(root, args.course, args.query, args.limit, args.json))
+        sys.exit(
+            cmd_source_search(root, args.course, args.query, args.limit, args.json)
+        )
     elif cmd == "quote-verify":
         sys.exit(cmd_quote_verify(root, args.course, args.citation, args.json))
     elif cmd == "env-plan":
         sys.exit(cmd_env_plan(root, args.course, args.spec, args.learner))
     elif cmd == "action-approve":
-        sys.exit(cmd_action_approve(root, args.operation, args.learner,
-                                    "denied" if args.deny else "granted",
-                                    args.dry_run))
+        sys.exit(
+            cmd_action_approve(
+                root,
+                args.operation,
+                args.learner,
+                "denied" if args.deny else "granted",
+                args.dry_run,
+            )
+        )
     elif cmd == "env-apply":
         sys.exit(cmd_env_apply(root, args.operation, args.learner, args.wait))
     elif cmd == "env-status":
-        sys.exit(cmd_env_status(root, args.operation, args.course, args.learner,
-                                args.json))
+        sys.exit(
+            cmd_env_status(root, args.operation, args.course, args.learner, args.json)
+        )
     elif cmd == "operation-cancel":
-        sys.exit(cmd_operation_cancel(root, args.operation, args.learner,
-                                      args.reason, args.reconcile))
+        sys.exit(
+            cmd_operation_cancel(
+                root, args.operation, args.learner, args.reason, args.reconcile
+            )
+        )
     elif cmd == "contribute-start":
         if not (args.course and args.task):
-            sys.exit("usage: cli.py contribute-start --course <slug> --task <ссылка> "
-                     "--session <id> [--role developer] [--repo <путь>] "
-                     "[--publish public_pr|private_package]")
-        sys.exit(cmd_contribute_start(root, args.course, args.session, args.role,
-                                      args.task, args.repo, args.publish, args.learner))
+            sys.exit(
+                "usage: cli.py contribute-start --course <slug> --task <ссылка> "
+                "--session <id> [--role developer] [--repo <путь>] "
+                "[--publish public_pr|private_package]"
+            )
+        sys.exit(
+            cmd_contribute_start(
+                root,
+                args.course,
+                args.session,
+                args.role,
+                args.task,
+                args.repo,
+                args.publish,
+                args.learner,
+            )
+        )
     elif cmd == "contribute-status":
-        sys.exit(cmd_contribute_status(root, args.course, args.contribution,
-                                       args.learner, args.json))
+        sys.exit(
+            cmd_contribute_status(
+                root, args.course, args.contribution, args.learner, args.json
+            )
+        )
     elif cmd == "contribute-draft":
         if not (args.course and args.contribution):
-            sys.exit("usage: cli.py contribute-draft --course <slug> "
-                     "--contribution <id> [--out <файл>]")
-        sys.exit(cmd_contribute_draft(root, args.course, args.contribution,
-                                      args.learner, args.out))
+            sys.exit(
+                "usage: cli.py contribute-draft --course <slug> "
+                "--contribution <id> [--out <файл>]"
+            )
+        sys.exit(
+            cmd_contribute_draft(
+                root, args.course, args.contribution, args.learner, args.out
+            )
+        )
     elif cmd == "contribute-rehearsal":
         sys.exit(cmd_contribute_rehearsal(root, args.dest, args.dry_run))
     elif cmd == "persona-set":
-        sys.exit(cmd_persona_set(root, args.persona, args.learner, args.course,
-                                 args.low_stimulus, args.gamification, args.list))
+        sys.exit(
+            cmd_persona_set(
+                root,
+                args.persona,
+                args.learner,
+                args.course,
+                args.low_stimulus,
+                args.gamification,
+                args.list,
+            )
+        )
     elif cmd == "achievements":
         sys.exit(cmd_achievements(root, args.course, args.learner, args.json))
     elif cmd == "privacy-preview":
-        sys.exit(cmd_privacy_preview(root, args.course, args.learner,
-                                     _selection(args), args.recipient, args.include))
+        sys.exit(
+            cmd_privacy_preview(
+                root,
+                args.course,
+                args.learner,
+                _selection(args),
+                args.recipient,
+                args.include,
+            )
+        )
     elif cmd == "privacy-export":
-        sys.exit(cmd_privacy_export(root, args.course, args.learner,
-                                    _selection(args), args.out_dir, args.include,
-                                    args.dry_run))
+        sys.exit(
+            cmd_privacy_export(
+                root,
+                args.course,
+                args.learner,
+                _selection(args),
+                args.out_dir,
+                args.include,
+                args.dry_run,
+            )
+        )
     elif cmd == "privacy-delete":
         sys.exit(cmd_privacy_delete(root, args.course, args.learner, args.plan))
     elif cmd == "teacher-import":
         sys.exit(cmd_teacher_import(root, args.learner, args.packet))
     elif cmd == "teacher-summary":
-        sys.exit(cmd_teacher_summary(root, args.course, args.learner, args.json,
-                                     args.queue))
+        sys.exit(
+            cmd_teacher_summary(root, args.course, args.learner, args.json, args.queue)
+        )
     elif cmd == "adapter-check":
-        sys.exit(cmd_adapter_check(root, args.host, args.config, args.version,
-                                   args.json))
+        sys.exit(
+            cmd_adapter_check(root, args.host, args.config, args.version, args.json)
+        )
     elif cmd == "adapter-install":
         sys.exit(cmd_adapter_install(root, args.host, args.dry_run))
     elif cmd == "catalog-check":
@@ -4011,6 +4792,13 @@ def main():
                 "en|ru|zh|es|fr|de|pt|ar|hi|ja [--course <slug>] [--learner <id>]"
             )
         sys.exit(cmd_set_language(root, args.lang, args.course, args.learner))
+    elif cmd == "self-improve":
+        from self_improve import run_self_search
+
+        lineage = getattr(args, "lineage", "all") or "all"
+        generations = getattr(args, "generations", 1) or 1
+        run_self_search(root, generations=generations, lineage_filter=lineage)
+        sys.exit(0)
     elif cmd == "offline-status":
         sys.exit(cmd_offline_status(root, args.course, args.json))
     elif cmd == "doctor":
