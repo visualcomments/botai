@@ -160,6 +160,19 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_export_report_is_redacted_and_excludes_private_context(tmp_path):
+    _, _, service = setup_service(tmp_path)
+    service.capture(kind="error", area="cli", summary="token=ghp_abcdefghijklmnopqrstuvwxyz123456", request_id="export")
+    report = service.export_report()
+    assert report["report_type"] == "self_improvement"
+    assert report["provenance"]["contains_student_data"] is False
+    assert report["provenance"]["contains_transcript"] is False
+    assert report["provenance"]["network_transferred"] is False
+    assert report["entries"][0]["evidence_count"] == 0
+    assert "ghp_" not in str(report)
+    assert report["report_sha256"]
+
+
 def test_audit_reports_corrupt_record_without_mutating_it(tmp_path):
     _, _, service = setup_service(tmp_path)
     entry = service.capture(kind="error", area="cli", summary="проверка повреждения", request_id="audit")

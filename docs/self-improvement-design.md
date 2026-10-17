@@ -367,7 +367,8 @@ MCP-интеграция — после CLI и тестов, отдельный 
 
 ### Этап 2: интеграция и обслуживание знаний
 
-- [ ] Добавлять report import/export только с явным preview/consent, provenance и редактированием данных; не включать ученические/оценочные сведения.
+- [x] Добавить локальный redacted report export с provenance, hash и явными флагами отсутствия student/transcript/network данных.
+- [ ] Добавить отдельный preview/consent перед передачей export и доверенный import; не включать ученические/оценочные сведения.
 - [x] Добавить read-only maintenance triage: pending требует review, unresolved — повторной проверки источника, contradicted — retire или replacement.
 - [x] Добавить явный `retire` с optimistic version check, сохранением evidence и причиной архивации.
 - [ ] Реализовать promotion в отдельную неинжектируемую guidance-базу с историей, source links и review outcomes.

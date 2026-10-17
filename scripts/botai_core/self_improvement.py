@@ -648,6 +648,30 @@ class SelfImprovement:
             digest.update(data)
         return digest.hexdigest()
 
+    def export_report(self) -> dict:
+        """Build a redacted, local-only report without learner or course data."""
+        self._ensure_enabled(allow_disabled=True)
+        audit = self.audit()
+        if not audit["ok"]:
+            raise SelfImprovementError("EXPORT_INVALID: исправьте повреждённые записи перед экспортом")
+        entries = []
+        for entry in self.entries():
+            entries.append({
+                "entry_id": entry["entry_id"], "kind": entry["kind"], "area": entry["area"],
+                "summary": _redact(entry["summary"]), "claim": _redact(entry["claim"]),
+                "validation": entry["validation"], "status": entry["status"],
+                "recurrence_count": entry["recurrence_count"], "version": entry["version"],
+                "evidence_count": len(entry["evidence"]), "created_at": entry["created_at"],
+                "updated_at": entry["updated_at"],
+            })
+        payload = {"schema_version": 1, "report_type": "self_improvement",
+                   "provenance": {"source": "local_self_improvement", "workspace_scoped": True,
+                                  "contains_student_data": False, "contains_transcript": False,
+                                  "network_transferred": False},
+                   "entries": entries}
+        payload["report_sha256"] = _digest(_canonical_json(payload))
+        return payload
+
     def migrate_to_store(self, *, learner_id="self-improvement", recovery=False) -> dict:
         """Copy validated JSON entries to the authoritative workspace SQLite store.
 

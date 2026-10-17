@@ -25,6 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     triage = sub.add_parser("triage", help="показать записи, требующие человеческой проверки")
     triage.add_argument("--area")
     triage.add_argument("--limit", type=int, default=50)
+    sub.add_parser("export", help="подготовить redacted report для ручной передачи")
     migrate = sub.add_parser("migrate", help="скопировать валидированные записи в SQLite store")
     migrate.add_argument("--learner-id", default="self-improvement")
     migrate.add_argument("--recovery", action="store_true", help="завершить ранее прерванную миграцию")
@@ -108,6 +109,8 @@ def run(root: Path, args) -> int:
             result = service.recover()
         elif args.action == "triage":
             result = service.triage(area=args.area, limit=args.limit)
+        elif args.action == "export":
+            result = service.export_report()
         elif args.action == "migrate":
             result = service.migrate_to_store(learner_id=args.learner_id, recovery=args.recovery)
         elif args.action == "enable":
