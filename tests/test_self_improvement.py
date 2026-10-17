@@ -160,6 +160,20 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_export_preview_requires_explicit_consent_for_local_file(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    service.capture(kind="error", area="cli", summary="preview", request_id="export-preview")
+    preview = service.export_preview()
+    assert preview["consent_required"] is True
+    assert preview["entries"] == 1
+    with pytest.raises(SelfImprovementError, match="EXPORT_CONSENT_REQUIRED"):
+        service.export_to_file("reports/self-improvement.json")
+    saved = service.export_to_file("reports/self-improvement.json", consent=True)
+    assert saved["consent"] is True
+    assert (root / "reports/self-improvement.json").is_file()
+    assert service.export_report()["report_sha256"] == saved["report_sha256"]
+
+
 def test_export_report_is_redacted_and_excludes_private_context(tmp_path):
     _, _, service = setup_service(tmp_path)
     service.capture(kind="error", area="cli", summary="token=ghp_abcdefghijklmnopqrstuvwxyz123456", request_id="export")

@@ -26,6 +26,10 @@ def build_parser() -> argparse.ArgumentParser:
     triage.add_argument("--area")
     triage.add_argument("--limit", type=int, default=50)
     sub.add_parser("export", help="подготовить redacted report для ручной передачи")
+    preview = sub.add_parser("export-preview", help="показать fingerprint и размер локального export")
+    export_file = sub.add_parser("export-file", help="сохранить export в явно указанный локальный файл")
+    export_file.add_argument("--path", required=True)
+    export_file.add_argument("--consent", action="store_true", help="подтвердить сохранение в указанный путь")
     migrate = sub.add_parser("migrate", help="скопировать валидированные записи в SQLite store")
     migrate.add_argument("--learner-id", default="self-improvement")
     migrate.add_argument("--recovery", action="store_true", help="завершить ранее прерванную миграцию")
@@ -111,6 +115,10 @@ def run(root: Path, args) -> int:
             result = service.triage(area=args.area, limit=args.limit)
         elif args.action == "export":
             result = service.export_report()
+        elif args.action == "export-preview":
+            result = service.export_preview()
+        elif args.action == "export-file":
+            result = service.export_to_file(args.path, consent=args.consent)
         elif args.action == "migrate":
             result = service.migrate_to_store(learner_id=args.learner_id, recovery=args.recovery)
         elif args.action == "enable":

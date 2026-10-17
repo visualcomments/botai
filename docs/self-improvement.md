@@ -12,6 +12,9 @@
 python3 scripts/cli.py self-improve status
 python3 scripts/cli.py self-improve audit
 python3 scripts/cli.py self-improve export --json
+python3 scripts/cli.py self-improve export-preview --json
+# После просмотра fingerprint и пути:
+python3 scripts/cli.py self-improve export-file --path reports/self-improvement.json --consent --json
 python3 scripts/cli.py self-improve recover
 python3 scripts/cli.py self-improve triage --limit 20
 python3 scripts/cli.py self-improve migrate --learner-id self-improvement

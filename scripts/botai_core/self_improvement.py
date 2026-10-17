@@ -648,6 +648,13 @@ class SelfImprovement:
             digest.update(data)
         return digest.hexdigest()
 
+    def export_preview(self) -> dict:
+        report = self.export_report()
+        encoded = _canonical_json(report)
+        return {"report_sha256": report["report_sha256"], "byte_size": len(encoded),
+                "entries": len(report["entries"]), "provenance": report["provenance"],
+                "destination": "explicit local path required", "consent_required": True}
+
     def export_report(self) -> dict:
         """Build a redacted, local-only report without learner or course data."""
         self._ensure_enabled(allow_disabled=True)
@@ -671,6 +678,21 @@ class SelfImprovement:
                    "entries": entries}
         payload["report_sha256"] = _digest(_canonical_json(payload))
         return payload
+
+    def export_to_file(self, destination: str, *, consent: bool = False) -> dict:
+        if not consent:
+            raise SelfImprovementError("EXPORT_CONSENT_REQUIRED: сначала покажите preview и подтвердите путь")
+        destination_path = Path(destination).expanduser()
+        if not destination_path.is_absolute():
+            destination_path = self.root / destination_path
+        destination_path = paths.ensure_within(self.root, destination_path)
+        if destination_path.exists() and destination_path.is_dir():
+            raise SelfImprovementError("Путь экспорта должен быть файлом")
+        report = self.export_report()
+        _atomic_json(destination_path, report)
+        return {"path": destination_path.relative_to(self.root).as_posix(),
+                "report_sha256": report["report_sha256"], "byte_size": len(_canonical_json(report)),
+                "consent": True}
 
     def migrate_to_store(self, *, learner_id="self-improvement", recovery=False) -> dict:
         """Copy validated JSON entries to the authoritative workspace SQLite store.
