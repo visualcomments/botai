@@ -17,6 +17,7 @@ workspace works everywhere, including on Windows without a POSIX shell:
     python scripts/cli.py course-update --course <slug> [--check] [--dry-run]
     python scripts/cli.py doctor
     python scripts/cli.py clean
+    python scripts/cli.py self-improve help
 
 Paths are resolved against the current directory (the project root); override
 with --root or the BOTAI_ROOT environment variable.
@@ -3966,6 +3967,10 @@ def cmd_offline_status(root, course, as_json):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "self-improve":
+        from self_improve import main as self_improve_main
+        return self_improve_main(sys.argv[2:])
+
     ap = argparse.ArgumentParser(description="botai workspace CLI (cross-platform)")
     ap.add_argument(
         "command",
@@ -4098,18 +4103,6 @@ def main():
         default=[],
         metavar="LEGACY_ID=LEARNER_ID",
         help="state-migrate: explicit attribution for a multi-student file",
-    )
-    ap.add_argument(
-        "--generations",
-        type=int,
-        default=1,
-        help="self-improve: number of self-improvement generations (default: 1)",
-    )
-    ap.add_argument(
-        "--lineage",
-        choices=["all", "pedagogical_capability", "adaptive_scaffolding"],
-        default="all",
-        help="self-improve: lineage filter (all, pedagogical_capability, adaptive_scaffolding)",
     )
     ap.add_argument(
         "--assignment",
@@ -4792,13 +4785,6 @@ def main():
                 "en|ru|zh|es|fr|de|pt|ar|hi|ja [--course <slug>] [--learner <id>]"
             )
         sys.exit(cmd_set_language(root, args.lang, args.course, args.learner))
-    elif cmd == "self-improve":
-        from self_improve import run_self_search
-
-        lineage = getattr(args, "lineage", "all") or "all"
-        generations = getattr(args, "generations", 1) or 1
-        run_self_search(root, generations=generations, lineage_filter=lineage)
-        sys.exit(0)
     elif cmd == "offline-status":
         sys.exit(cmd_offline_status(root, args.course, args.json))
     elif cmd == "doctor":

@@ -1,397 +1,521 @@
-"""SelfSearch-aligned Self-Improvement Engine for botai.
+"""Local, human-reviewed memory and documentation proposals for botai.
 
-Implements the reward-free self-improvement mechanism described in
-arXiv:2609.37968 ("SelfSearch: Reward-Free Search for Self-Improving Agents").
-
-Core Architecture:
-1. Two Lineages:
-   - pedagogical_capability (Capability Lineage): developing reusable skills/tools/helpers.
-   - adaptive_scaffolding (Adaptive Lineage): improving error recovery and scaffolding.
-2. Runtime Protection:
-   - Strict immutable boundaries: Core governance, Hard Refusals, Assistance Ladder,
-     and SQLite schemas cannot be mutated by the self-improvement loop.
-3. Episode Trajectories:
-   - Tracks reasoning, proposed actions, verification outcomes, and code diffs.
-   - Preserves episode records as read-only evidence for subsequent generations.
+This module does not call a model, shell, network, or access learner/course data.
+Only existing Markdown files under docs/self-improvement-guidance/ can be edited.
 """
-
 from __future__ import annotations
 
+import base64
 import difflib
 import hashlib
 import json
 import os
-import shutil
-import subprocess
-import sys
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+import re
+import secrets
+import tempfile
+import threading
+from datetime import datetime, timedelta, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any
 
-# Protected files and path prefixes that CANNOT be modified during self-improvement
-PROTECTED_PREFIXES: Set[str] = {
-    "scripts/botai_core/policy.py",
-    "scripts/botai_core/security.py",
-    "scripts/botai_core/schemas.py",
-    "scripts/botai_core/store.py",
-    "AGENTS.md",
-    "LICENSE",
-    "progress/",
-    ".botai/",
-}
+from . import paths
 
-# Permitted paths for self-improvement mutations
-PERMITTED_MUTATION_PREFIXES: Set[str] = {
-    ".agents/skills/",
-    "scripts/botai_core/skills.py",
-    "scripts/botai_core/tutoring.py",
-    "scripts/botai_core/scaffolding.py",
-    "scripts/botai_core/error_diagnosis.py",
-    "scripts/botai_core/retrieval.py",
-    "scripts/botai_core/visualizations.py",
-}
+SCHEMA_VERSION = 1
+ENTRY_KINDS = {"correction", "error", "feature_request", "best_practice", "knowledge_gap"}
+ENTRY_STATUSES = {"captured", "verified", "unresolved", "contradicted", "retired"}
+VALIDATION_STATES = {"pending", "verified", "unresolved", "contradicted"}
+GUIDANCE_DIR = "docs/self-improvement-guidance"
+ENTRY_ID_RE = re.compile(r"^[A-Z]{3}-\d{8}-[A-Z0-9]{3}$")
+RECORD_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+DRIVE_RE = re.compile(r"^[A-Za-z]:")
+_LOCKS: dict[str, threading.RLock] = {}
+_LOCKS_GUARD = threading.Lock()
 
 
-@dataclass
-class ToolAction:
-    """A single tool execution record in an episode trajectory."""
-
-    tool_name: str
-    arguments: Dict[str, Any]
-    output: str
-    success: bool
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+class SelfImprovementError(ValueError):
+    """A rejected operation with a safe, user-facing explanation."""
 
 
-@dataclass
-class MutationDiff:
-    """Record of a source modification made during an episode."""
-
-    relative_path: str
-    old_hash: str
-    new_hash: str
-    diff_text: str
+def _now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-@dataclass
-class EpisodeRecord:
-    """Full trajectory of a self-improvement episode (arXiv:2609.37968, Section 2)."""
-
-    episode_id: str
-    generation: int
-    lineage: str  # 'pedagogical_capability' or 'adaptive_scaffolding'
-    direction_prompt: str
-    reasoning: List[str]
-    actions: List[ToolAction]
-    mutations: List[MutationDiff]
-    verification_passed: bool
-    summary: str
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EpisodeRecord:
-        actions = [ToolAction(**a) for a in data.get("actions", [])]
-        mutations = [MutationDiff(**m) for m in data.get("mutations", [])]
-        clean_data = dict(data)
-        clean_data["actions"] = actions
-        clean_data["mutations"] = mutations
-        return cls(**clean_data)
+def _digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
-class SafetyGateError(Exception):
-    """Raised when an agent attempts to mutate protected invariants."""
-
-    pass
-
-
-class SafetyGate:
-    """Validates that candidate changes do not compromise core safety or pedagogy."""
-
-    @staticmethod
-    def validate_path(relative_path: str) -> None:
-        rel = relative_path.replace("\\", "/").strip("/")
-        for prot in PROTECTED_PREFIXES:
-            if rel == prot.strip("/") or rel.startswith(prot):
-                raise SafetyGateError(
-                    f"Violation of invariant: Path '{rel}' is protected and immutable."
-                )
-
-        # Ensure path is within permitted mutable areas
-        allowed = any(
-            rel.startswith(perm.strip("/")) for perm in PERMITTED_MUTATION_PREFIXES
-        )
-        if not allowed:
-            raise SafetyGateError(
-                f"Path '{rel}' is outside permitted self-improvement zones "
-                f"({', '.join(PERMITTED_MUTATION_PREFIXES)})."
-            )
-
-    @staticmethod
-    def validate_skill_content(content: str) -> None:
-        """Ensure modified SKILL.md does not inject instructions weakening policy."""
-        lowered = content.lower()
-        forbidden_phrases = [
-            "ignore agents.md",
-            "give ready solution",
-            "skip consent gate",
-            "bypass policy-check",
-            "answer graded task",
-            "всегда выдавай готовое решение",
-        ]
-        for phrase in forbidden_phrases:
-            if phrase in lowered:
-                raise SafetyGateError(
-                    f"Harmful instruction detected in candidate skill: '{phrase}'"
-                )
+def _clean(value: str, field: str, limit: int = 1000) -> str:
+    if not isinstance(value, str) or "\x00" in value:
+        raise SelfImprovementError(f"{field}: требуется обычный текст")
+    value = " ".join(value.split())
+    if not value or len(value) > limit:
+        raise SelfImprovementError(f"{field}: текст должен содержать 1–{limit} символов")
+    return value
 
 
-class EpisodeEnvironment:
-    """Isolated filesystem sandbox for evaluating candidate mutations."""
-
-    def __init__(self, base_root: Path, sandbox_root: Path) -> None:
-        self.base_root = base_root.resolve()
-        self.sandbox_root = sandbox_root.resolve()
-
-    def setup(self) -> None:
-        """Create clean sandbox copy of permitted mutable directories."""
-        if self.sandbox_root.exists():
-            shutil.rmtree(self.sandbox_root)
-        self.sandbox_root.mkdir(parents=True, exist_ok=True)
-
-        for perm in PERMITTED_MUTATION_PREFIXES:
-            src_path = self.base_root / perm
-            dst_path = self.sandbox_root / perm
-            if src_path.is_dir():
-                shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
-            elif src_path.is_file():
-                dst_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dst_path)
-
-    def verify_syntax_and_tests(self, target_rel_paths: List[str]) -> Tuple[bool, str]:
-        """Runs syntax checks and targeted pytest regression tests."""
-        for rel in target_rel_paths:
-            full_sandbox_path = self.sandbox_root / rel
-            if full_sandbox_path.suffix == ".py" and full_sandbox_path.exists():
-                try:
-                    with open(full_sandbox_path, "r", encoding="utf-8") as f:
-                        compile(f.read(), str(full_sandbox_path), "exec")
-                except Exception as e:
-                    return False, f"Syntax compilation error in {rel}: {e}"
-
-        # Run relevant unit tests if test suite exists in the base_root
-        test_file = self.base_root / "tests" / "test_skills.py"
-        if test_file.exists():
-            env = dict(os.environ)
-            env["PYTHONPATH"] = str(self.base_root / "scripts")
-            try:
-                res = subprocess.run(
-                    [sys.executable, "-m", "pytest", str(test_file), "-q"],
-                    cwd=str(self.base_root),
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    env=env,
-                )
-                if res.returncode != 0:
-                    return False, f"Regression tests failed: {res.stdout}\n{res.stderr}"
-            except Exception as e:
-                return False, f"Test runner execution failure: {e}"
-
-        return True, "Verification tests passed cleanly."
-
-    def cleanup(self) -> None:
-        if self.sandbox_root.exists():
-            shutil.rmtree(self.sandbox_root, ignore_errors=True)
+def _redact(text: str) -> str:
+    patterns = [
+        (r"(?i)\b(api[_-]?key|token|secret|password|passwd|authorization)\b\s*[=:]\s*\S+", r"\1=[REDACTED]"),
+        (r"\bBearer\s+[A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]"),
+        (r"\bgh[pousr]_[A-Za-z0-9]{16,}\b", "[REDACTED]"),
+        (r"\bAKIA[0-9A-Z]{16}\b", "[REDACTED]"),
+        (r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b", "[REDACTED-JWT]"),
+    ]
+    for pattern, replacement in patterns:
+        text = re.sub(pattern, replacement, text)
+    return text
 
 
-class SelfSearchEngine:
-    """Orchestrates SelfSearch across generations for botai."""
-
-    DIRECTIONS: Dict[str, str] = {
-        "pedagogical_capability": (
-            "Analyze episode records and student interactions to identify capabilities "
-            "where the assistant needed multiple attempts, hit corpus retrieval limits, "
-            "or lacked clean formatting. Synthesize or refine helper skills and tools."
-        ),
-        "adaptive_scaffolding": (
-            "Analyze episode records to improve recovery from student confusion, refine "
-            "error diagnosis categorizations, and adapt Socratic questioning rungs without "
-            "violating the assistance ladder."
-        ),
-    }
-
-    def __init__(
-        self, workspace_root: Path, storage_dir: Optional[Path] = None
-    ) -> None:
-        self.workspace_root = workspace_root.resolve()
-        self.storage_dir = (
-            storage_dir.resolve()
-            if storage_dir
-            else self.workspace_root / ".botai" / "self_search"
-        )
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        self.evidence_dir = self.storage_dir / "episodes"
-        self.evidence_dir.mkdir(parents=True, exist_ok=True)
-
-    def load_previous_episodes(self, max_recent: int = 4) -> List[EpisodeRecord]:
-        """Loads read-only episode records to form evidence for the next improver."""
-        records: List[EpisodeRecord] = []
-        if not self.evidence_dir.exists():
-            return records
-
-        for file_path in sorted(self.evidence_dir.glob("*.json")):
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    records.append(EpisodeRecord.from_dict(data))
-            except Exception:
-                continue
-
-        return records[-max_recent:]
-
-    def save_episode(self, episode: EpisodeRecord) -> Path:
-        """Persists episode record into the evidence archive."""
-        filename = (
-            f"gen_{episode.generation:03d}_{episode.lineage}_{episode.episode_id}.json"
-        )
-        target = self.evidence_dir / filename
-        with open(target, "w", encoding="utf-8") as f:
-            json.dump(episode.to_dict(), f, indent=2, ensure_ascii=False)
-        return target
-
-    def apply_mutation(
-        self,
-        rel_path: str,
-        new_content: str,
-        sandbox: EpisodeEnvironment,
-    ) -> MutationDiff:
-        """Validates and applies a mutation inside the sandbox."""
-        SafetyGate.validate_path(rel_path)
-        if rel_path.endswith("SKILL.md"):
-            SafetyGate.validate_skill_content(new_content)
-
-        full_base_path = self.workspace_root / rel_path
-        old_text = ""
-        old_hash = ""
-        if full_base_path.exists():
-            with open(full_base_path, "r", encoding="utf-8") as f:
-                old_text = f.read()
-            old_hash = hashlib.sha256(old_text.encode("utf-8")).hexdigest()
-
-        new_hash = hashlib.sha256(new_content.encode("utf-8")).hexdigest()
-
-        # Compute diff
-        diff_lines = list(
-            difflib.unified_diff(
-                old_text.splitlines(keepends=True),
-                new_content.splitlines(keepends=True),
-                fromfile=f"a/{rel_path}",
-                tofile=f"b/{rel_path}",
-            )
-        )
-        diff_text = "".join(diff_lines)
-
-        # Write to sandbox
-        full_sandbox_path = sandbox.sandbox_root / rel_path
-        full_sandbox_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(full_sandbox_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
-
-        return MutationDiff(
-            relative_path=rel_path,
-            old_hash=old_hash,
-            new_hash=new_hash,
-            diff_text=diff_text,
-        )
-
-    def execute_episode(
-        self,
-        generation: int,
-        lineage: str,
-        improver_fn: Callable[
-            [str, List[EpisodeRecord], EpisodeEnvironment],
-            Tuple[List[str], List[ToolAction], List[MutationDiff], str],
-        ],
-    ) -> EpisodeRecord:
-        """Executes a single self-improvement episode under a lineage direction."""
-        direction = self.DIRECTIONS.get(
-            lineage, "Explore general capability and reliability improvements."
-        )
-        previous_records = self.load_previous_episodes()
-
-        sandbox_dir = self.storage_dir / f"sandbox_g{generation}_{lineage}"
-        sandbox = EpisodeEnvironment(self.workspace_root, sandbox_dir)
-        sandbox.setup()
-
-        episode_id = hashlib.sha256(
-            f"{generation}:{lineage}:{datetime.now(timezone.utc).isoformat()}".encode()
-        ).hexdigest()[:12]
-
-        reasoning: List[str] = []
-        actions: List[ToolAction] = []
-        mutations: List[MutationDiff] = []
-        summary = ""
-        verified = False
-
+def _atomic_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".botai-tmp-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    except BaseException:
         try:
-            reasoning, actions, mutations, summary = improver_fn(
-                direction, previous_records, sandbox
-            )
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
 
-            # Validate all mutations
-            mutated_paths = [m.relative_path for m in mutations]
-            passed, check_msg = sandbox.verify_syntax_and_tests(mutated_paths)
-            verified = passed
-            actions.append(
-                ToolAction(
-                    tool_name="verify_mutations",
-                    arguments={"paths": mutated_paths},
-                    output=check_msg,
-                    success=passed,
-                )
-            )
 
-            # If verified, promote mutations from sandbox to workspace
-            if verified and mutations:
-                for m in mutations:
-                    src = sandbox.sandbox_root / m.relative_path
-                    dst = self.workspace_root / m.relative_path
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dst)
+def _atomic_json(path: Path, value: Any) -> None:
+    data = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    _atomic_bytes(path, data)
 
-        except Exception as e:
-            actions.append(
-                ToolAction(
-                    tool_name="episode_execution",
-                    arguments={},
-                    output=f"Failed episode with exception: {e}",
-                    success=False,
-                )
-            )
-            verified = False
-            summary = f"Aborted due to error: {e}"
-        finally:
-            sandbox.cleanup()
 
-        record = EpisodeRecord(
-            episode_id=episode_id,
-            generation=generation,
-            lineage=lineage,
-            direction_prompt=direction,
-            reasoning=reasoning,
-            actions=actions,
-            mutations=mutations,
-            verification_passed=verified,
-            summary=summary,
-        )
+def _load_json(path: Path, default: Any = None) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return default
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise SelfImprovementError(f"Локальная запись повреждена или недоступна: {path.name}") from exc
 
-        self.save_episode(record)
-        return record
+
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _proposal_fingerprint(proposal: dict) -> str:
+    fields = ("schema_version", "proposal_id", "entry_ids", "path", "base_sha256", "candidate_sha256", "old_text", "new_text", "rationale", "risk", "diff")
+    return _digest(_canonical_json({key: proposal[key] for key in fields}))
+
+
+def _validate_entry(entry: Any, expected_id: str | None = None) -> dict:
+    required = {"schema_version", "entry_id", "kind", "scope", "area", "summary", "claim", "source", "evidence", "recurrence_count", "status", "validation", "applicability", "maintenance", "related_entry_ids", "version", "created_at", "updated_at"}
+    if not isinstance(entry, dict) or not required.issubset(entry) or entry.get("schema_version") != SCHEMA_VERSION:
+        raise SelfImprovementError("Схема записи самоулучшения повреждена")
+    if not ENTRY_ID_RE.fullmatch(str(entry["entry_id"])) or (expected_id and entry["entry_id"] != expected_id):
+        raise SelfImprovementError("Идентификатор записи не соответствует файлу")
+    if entry["kind"] not in ENTRY_KINDS or entry["status"] not in ENTRY_STATUSES or entry["validation"] not in VALIDATION_STATES:
+        raise SelfImprovementError("Неизвестный тип или статус записи")
+    if not isinstance(entry["scope"], dict) or entry["scope"].get("kind") != "workspace" or entry["scope"].get("key") != "botai":
+        raise SelfImprovementError("Область записи недопустима")
+    if not isinstance(entry["source"], dict) or not isinstance(entry["evidence"], list) or not isinstance(entry["applicability"], dict) or not isinstance(entry["maintenance"], dict) or not isinstance(entry["related_entry_ids"], list):
+        raise SelfImprovementError("Вложенная структура записи повреждена")
+    for key in ("area", "summary", "claim", "created_at", "updated_at"):
+        if not isinstance(entry[key], str):
+            raise SelfImprovementError(f"Поле записи {key} повреждено")
+    if not isinstance(entry["version"], int) or entry["version"] < 1 or not isinstance(entry["recurrence_count"], int) or entry["recurrence_count"] < 1:
+        raise SelfImprovementError("Счётчик/версия записи повреждены")
+    for item in entry["evidence"]:
+        if not isinstance(item, dict) or not all(isinstance(item.get(k), str) for k in ("type", "ref", "result", "checked_at")):
+            raise SelfImprovementError("Доказательство записи повреждено")
+    return entry
+
+
+class SelfImprovement:
+    """Workspace-bound local observation and documentation-proposal service."""
+
+    def __init__(self, root: Path):
+        self.root = Path(root).expanduser().resolve()
+        self.state_dir = paths.ensure_within(self.root, self.root / ".botai" / "self_improvement")
+        self.entries_dir = paths.ensure_within(self.state_dir, self.state_dir / "entries")
+        self.proposals_dir = paths.ensure_within(self.state_dir, self.state_dir / "proposals")
+        self.approvals_dir = paths.ensure_within(self.state_dir, self.state_dir / "approvals")
+        self.applications_dir = paths.ensure_within(self.state_dir, self.state_dir / "applications")
+        self.disabled_path = paths.ensure_within(self.state_dir, self.state_dir / "disabled")
+        for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
+            directory.mkdir(parents=True, exist_ok=True)
+        with _LOCKS_GUARD:
+            self._lock = _LOCKS.setdefault(str(self.root), threading.RLock())
+
+    def _ensure_enabled(self, *, allow_disabled=False) -> None:
+        if not allow_disabled and self.disabled_path.exists():
+            raise SelfImprovementError("Самоулучшение отключено; выполните enable, чтобы продолжить")
+
+    def disable(self) -> None:
+        _atomic_bytes(self.disabled_path, b"disabled\n")
+
+    def enable(self) -> None:
+        try:
+            self.disabled_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    def _record_path(self, directory: Path, record_id: str) -> Path:
+        if not isinstance(record_id, str) or not RECORD_ID_RE.fullmatch(record_id):
+            raise SelfImprovementError("Недопустимый идентификатор")
+        return paths.ensure_within(directory, directory / f"{record_id}.json")
+
+    def capture(self, *, kind: str, area: str, summary: str, source_type: str = "other", source_ref: str = "", revision: str = "", request_id: str = "") -> dict:
+        self._ensure_enabled()
+        if kind not in ENTRY_KINDS:
+            raise SelfImprovementError("Неизвестный тип наблюдения")
+        area = _clean(area, "area", 80)
+        summary = _redact(_clean(summary, "summary"))
+        source_type = _clean(source_type, "source_type", 40)
+        source_ref = _redact(source_ref[:200])
+        revision = revision[:80] or None
+        request_id = _clean(request_id or secrets.token_hex(12), "request_id", 80)
+        idem_path = self._record_path(self.entries_dir, "request-" + hashlib.sha256(request_id.encode()).hexdigest())
+        with self._lock:
+            existing = _load_json(idem_path)
+            if existing:
+                _validate_entry(existing)
+                if (existing["kind"], existing["area"], existing["summary"], existing["source"]["type"], existing["source"]["ref"], existing["source"]["revision"]) != (kind, area, summary, source_type, source_ref, revision):
+                    raise SelfImprovementError("IDEMPOTENCY_CONFLICT: request_id уже использован с другими данными")
+                return existing
+            prefix = {"correction": "LRN", "error": "ERR", "feature_request": "FEAT", "best_practice": "LRN", "knowledge_gap": "LRN"}[kind]
+            while True:
+                entry_id = f"{prefix}-{datetime.now(timezone.utc):%Y%m%d}-{secrets.token_hex(2).upper()[:3]}"
+                entry_path = self._record_path(self.entries_dir, entry_id)
+                if not entry_path.exists():
+                    break
+            now = _now()
+            entry = {
+                "schema_version": SCHEMA_VERSION, "entry_id": entry_id, "kind": kind,
+                "scope": {"kind": "workspace", "key": "botai"}, "area": area,
+                "summary": summary, "claim": "unknown — needs triage",
+                "source": {"type": source_type, "ref": source_ref, "revision": revision, "observed_at": now},
+                "evidence": [], "pattern_key": None, "recurrence_count": 1,
+                "status": "captured", "validation": "pending",
+                "applicability": {"versions": [], "environment": "unknown", "limits": "unknown"},
+                "maintenance": {"decay_type": "unknown", "rate": "unknown", "revalidate_on": [], "last_evidence_at": None},
+                "related_entry_ids": [], "version": 1, "created_at": now, "updated_at": now,
+            }
+            _atomic_json(entry_path, entry)
+            _atomic_json(idem_path, entry)
+            return entry
+
+    def entries(self) -> list[dict]:
+        records = []
+        for file in self.entries_dir.glob("*.json"):
+            if file.name.startswith("request-"):
+                continue
+            entry = _validate_entry(_load_json(file), file.stem)
+            records.append(entry)
+        return sorted(records, key=lambda item: item["created_at"], reverse=True)
+
+    def get_entry(self, entry_id: str) -> dict:
+        if not isinstance(entry_id, str) or not ENTRY_ID_RE.fullmatch(entry_id):
+            raise SelfImprovementError("Недопустимый идентификатор записи")
+        entry = _load_json(self._record_path(self.entries_dir, entry_id))
+        if entry is None:
+            raise SelfImprovementError("Запись не найдена")
+        return _validate_entry(entry, entry_id)
+
+    def search(self, query: str = "", area: str | None = None, limit: int = 10) -> list[dict]:
+        self._ensure_enabled()
+        query = query.casefold().strip()
+        if limit < 1 or limit > 100:
+            raise SelfImprovementError("limit должен быть от 1 до 100")
+        results = []
+        for entry in self.entries():
+            if entry["status"] in {"retired", "contradicted"}:
+                continue
+            if area and entry["area"] != area:
+                continue
+            haystack = " ".join((entry["summary"], entry.get("claim", ""), entry["area"])).casefold()
+            if query and query not in haystack:
+                continue
+            results.append(entry)
+            if len(results) >= limit:
+                break
+        return results
+
+    def review(self, entry_id: str, *, claim: str, evidence_type: str, evidence_ref: str, result: str, validation: str, scope: str = "workspace", expected_version: int) -> dict:
+        self._ensure_enabled()
+        if not isinstance(expected_version, int):
+            raise SelfImprovementError("expected_version обязателен для проверки записи")
+        if validation not in {"verified", "unresolved", "contradicted"}:
+            raise SelfImprovementError("validation должен быть verified, unresolved или contradicted")
+        claim = _redact(_clean(claim, "claim"))
+        evidence_type = _clean(evidence_type, "evidence_type", 40)
+        evidence_ref = _redact(_clean(evidence_ref, "evidence_ref", 200))
+        result = _redact(_clean(result, "result", 500))
+        if validation == "verified":
+            if evidence_type == "file":
+                if not evidence_ref or evidence_ref.startswith(("/", "\\")) or ".." in Path(evidence_ref.replace("\\", "/")).parts:
+                    raise SelfImprovementError("Ссылка на файл должна быть относительной и внутри проекта")
+                source = paths.ensure_within(self.root, self.root / evidence_ref)
+                if not source.is_file() or source.is_symlink():
+                    raise SelfImprovementError("Указанный файл-источник не существует или является ссылкой")
+            elif evidence_type == "test":
+                raise SelfImprovementError("Итог теста нельзя объявить verified вручную; приложите подтверждение maintainer")
+            elif evidence_type not in {"command_code", "maintainer_decision"}:
+                raise SelfImprovementError("Для verified требуется файл, исходный код команды или решение maintainer")
+        evidence = {"type": evidence_type, "ref": evidence_ref, "result": result, "checked_at": _now()}
+        with self._lock:
+            entry = self.get_entry(entry_id)
+            if entry["version"] != expected_version:
+                raise SelfImprovementError("STATE_CONFLICT: запись изменена; перечитайте её")
+            entry["claim"] = claim
+            entry["evidence"].append(evidence)
+            entry["validation"] = validation
+            entry["status"] = validation if validation != "verified" else "verified"
+            entry["applicability"]["limits"] = _redact(_clean(scope, "scope", 300))
+            entry["maintenance"]["last_evidence_at"] = evidence["checked_at"]
+            entry["version"] += 1
+            entry["updated_at"] = _now()
+            _validate_entry(entry, entry_id)
+            _atomic_json(self._record_path(self.entries_dir, entry_id), entry)
+            return entry
+
+    def _target(self, relative: str) -> tuple[Path, str]:
+        if not isinstance(relative, str) or not relative or "\\" in relative or DRIVE_RE.match(relative) or relative.startswith("//") or "\x00" in relative:
+            raise SelfImprovementError("Недопустимый путь предложения")
+        pure = PurePosixPath(relative)
+        if pure.is_absolute() or any(part in {"", ".", ".."} for part in pure.parts) or pure.as_posix() != relative:
+            raise SelfImprovementError("Путь должен быть каноническим относительным POSIX-путём")
+        unresolved = self.root.joinpath(*pure.parts)
+        probe = self.root
+        for part in pure.parts:
+            probe = probe / part
+            if probe.is_symlink():
+                raise SelfImprovementError("Symlink в пути предложения запрещён")
+        path = paths.ensure_within(self.root, unresolved)
+        rel = path.relative_to(self.root).as_posix()
+        if not rel.startswith(GUIDANCE_DIR + "/") or path.suffix.lower() != ".md":
+            raise SelfImprovementError("В MVP разрешены только Markdown-файлы docs/self-improvement-guidance/")
+        if path.is_symlink() or not path.is_file():
+            raise SelfImprovementError("Целевой файл должен существовать и не быть symlink")
+        return path, rel
+
+    def _proposal_payload(self, proposal: dict) -> dict:
+        required = {"schema_version", "proposal_id", "entry_ids", "path", "base_sha256", "candidate_sha256", "old_text", "new_text", "rationale", "risk", "status", "verification", "diff", "fingerprint", "created_at", "updated_at"}
+        if not isinstance(proposal, dict) or not required.issubset(proposal) or proposal["schema_version"] != 1:
+            raise SelfImprovementError("Схема предложения повреждена")
+        if not re.fullmatch(r"[0-9a-f]{16}", str(proposal["proposal_id"])):
+            raise SelfImprovementError("Идентификатор предложения повреждён")
+        payload = {key: proposal[key] for key in ("schema_version", "proposal_id", "entry_ids", "path", "base_sha256", "candidate_sha256", "old_text", "new_text", "rationale", "risk", "diff")}
+        fingerprint = _digest(_canonical_json(payload))
+        if not secrets.compare_digest(fingerprint, str(proposal["fingerprint"])):
+            raise SelfImprovementError("FINGERPRINT_MISMATCH: предложение изменилось после создания")
+        return payload
+
+    def propose(self, *, entry_id: str, relative_path: str, old_text: str, new_text: str, rationale: str) -> dict:
+        self._ensure_enabled()
+        entry = self.get_entry(entry_id)
+        if entry["validation"] != "verified" or entry["status"] != "verified":
+            raise SelfImprovementError("Для предложения требуется проверенная запись")
+        target, rel = self._target(relative_path)
+        base = target.read_bytes()
+        try:
+            current = base.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SelfImprovementError("Файл guidance должен быть UTF-8") from exc
+        old_text = _clean(old_text, "old_text", 100_000)
+        if current.count(old_text) != 1:
+            raise SelfImprovementError("Исходный фрагмент должен встречаться в файле ровно один раз")
+        candidate = current.replace(old_text, new_text, 1)
+        candidate_bytes = candidate.encode("utf-8")
+        if candidate_bytes == base or len(candidate_bytes) > 256_000:
+            raise SelfImprovementError("Пустое изменение или превышен лимит файла")
+        proposal_id = secrets.token_hex(8)
+        proposal = {"schema_version": 1, "proposal_id": proposal_id, "entry_ids": [entry_id],
+                    "path": rel, "base_sha256": _digest(base), "candidate_sha256": _digest(candidate_bytes),
+                    "old_text": old_text, "new_text": new_text,
+                    "rationale": _redact(_clean(rationale, "rationale")), "risk": "low",
+                    "status": "draft", "verification": None, "created_at": _now(), "updated_at": _now()}
+        proposal["diff"] = "".join(difflib.unified_diff(current.splitlines(True), candidate.splitlines(True), fromfile="a/" + rel, tofile="b/" + rel))
+        proposal["fingerprint"] = _digest(_canonical_json({key: proposal[key] for key in ("schema_version", "proposal_id", "entry_ids", "path", "base_sha256", "candidate_sha256", "old_text", "new_text", "rationale", "risk", "diff")}))
+        _atomic_json(self._record_path(self.proposals_dir, proposal_id), proposal)
+        return proposal
+
+    def get_proposal(self, proposal_id: str) -> dict:
+        proposal = _load_json(self._record_path(self.proposals_dir, proposal_id))
+        if proposal is None:
+            raise SelfImprovementError("Предложение не найдено")
+        self._proposal_payload(proposal)
+        return proposal
+
+    def preview(self, proposal_id: str) -> dict:
+        self._ensure_enabled()
+        proposal = self.get_proposal(proposal_id)
+        target, normalized = self._target(proposal["path"])
+        if normalized != proposal["path"]:
+            raise SelfImprovementError("Путь proposal изменился")
+        current = target.read_bytes()
+        if _digest(current) != proposal["base_sha256"]:
+            raise SelfImprovementError("STALE_PROPOSAL: исходный файл изменился; создайте предложение заново")
+        return proposal
+
+    def verify(self, proposal_id: str) -> dict:
+        proposal = self.preview(proposal_id)
+        target, _ = self._target(proposal["path"])
+        source_bytes = target.read_bytes()
+        if _digest(source_bytes) != proposal["base_sha256"]:
+            raise SelfImprovementError("STALE_PROPOSAL: исходный файл изменился")
+        try:
+            source = source_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SelfImprovementError("Файл guidance должен быть UTF-8") from exc
+        if source.count(proposal["old_text"]) != 1:
+            raise SelfImprovementError("Исходный фрагмент должен встречаться ровно один раз")
+        candidate = source.replace(proposal["old_text"], proposal["new_text"], 1)
+        candidate_bytes = candidate.encode("utf-8")
+        if _digest(candidate_bytes) != proposal["candidate_sha256"]:
+            raise SelfImprovementError("Кандидат не совпадает с сохранённым hash")
+        if len(candidate_bytes) > 256_000 or "\x00" in candidate:
+            raise SelfImprovementError("Кандидат превышает разрешённый размер или содержит NUL")
+        # This is structural validation, not a semantic proof. Human approval is
+        # still mandatory and the mutation scope excludes active policy/skills.
+        report = {"result": "structural_checks_passed", "checks": ["canonical allowlisted path", "base hash", "UTF-8", "unique snippet", "candidate hash", "size limit"], "commands": [], "verified_at": _now(), "limitations": "структурные проверки не доказывают истинность или безопасность смысла; требуется просмотр diff человеком"}
+        proposal["verification"] = report
+        proposal["status"] = "checked"
+        proposal["updated_at"] = _now()
+        _atomic_json(self._record_path(self.proposals_dir, proposal_id), proposal)
+        return report
+
+    def approve(self, proposal_id: str) -> tuple[str, str]:
+        proposal = self.preview(proposal_id)
+        payload = self._proposal_payload(proposal)
+        if proposal["status"] != "checked" or not proposal.get("verification"):
+            raise SelfImprovementError("Сначала выполните структурную проверку")
+        token = secrets.token_urlsafe(24)
+        approval_id = secrets.token_hex(8)
+        expires = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        approval = {"approval_id": approval_id, "proposal_id": proposal_id, "fingerprint": _digest(_canonical_json(payload)),
+                    "token_sha256": _digest(token.encode()), "expires_at": expires, "used": False}
+        _atomic_json(self._record_path(self.approvals_dir, approval_id), approval)
+        return approval_id, token
+
+    def _atomic_replace_target(self, target: Path, original: bytes, replacement: bytes) -> None:
+        # Refuse a changed target immediately before replacement. A same-UID
+        # hostile process remains outside the guarantee; the workspace owner is
+        # the trust boundary. On POSIX, use the opened parent directory as a
+        # stable rename anchor instead of resolving it again after validation.
+        if target.is_symlink() or not target.is_file() or target.read_bytes() != original:
+            raise SelfImprovementError("STALE_PROPOSAL: цель изменилась непосредственно перед записью")
+        fd, temporary = tempfile.mkstemp(prefix=".botai-self-improve-", dir=target.parent)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(replacement)
+                stream.flush()
+                os.fsync(stream.fileno())
+            if target.is_symlink() or target.read_bytes() != original:
+                raise SelfImprovementError("STALE_PROPOSAL: цель изменилась до атомарной замены")
+            os.replace(temporary, target)
+        except BaseException:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise
+
+    def apply(self, proposal_id: str, approval_id: str, challenge: str) -> dict:
+        self._ensure_enabled()
+        with self._lock:
+            approval_path = self._record_path(self.approvals_dir, approval_id)
+            approval = _load_json(approval_path)
+            if not isinstance(approval, dict) or approval.get("used") or approval.get("proposal_id") != proposal_id:
+                raise SelfImprovementError("APPROVAL_INVALID: нет действующего подтверждения")
+            proposal = self.preview(proposal_id)
+            payload = self._proposal_payload(proposal)
+            fingerprint = _digest(_canonical_json(payload))
+            if datetime.now(timezone.utc) > datetime.fromisoformat(approval["expires_at"]):
+                raise SelfImprovementError("APPROVAL_EXPIRED: получите новое подтверждение")
+            if not isinstance(challenge, str) or not secrets.compare_digest(approval["token_sha256"], _digest(challenge.encode())):
+                raise SelfImprovementError("APPROVAL_INVALID: проверочный код не совпадает")
+            if proposal["status"] != "checked" or approval.get("fingerprint") != fingerprint or not proposal.get("verification"):
+                raise SelfImprovementError("APPROVAL_INVALID: proposal не проверен или изменён")
+            target, _ = self._target(proposal["path"])
+            current_bytes = target.read_bytes()
+            if _digest(current_bytes) != proposal["base_sha256"]:
+                raise SelfImprovementError("STALE_PROPOSAL: исходный файл изменился")
+            current = current_bytes.decode("utf-8")
+            if current.count(proposal["old_text"]) != 1:
+                raise SelfImprovementError("STALE_PROPOSAL: исходный фрагмент изменился")
+            candidate_bytes = current.replace(proposal["old_text"], proposal["new_text"], 1).encode("utf-8")
+            if _digest(candidate_bytes) != proposal["candidate_sha256"]:
+                raise SelfImprovementError("STALE_PROPOSAL: содержимое кандидата изменилось")
+            application_id = secrets.token_hex(8)
+            application = {"application_id": application_id, "proposal_id": proposal_id, "path": proposal["path"],
+                           "old_sha256": proposal["base_sha256"], "new_sha256": proposal["candidate_sha256"],
+                           "old_bytes_b64": base64.b64encode(current_bytes).decode("ascii"), "approval_id": approval_id,
+                           "status": "prepared", "prepared_at": _now(), "reverted_at": None}
+            application_path = self._record_path(self.applications_dir, application_id)
+            _atomic_json(application_path, application)
+            approval["used"] = True
+            _atomic_json(approval_path, approval)
+            try:
+                self._atomic_replace_target(target, current_bytes, candidate_bytes)
+            except BaseException:
+                application["status"] = "failed"
+                _atomic_json(application_path, application)
+                raise
+            application["status"] = "applied"
+            application["applied_at"] = _now()
+            _atomic_json(application_path, application)
+            proposal["status"] = "applied"
+            proposal["updated_at"] = _now()
+            _atomic_json(self._record_path(self.proposals_dir, proposal_id), proposal)
+            return application
+
+    def revert(self, application_id: str) -> dict:
+        self._ensure_enabled()
+        with self._lock:
+            application_path = self._record_path(self.applications_dir, application_id)
+            application = _load_json(application_path)
+            if not isinstance(application, dict):
+                raise SelfImprovementError("Применение не найдено")
+            if application.get("status") != "applied" or application.get("reverted_at"):
+                raise SelfImprovementError("REVERT_INVALID: применение уже отменено или не завершено")
+            target, _ = self._target(application["path"])
+            current = target.read_bytes()
+            if _digest(current) != application["new_sha256"]:
+                raise SelfImprovementError("REVERT_CONFLICT: файл изменился после применения; не перезаписываю новые правки")
+            try:
+                old_bytes = base64.b64decode(application["old_bytes_b64"], validate=True)
+            except (ValueError, KeyError) as exc:
+                raise SelfImprovementError("Журнал отката повреждён") from exc
+            if _digest(old_bytes) != application["old_sha256"]:
+                raise SelfImprovementError("Журнал отката не прошёл проверку hash")
+            application["status"] = "reverting"
+            _atomic_json(application_path, application)
+            try:
+                self._atomic_replace_target(target, current, old_bytes)
+            except BaseException:
+                application["status"] = "applied"
+                _atomic_json(application_path, application)
+                raise
+            application["status"] = "reverted"
+            application["reverted_at"] = _now()
+            _atomic_json(application_path, application)
+            proposal = self.get_proposal(application["proposal_id"])
+            proposal["status"] = "reverted"
+            proposal["updated_at"] = _now()
+            _atomic_json(self._record_path(self.proposals_dir, proposal["proposal_id"]), proposal)
+            return application
+
+    def disable(self) -> None:
+        _atomic_bytes(self.disabled_path, b"disabled\n")
+
+    def enable(self) -> None:
+        try:
+            self.disabled_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    def status(self) -> dict:
+        entries = self.entries()
+        proposals = [_load_json(p, {}) for p in self.proposals_dir.glob("*.json")]
+        return {"enabled": not self.disabled_path.exists(), "storage": ".botai/self_improvement/",
+                "entries": len(entries), "entries_by_status": {status: sum(1 for entry in entries if entry["status"] == status) for status in sorted(ENTRY_STATUSES)},
+                "proposals": len(proposals), "network": False}

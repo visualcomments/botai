@@ -662,6 +662,8 @@ python scripts/upgrade_v2.py --dest <старое-workspace> --apply --plan-id <
 - [docs/education-club.md](docs/education-club.md) — подключение каталога Open Education Club через MCP и старт курса из каталога;
 - [docs/updating.md](docs/updating.md) — обновление обвязки и курсов: что сохраняется, откат, расписание;
 - [docs/botai-v2-design.md](docs/botai-v2-design.md) — технический дизайн 2.0: требования, границы доверия, критерии приёмки;
+- [docs/self-improvement-design.md](docs/self-improvement-design.md) — дизайн безопасного цикла самоулучшения;
+- [docs/self-improvement.md](docs/self-improvement.md) — локальный журнал наблюдений, проверка выводов и применение предложений;
 - [docs/course-rules.md](docs/course-rules.md) — принятый контракт курса и политика помощи;
 - [docs/corpus-and-sources.md](docs/corpus-and-sources.md) — корпус, безопасная загрузка, проверка цитат;
 - [docs/contribution-flow.md](docs/contribution-flow.md) — первый вклад: что делает агент и что делает ученик;

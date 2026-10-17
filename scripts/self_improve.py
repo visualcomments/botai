@@ -1,164 +1,175 @@
-"""CLI and generation driver for botai SelfSearch self-improvement loop.
-
-Usage:
-    python scripts/self_improve.py --generations 2 [--mock] [--lineage capability|adaptive|all]
-"""
-
+"""Local-only, human-reviewed self-improvement command parser and workflow."""
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 from pathlib import Path
 
-# Add scripts directory to path
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from botai_core.self_improvement import (
-    EpisodeEnvironment,
-    EpisodeRecord,
-    MutationDiff,
-    SafetyGate,
-    SafetyGateError,
-    SelfSearchEngine,
-    ToolAction,
-)
+from botai_core.self_improvement import SelfImprovement, SelfImprovementError
 
 
-def mock_improver(
-    direction: str,
-    previous_records: list[EpisodeRecord],
-    sandbox: EpisodeEnvironment,
-    engine: SelfSearchEngine,
-    lineage: str,
-    generation: int,
-) -> tuple[list[str], list[ToolAction], list[MutationDiff], str]:
-    """Demonstration improver executing realistic, verified skill additions."""
-    reasoning = [
-        f"Analyzing direction: {direction}",
-        f"Loaded {len(previous_records)} previous episode trajectories as evidence.",
-        "Identified need for enhanced course corpus diagnostic skill.",
-    ]
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python scripts/cli.py self-improve",
+        description="Локальный журнал наблюдений и подтверждаемые человеком изменения guidance",
+    )
+    parser.add_argument("--root", default=".", help="корень workspace (по умолчанию текущий каталог)")
+    parser.add_argument("--json", action="store_true", help="вывести результат в JSON")
+    sub = parser.add_subparsers(dest="action", required=True)
+    sub.add_parser("help", help="показать справку")
+    sub.add_parser("status", help="состояние локального журнала")
+    sub.add_parser("enable", help="включить приостановленное самоулучшение")
+    sub.add_parser("disable", help="приостановить запись и изменения, сохранив журнал")
 
-    actions = [
-        ToolAction(
-            tool_name="read_evidence",
-            arguments={"count": len(previous_records)},
-            output=f"Extracted findings from {len(previous_records)} prior episodes.",
-            success=True,
-        )
-    ]
+    capture = sub.add_parser("capture", help="добавить краткое наблюдение без транскрипта")
+    capture.add_argument("--kind", required=True, choices=["correction", "error", "feature_request", "best_practice", "knowledge_gap"])
+    capture.add_argument("--area", required=True)
+    capture.add_argument("--summary", required=True)
+    capture.add_argument("--source-type", default="other")
+    capture.add_argument("--source-ref", default="")
+    capture.add_argument("--revision", default="")
+    capture.add_argument("--request-id", default="")
 
-    # Propose a non-destructive skill enhancement
-    skill_rel_path = f".agents/skills/self-improved-{lineage}-g{generation}/SKILL.md"
-    skill_content = f"""---
-name: self-improved-{lineage}-g{generation}
-description: Automatically generated assistant skill for {lineage} (gen {generation})
-verified: 2026-10-13
----
+    search = sub.add_parser("search", help="найти записи по краткому тексту или области")
+    search.add_argument("--query", default="")
+    search.add_argument("--area")
+    search.add_argument("--limit", type=int, default=10)
 
-# Self-Improved Skill ({lineage})
+    show = sub.add_parser("show", help="показать запись")
+    show.add_argument("--entry", required=True)
 
-Generated via SelfSearch (arXiv:2609.37968) reward-free self-improvement loop.
+    review = sub.add_parser("review", help="зафиксировать вывод и проверяемое свидетельство")
+    review.add_argument("--entry", required=True)
+    review.add_argument("--claim", required=True)
+    review.add_argument("--evidence-type", required=True)
+    review.add_argument("--evidence-ref", required=True)
+    review.add_argument("--result", required=True)
+    review.add_argument("--validation", required=True, choices=["verified", "unresolved", "contradicted"])
+    review.add_argument("--scope", default="workspace")
+    review.add_argument("--expected-version", required=True, type=int)
 
-## Objective
-Provide guided diagnostic checkpoints for the {lineage} lineage.
+    propose = sub.add_parser("propose", help="создать draft для разрешённого guidance Markdown")
+    propose.add_argument("--entry", required=True)
+    propose.add_argument("--target", required=True)
+    propose.add_argument("--old-text", required=True)
+    propose.add_argument("--new-text", required=True)
+    propose.add_argument("--rationale", required=True)
 
-## Instructions
-1. Check student understanding before presenting material.
-2. Maintain pedagogical ladder: HINT -> EXAMPLE -> SOLUTION (practice only).
-3. Always respond in Russian per language-and-translation.
-"""
+    for name in ("preview", "verify", "approve"):
+        command = sub.add_parser(name, help={"preview": "показать точный diff", "verify": "структурно проверить diff", "approve": "подтвердить конкретный diff в TTY и выдать challenge"}[name])
+        command.add_argument("--proposal", required=True)
+    apply = sub.add_parser("apply", help="применить proposal только с TTY-подтверждением")
+    apply.add_argument("--proposal", required=True)
+    apply.add_argument("--approval", required=True)
+    revert = sub.add_parser("revert", help="откатить применение, если файл не менялся после него")
+    revert.add_argument("--application", required=True)
+    for command_parser in sub.choices.values():
+        command_parser.add_argument("--root", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+        command_parser.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+    return parser
 
-    mutations = []
+
+def _render(value, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(value, ensure_ascii=False, indent=2))
+    elif isinstance(value, dict) and isinstance(value.get("diff"), str):
+        print(value["diff"], end="" if value["diff"].endswith("\n") else "\n")
+        print(f"proposal_id: {value['proposal_id']}\nstatus: {value['status']}\nfingerprint: {value['fingerprint']}")
+    else:
+        print(json.dumps(value, ensure_ascii=False, indent=2))
+
+
+def run(root: Path, args) -> int:
+    service = SelfImprovement(root)
     try:
-        diff = engine.apply_mutation(skill_rel_path, skill_content, sandbox)
-        mutations.append(diff)
-        actions.append(
-            ToolAction(
-                tool_name="apply_mutation",
-                arguments={"path": skill_rel_path},
-                output=f"Mutation drafted. Diff size: {len(diff.diff_text)} bytes.",
-                success=True,
-            )
-        )
-    except SafetyGateError as sge:
-        actions.append(
-            ToolAction(
-                tool_name="apply_mutation",
-                arguments={"path": skill_rel_path},
-                output=f"Safety Gate rejected mutation: {sge}",
-                success=False,
-            )
-        )
+        if args.action == "help":
+            build_parser().print_help()
+            return 0
+        if args.action == "status":
+            result = service.status()
+        elif args.action == "enable":
+            service.enable()
+            result = service.status()
+        elif args.action == "disable":
+            service.disable()
+            result = service.status()
+        elif args.action == "capture":
+            result = service.capture(kind=args.kind, area=args.area, summary=args.summary,
+                                     source_type=args.source_type, source_ref=args.source_ref,
+                                     revision=args.revision, request_id=args.request_id)
+        elif args.action == "search":
+            result = service.search(args.query, args.area, args.limit)
+        elif args.action == "show":
+            result = service.get_entry(args.entry)
+        elif args.action == "review":
+            result = service.review(args.entry, claim=args.claim, evidence_type=args.evidence_type,
+                                    evidence_ref=args.evidence_ref, result=args.result,
+                                    validation=args.validation, scope=args.scope,
+                                    expected_version=args.expected_version)
+        elif args.action == "propose":
+            result = service.propose(entry_id=args.entry, relative_path=args.target,
+                                     old_text=args.old_text, new_text=args.new_text,
+                                     rationale=args.rationale)
+        elif args.action == "preview":
+            result = service.preview(args.proposal)
+        elif args.action == "verify":
+            result = service.verify(args.proposal)
+        elif args.action == "approve":
+            if not sys.stdin.isatty():
+                raise SelfImprovementError("Одобрение возможно только в интерактивном терминале человека")
+            proposal = service.preview(args.proposal)
+            _render(proposal, False)
+            print("Внимание: структурная проверка не оценивает смысл. Путь ограничен guidance, но формулировка может влиять на поведение агента. Не одобряйте изменения политики, consent-gate или правил помощи; при сомнении откажитесь.")
+            if input(f"Введите approve {args.proposal}: ").strip() != f"approve {args.proposal}":
+                raise SelfImprovementError("Предложение не одобрено")
+            approval_id, challenge = service.approve(args.proposal)
+            result = {"approval_id": approval_id, "challenge": challenge, "expires_in_seconds": 300,
+                      "warning": "Одноразовый challenge привязан к fingerprint proposal; локальные права пользователя не являются границей безопасности."}
+        elif args.action == "apply":
+            if not sys.stdin.isatty():
+                raise SelfImprovementError("Применение возможно только в интерактивном терминале человека")
+            proposal = service.preview(args.proposal)
+            _render(proposal, False)
+            if input(f"Введите apply {args.proposal}: ").strip() != f"apply {args.proposal}":
+                raise SelfImprovementError("Применение не подтверждено")
+            challenge = input("Одноразовый код: ").strip()
+            result = service.apply(args.proposal, args.approval, challenge)
+        elif args.action == "revert":
+            result = service.revert(args.application)
+        else:
+            raise SelfImprovementError("Неизвестное действие")
+        _render(result, args.json)
+        return 0
+    except (SelfImprovementError, OSError, UnicodeError) as exc:
+        print(f"self-improve: {exc}", file=sys.stderr)
+        return 2
 
-    summary = (
-        f"Completed episode for {lineage} generation {generation}. "
-        f"Proposed {len(mutations)} safe mutations."
-    )
-    return reasoning, actions, mutations, summary
 
-
-def run_self_search(
-    workspace_root: Path,
-    generations: int = 1,
-    lineage_filter: str = "all",
-) -> None:
-    engine = SelfSearchEngine(workspace_root)
-    print(f"=== botai SelfSearch Engine (arXiv:2609.37968) ===")
-    print(f"Workspace: {workspace_root}")
-    print(f"Generations planned: {generations}")
-
-    lineages = (
-        ["pedagogical_capability", "adaptive_scaffolding"]
-        if lineage_filter == "all"
-        else [lineage_filter]
-    )
-
-    for gen in range(1, generations + 1):
-        print(f"\n--- Generation {gen}/{generations} ---")
-        for lin in lineages:
-            print(f"Executing lineage: {lin}...")
-
-            def improver_wrapper(d, prevs, sb):
-                return mock_improver(d, prevs, sb, engine, lin, gen)
-
-            record = engine.execute_episode(
-                generation=gen,
-                lineage=lin,
-                improver_fn=improver_wrapper,
-            )
-
-            status = "PASSED" if record.verification_passed else "FAILED"
-            print(
-                f"  [{status}] Episode {record.episode_id}: {record.summary} "
-                f"({len(record.mutations)} mutations applied)"
-            )
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="botai SelfSearch CLI")
-    parser.add_argument(
-        "--generations",
-        type=int,
-        default=1,
-        help="Number of self-improvement generations (default: 1)",
-    )
-    parser.add_argument(
-        "--lineage",
-        choices=["all", "pedagogical_capability", "adaptive_scaffolding"],
-        default="all",
-        help="Lineage to run (default: all)",
-    )
-    parser.add_argument(
-        "--root",
-        type=str,
-        default=".",
-        help="Workspace root path",
-    )
-    args = parser.parse_args()
-    workspace_root = Path(args.root).resolve()
-    run_self_search(workspace_root, args.generations, args.lineage)
+def main(argv=None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments or arguments[0] in {"-h", "--help"}:
+        build_parser().print_help()
+        return 0
+    if arguments[0] == "--root":
+        try:
+            root_index = arguments.index("--root")
+            root_value = arguments[root_index + 1]
+        except (ValueError, IndexError):
+            build_parser().error("--root требует путь")
+        del arguments[root_index:root_index + 2]
+        if arguments and arguments[-1] == "help":
+            build_parser().print_help()
+            return 0
+        os.environ["BOTAI_ROOT"] = str(Path(root_value).expanduser().resolve())
+    if arguments[0] == "help":
+        build_parser().print_help()
+        return 0
+    parser = build_parser()
+    args = parser.parse_args(arguments)
+    return run(Path(args.root).expanduser().resolve(), args)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

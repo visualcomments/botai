@@ -66,7 +66,7 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 # ============================================================================
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
-.PHONY: help doctor install test \
+.PHONY: help doctor install test self-improve \
         setup new-course \
         progress review courses course-set active \
         corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
@@ -95,6 +95,12 @@ help:
 	@echo "  make setup                 Create the workspace layout (courses/ progress/ dist/)"
 	@echo "  make new-course NAME=slug [TITLE=My_Course]  Scaffold a new course (TITLE without spaces)"
 	@echo "  (on any OS, incl. Windows without make: python scripts/cli.py <command>)"
+	@echo ""
+	@echo "Self-improvement memory (local-only, explicit human review):"
+	@echo "  make self-improve ACTION=status|capture|search|review|propose|preview|verify|approve|apply|revert|enable|disable"
+	@echo "  make self-improve ACTION=capture ARGS='--kind error --area cli --summary \"...\"'"
+	@echo "  python scripts/cli.py self-improve help   Show command-specific options"
+	@echo "  Knowledge logs are not student progress; no transcript or network transfer"
 	@echo ""
 	@echo "Multi-course workspace:"
 	@echo "  make courses                List course subprojects with progress tails"
@@ -238,10 +244,11 @@ corpus:
 # students is refused: attributing one person's lines to another is worse than
 # asking. The original file is preserved verbatim either way.
 # ============================================================================
-# SelfSearch: Reward-free agent self-improvement (arXiv:2609.37968).
+# Local self-improvement records and human-reviewed guidance proposals; arguments are forwarded to the dedicated parser.
+# Example: make self-improve ACTION=status, or ACTION=capture ARGS='--kind error --area cli --summary "..."'.
 # ----------------------------------------------------------------------------
 self-improve:
-	@python3 scripts/cli.py self-improve $(if $(GEN),--generations "$(GEN)",) $(if $(LINEAGE),--lineage "$(LINEAGE)",)
+	@python3 scripts/cli.py self-improve $(ACTION) $(ARGS)
 
 # ============================================================================
 state-migrate:
