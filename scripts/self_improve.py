@@ -25,6 +25,10 @@ def build_parser() -> argparse.ArgumentParser:
     triage = sub.add_parser("triage", help="показать записи, требующие человеческой проверки")
     triage.add_argument("--area")
     triage.add_argument("--limit", type=int, default=50)
+    promote = sub.add_parser("promote", help="зафиксировать явное human promotion применённого proposal")
+    promote.add_argument("--proposal", required=True)
+    promote.add_argument("--rationale", required=True)
+    sub.add_parser("promotions", help="показать promotion records")
     purge_preview = sub.add_parser("purge-preview", help="показать объём удаления локального состояния")
     purge_preview.add_argument("--include-backups", action="store_true")
     purge = sub.add_parser("purge", help="удалить локальное состояние с tombstone")
@@ -132,6 +136,10 @@ def run(root: Path, args) -> int:
             result = service.recover()
         elif args.action == "triage":
             result = service.triage(area=args.area, limit=args.limit)
+        elif args.action == "promote":
+            result = service.promote(args.proposal, rationale=args.rationale)
+        elif args.action == "promotions":
+            result = service.promotion_records()
         elif args.action == "purge-preview":
             result = service.purge_preview(include_backups=args.include_backups)
         elif args.action == "purge":

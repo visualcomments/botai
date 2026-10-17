@@ -24,6 +24,8 @@ python3 scripts/cli.py self-improve export-preview --json
 # После просмотра fingerprint и пути:
 python3 scripts/cli.py self-improve export-file --path reports/self-improvement.json --consent --json
 python3 scripts/cli.py self-improve import-evidence --entry ERR-YYYYMMDD-ABC --report reports/self-improvement.json --expected-version 1
+python3 scripts/cli.py self-improve promote --proposal <ID> --rationale "Человек подтвердил актуальность"
+python3 scripts/cli.py self-improve promotions --json
 python3 scripts/cli.py self-improve recover
 python3 scripts/cli.py self-improve triage --limit 20
 python3 scripts/cli.py self-improve migrate --learner-id self-improvement

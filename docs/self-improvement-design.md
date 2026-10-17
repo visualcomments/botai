@@ -376,7 +376,8 @@ MCP-интеграция — после CLI и тестов, отдельный 
 - [ ] Добавить отдельный preview/consent перед внешней передачей export и доверенный import; не включать ученические/оценочные сведения.
 - [x] Добавить read-only maintenance triage: pending требует review, unresolved — повторной проверки источника, contradicted — retire или replacement.
 - [x] Добавить явный `retire` с optimistic version check, сохранением evidence и причиной архивации.
-- [ ] Реализовать promotion в отдельную неинжектируемую guidance-базу с историей, source links и review outcomes.
+- [x] Реализовать явную promotion-запись для `applied` proposal с fingerprint, rationale и `runtime_injected: false`.
+- [ ] Реализовать отдельную неинжектируемую guidance-базу с полными source links и review outcomes.
 - [ ] Рассмотреть SQLite store только отдельным migration PR; JSON локальная схема остаётся авторитетной до завершения миграционного review.
 
 **Текущий результат:** triage и retire требуют действия человека, сохраняют историю и не меняют guidance автоматически. Promotion, экспорт и миграция хранилища остаются будущей работой.

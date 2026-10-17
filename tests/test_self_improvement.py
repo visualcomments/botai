@@ -160,6 +160,23 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_promotion_requires_applied_proposal_and_never_injects_runtime(tmp_path):
+    _, target, service = setup_service(tmp_path)
+    entry = verified_entry(service, request_id="promotion")
+    proposal = service.propose(entry_id=entry["entry_id"], relative_path="docs/self-improvement-guidance/cli.md",
+                               old_text="Use old command.", new_text="Use promoted command.", rationale="promotion")
+    with pytest.raises(SelfImprovementError, match="PROMOTION_INVALID"):
+        service.promote(proposal["proposal_id"], rationale="не применено")
+    service.verify(proposal["proposal_id"])
+    approval_id, challenge = service.approve(proposal["proposal_id"])
+    service.apply(proposal["proposal_id"], approval_id, challenge)
+    record = service.promote(proposal["proposal_id"], rationale="Человек явно подтвердил актуальность")
+    assert record["proposal_fingerprint"] == proposal["fingerprint"]
+    assert record["runtime_injected"] is False
+    assert service.promotion_records()[0]["record_sha256"] == record["record_sha256"]
+    assert b"Use promoted command." in target.read_bytes()
+
+
 def test_purge_requires_consent_and_keeps_tombstone_without_content(tmp_path):
     root, _, service = setup_service(tmp_path)
     entry = service.capture(kind="error", area="cli", summary="удалить", request_id="purge")

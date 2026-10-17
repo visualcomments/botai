@@ -692,6 +692,30 @@ class SelfImprovement:
             digest.update(data)
         return digest.hexdigest()
 
+    def promote(self, proposal_id: str, *, rationale: str) -> dict:
+        """Record explicit human promotion without injecting guidance into runtime."""
+        self._ensure_enabled()
+        proposal = self.get_proposal(proposal_id)
+        if proposal.get("status") != "applied":
+            raise SelfImprovementError("PROMOTION_INVALID: promotion возможен только для applied proposal")
+        rationale = _redact(_clean(rationale, "rationale", 500))
+        record = {"schema_version": 1, "promotion_id": secrets.token_hex(8),
+                  "proposal_id": proposal_id, "proposal_fingerprint": proposal["fingerprint"],
+                  "path": proposal["path"], "rationale": rationale, "status": "promoted",
+                  "runtime_injected": False, "created_at": _now()}
+        record["record_sha256"] = _digest(_canonical_json(record))
+        _atomic_json(self._record_path(self.state_dir, "promotion-" + record["promotion_id"]), record)
+        return record
+
+    def promotion_records(self) -> list[dict]:
+        records = []
+        for path in sorted(self.state_dir.glob("promotion-*.json")):
+            record = _load_json(path)
+            if not isinstance(record, dict) or record.get("runtime_injected") is not False:
+                raise SelfImprovementError("Схема promotion повреждена")
+            records.append(record)
+        return records
+
     def purge_preview(self, *, include_backups: bool = False) -> dict:
         targets = []
         for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
