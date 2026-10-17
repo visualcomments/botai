@@ -698,6 +698,9 @@ class SelfImprovement:
         proposal = self.get_proposal(proposal_id)
         if proposal.get("status") != "applied":
             raise SelfImprovementError("PROMOTION_INVALID: promotion возможен только для applied proposal")
+        target, _ = self._target(proposal["path"])
+        if _digest(target.read_bytes()) != proposal["candidate_sha256"]:
+            raise SelfImprovementError("PROMOTION_STALE: применённый файл изменился; promotion отклонён")
         rationale = _redact(_clean(rationale, "rationale", 500))
         record = {"schema_version": 1, "promotion_id": secrets.token_hex(8),
                   "proposal_id": proposal_id, "proposal_fingerprint": proposal["fingerprint"],
