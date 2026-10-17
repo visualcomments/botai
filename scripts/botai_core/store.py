@@ -524,6 +524,29 @@ class Store:
     def integrity_check(self):
         return self._conn.execute("PRAGMA integrity_check").fetchone()[0]
 
+    def migration(self, version):
+        row = self._conn.execute(
+            "SELECT version, applied_at, source_hash, report_json FROM migrations WHERE version=?",
+            (version,),
+        ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["report"] = json.loads(result.pop("report_json"))
+        return result
+
+    def record_migration(self, version, *, source_hash, report):
+        existing = self.migration(version)
+        if existing is not None:
+            if existing["source_hash"] != source_hash:
+                raise StoreError("MIGRATION_CONFLICT", "версия миграции уже применена к другому источнику")
+            return existing
+        self._conn.execute(
+            "INSERT INTO migrations(version, applied_at, source_hash, report_json) VALUES (?,?,?,?)",
+            (version, now_iso(), source_hash, _json(report)),
+        )
+        return self.migration(version)
+
     def count(self, table):
         allowed = {"entities", "events", "requests", "artifacts", "artifact_refs", "migrations"}
         if table not in allowed:

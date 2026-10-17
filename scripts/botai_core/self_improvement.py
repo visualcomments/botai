@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from . import paths
+from .store import Store, StoreError
 
 SCHEMA_VERSION = 1
 ENTRY_KINDS = {"correction", "error", "feature_request", "best_practice", "knowledge_gap"}
@@ -616,6 +617,59 @@ class SelfImprovement:
             self.disabled_path.unlink()
         except FileNotFoundError:
             pass
+
+    def _source_manifest_hash(self) -> str:
+        digest = hashlib.sha256()
+        for path in sorted(self.entries_dir.glob("*.json")):
+            if path.name.startswith("request-"):
+                continue
+            relative = path.relative_to(self.root).as_posix().encode("utf-8")
+            digest.update(len(relative).to_bytes(8, "big"))
+            digest.update(relative)
+            data = path.read_bytes()
+            digest.update(len(data).to_bytes(8, "big"))
+            digest.update(data)
+        return digest.hexdigest()
+
+    def migrate_to_store(self, *, learner_id="self-improvement") -> dict:
+        """Copy validated JSON entries to the authoritative workspace SQLite store.
+
+        The JSON records remain untouched. A deterministic request id makes a retry
+        idempotent, while a source manifest prevents recording a migration after a
+        concurrent source change.
+        """
+        self._ensure_enabled(allow_disabled=True)
+        if not isinstance(learner_id, str) or not learner_id.strip() or len(learner_id) > 80:
+            raise SelfImprovementError("Недопустимый learner_id для миграции")
+        entries = self.entries()
+        source_hash = self._source_manifest_hash()
+        with Store.open(self.root, learner_id) as store:
+            existing = store.migration(1)
+            if existing is not None:
+                if existing["source_hash"] != source_hash:
+                    raise SelfImprovementError("MIGRATION_CONFLICT: источник изменился после миграции")
+                return existing["report"]
+            imported = 0
+            replayed = 0
+            for entry in entries:
+                request_id = "self-improvement-migrate-v1-" + entry["entry_id"]
+                result, was_replayed = store.apply(
+                    kind="self_improvement_entry", entity_id=entry["entry_id"],
+                    events=["self_improvement.entry_imported"], new_body=entry,
+                    event_payloads=[{"entry_id": entry["entry_id"], "source_hash": source_hash}],
+                    request_id=request_id,
+                )
+                if was_replayed:
+                    replayed += 1
+                else:
+                    imported += 1
+            if self._source_manifest_hash() != source_hash:
+                raise SelfImprovementError("MIGRATION_CONFLICT: JSON-источник изменился во время миграции")
+            report = {"schema_version": 1, "source_hash": source_hash,
+                      "entries": len(entries), "imported": imported, "replayed": replayed,
+                      "source_preserved": True}
+            store.record_migration(1, source_hash=source_hash, report=report)
+            return report
 
     def status(self) -> dict:
         entries = self.entries()

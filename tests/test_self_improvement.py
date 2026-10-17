@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from botai_core.self_improvement import SelfImprovement, SelfImprovementError
+from botai_core.store import Store
 
 
 def setup_service(tmp_path, *, contents="# CLI\n\nUse old command.\n"):
@@ -157,6 +158,35 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert actions[unresolved["entry_id"]] == "recheck_source"
     assert actions[contradicted["entry_id"]] == "retire_or_replace"
     assert service.get_entry(pending["entry_id"]) == before_pending
+
+
+def test_migrate_to_workspace_store_is_idempotent_and_preserves_json_source(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="мигрируемая запись", request_id="migrate")
+    source = (service.entries_dir / f"{entry['entry_id']}.json").read_bytes()
+    first = service.migrate_to_store()
+    assert first["entries"] == 1
+    assert first["imported"] == 1
+    assert first["source_preserved"] is True
+    with Store.open(root, "self-improvement") as store:
+        assert store.count("entities") == 1
+        assert store.count("events") == 1
+        assert store.migration(1)["source_hash"] == first["source_hash"]
+    assert (service.entries_dir / f"{entry['entry_id']}.json").read_bytes() == source
+    second = service.migrate_to_store()
+    assert second == first
+
+
+def test_migration_refuses_changed_json_source(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="первая версия", request_id="migrate-conflict")
+    service.migrate_to_store()
+    path = service.entries_dir / f"{entry['entry_id']}.json"
+    value = __import__("json").loads(path.read_text(encoding="utf-8"))
+    value["summary"] = "изменено после миграции"
+    path.write_text(__import__("json").dumps(value), encoding="utf-8")
+    with pytest.raises(SelfImprovementError, match="MIGRATION_CONFLICT"):
+        service.migrate_to_store()
 
 
 def test_retire_preserves_history_and_requires_current_version(tmp_path):
