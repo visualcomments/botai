@@ -177,6 +177,24 @@ def test_migrate_to_workspace_store_is_idempotent_and_preserves_json_source(tmp_
     assert second == first
 
 
+def test_migration_recovery_accepts_partial_import_and_rejects_conflicting_entity(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    first = service.capture(kind="error", area="cli", summary="первая", request_id="migrate-recovery-1")
+    second = service.capture(kind="error", area="docs", summary="вторая", request_id="migrate-recovery-2")
+    source = service._source_manifest_hash()
+    with Store.open(root, "self-improvement") as store:
+        stored = dict(first)
+        stored["summary"] = "чужая версия"
+        store.apply(kind="self_improvement_entry", entity_id=first["entry_id"],
+                    events=["self_improvement.entry_imported"], new_body=stored,
+                    event_payloads=[{"entry_id": first["entry_id"], "source_hash": source}],
+                    request_id="self-improvement-migrate-v1-" + first["entry_id"])
+    with pytest.raises(SelfImprovementError, match="MIGRATION_CONFLICT"):
+        service.migrate_to_store(recovery=True)
+    with Store.open(root, "self-improvement") as store:
+        assert store.get("self_improvement_entry", second["entry_id"])[0] is None
+
+
 def test_migration_refuses_changed_json_source(tmp_path):
     root, _, service = setup_service(tmp_path)
     entry = service.capture(kind="error", area="cli", summary="первая версия", request_id="migrate-conflict")

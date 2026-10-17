@@ -631,7 +631,7 @@ class SelfImprovement:
             digest.update(data)
         return digest.hexdigest()
 
-    def migrate_to_store(self, *, learner_id="self-improvement") -> dict:
+    def migrate_to_store(self, *, learner_id="self-improvement", recovery=False) -> dict:
         """Copy validated JSON entries to the authoritative workspace SQLite store.
 
         The JSON records remain untouched. A deterministic request id makes a retry
@@ -649,6 +649,11 @@ class SelfImprovement:
                 if existing["source_hash"] != source_hash:
                     raise SelfImprovementError("MIGRATION_CONFLICT: источник изменился после миграции")
                 return existing["report"]
+            if recovery:
+                for entry in entries:
+                    stored, version = store.get("self_improvement_entry", entry["entry_id"])
+                    if stored is not None and stored != entry:
+                        raise SelfImprovementError("MIGRATION_CONFLICT: импортированная запись отличается от JSON")
             imported = 0
             replayed = 0
             for entry in entries:
