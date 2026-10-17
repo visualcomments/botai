@@ -21,6 +21,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("help", help="показать справку")
     sub.add_parser("status", help="состояние локального журнала")
     sub.add_parser("recover", help="синхронизировать журнал после прерванной операции")
+    triage = sub.add_parser("triage", help="показать записи, требующие человеческой проверки")
+    triage.add_argument("--area")
+    triage.add_argument("--limit", type=int, default=50)
     sub.add_parser("enable", help="включить приостановленное самоулучшение")
     sub.add_parser("disable", help="приостановить запись и изменения, сохранив журнал")
 
@@ -92,6 +95,8 @@ def run(root: Path, args) -> int:
             result = service.status()
         elif args.action == "recover":
             result = service.recover()
+        elif args.action == "triage":
+            result = service.triage(area=args.area, limit=args.limit)
         elif args.action == "enable":
             service.enable()
             result = service.status()

@@ -11,6 +11,7 @@
 ```bash
 python3 scripts/cli.py self-improve status
 python3 scripts/cli.py self-improve recover
+python3 scripts/cli.py self-improve triage --limit 20
 python3 scripts/cli.py self-improve capture \
   --kind error --area cli \
   --summary "Команда не сообщала понятную причину ошибки" \

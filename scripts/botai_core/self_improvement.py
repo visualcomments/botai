@@ -239,6 +239,29 @@ class SelfImprovement:
                 break
         return results
 
+    def triage(self, *, area: str | None = None, limit: int = 50) -> dict:
+        """Return entries needing human review without changing any state."""
+        self._ensure_enabled()
+        if limit < 1 or limit > 100:
+            raise SelfImprovementError("limit должен быть от 1 до 100")
+        pending = []
+        for entry in self.entries():
+            if area and entry["area"] != area:
+                continue
+            if entry["validation"] not in {"pending", "unresolved", "contradicted"}:
+                continue
+            action = "review"
+            if entry["validation"] == "unresolved":
+                action = "recheck_source"
+            elif entry["validation"] == "contradicted":
+                action = "retire_or_replace"
+            pending.append({"entry_id": entry["entry_id"], "area": entry["area"],
+                            "summary": entry["summary"], "validation": entry["validation"],
+                            "version": entry["version"], "recommended_action": action})
+            if len(pending) >= limit:
+                break
+        return {"count": len(pending), "items": pending}
+
     def review(self, entry_id: str, *, claim: str, evidence_type: str, evidence_ref: str, result: str, validation: str, scope: str = "workspace", expected_version: int) -> dict:
         self._ensure_enabled()
         if not isinstance(expected_version, int):

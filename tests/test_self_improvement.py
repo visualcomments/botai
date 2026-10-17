@@ -139,6 +139,26 @@ def test_crlf_is_preserved_and_path_symlink_is_rejected(tmp_path):
     assert target.read_bytes() == b"# CLI\r\n\r\nUse old command.\r\n"
 
 
+def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(tmp_path):
+    _, _, service = setup_service(tmp_path)
+    pending = service.capture(kind="error", area="cli", summary="ожидает проверки", request_id="triage-pending")
+    unresolved = service.capture(kind="error", area="docs", summary="источник недоступен", request_id="triage-unresolved")
+    service.review(unresolved["entry_id"], claim="нельзя подтвердить", evidence_type="maintainer_decision",
+                   evidence_ref="issue-1", result="источник недоступен", validation="unresolved", expected_version=1)
+    contradicted = service.capture(kind="error", area="cli", summary="опровергнуто", request_id="triage-contradicted")
+    service.review(contradicted["entry_id"], claim="утверждение неверно", evidence_type="file",
+                   evidence_ref="Makefile", result="проверено по исходнику", validation="contradicted", expected_version=1)
+
+    before_pending = service.get_entry(pending["entry_id"])
+    result = service.triage(limit=10)
+    assert result["count"] == 3
+    actions = {item["entry_id"]: item["recommended_action"] for item in result["items"]}
+    assert actions[pending["entry_id"]] == "review"
+    assert actions[unresolved["entry_id"]] == "recheck_source"
+    assert actions[contradicted["entry_id"]] == "retire_or_replace"
+    assert service.get_entry(pending["entry_id"]) == before_pending
+
+
 def test_recover_reconciles_interrupted_apply_and_revert_without_writing_target(tmp_path):
     _, target, service = setup_service(tmp_path)
     entry = verified_entry(service, request_id="recover")
