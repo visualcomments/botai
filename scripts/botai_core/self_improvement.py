@@ -300,6 +300,27 @@ class SelfImprovement:
             _atomic_json(self._record_path(self.entries_dir, entry_id), entry)
             return entry
 
+    def retire(self, entry_id: str, *, reason: str, expected_version: int) -> dict:
+        """Retire a record while preserving its evidence and complete history."""
+        self._ensure_enabled()
+        if not isinstance(expected_version, int):
+            raise SelfImprovementError("expected_version обязателен для архивации записи")
+        reason = _redact(_clean(reason, "reason", 500))
+        with self._lock:
+            entry = self.get_entry(entry_id)
+            if entry["version"] != expected_version:
+                raise SelfImprovementError("STATE_CONFLICT: запись изменена; перечитайте её")
+            if entry["status"] == "retired":
+                raise SelfImprovementError("Запись уже архивирована")
+            entry["status"] = "retired"
+            entry["maintenance"]["retirement_reason"] = reason
+            entry["maintenance"]["retired_at"] = _now()
+            entry["version"] += 1
+            entry["updated_at"] = _now()
+            _validate_entry(entry, entry_id)
+            _atomic_json(self._record_path(self.entries_dir, entry_id), entry)
+            return entry
+
     def _target(self, relative: str) -> tuple[Path, str]:
         if not isinstance(relative, str) or not relative or "\\" in relative or DRIVE_RE.match(relative) or relative.startswith("//") or "\x00" in relative:
             raise SelfImprovementError("Недопустимый путь предложения")

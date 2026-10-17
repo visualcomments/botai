@@ -159,6 +159,23 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_retire_preserves_history_and_requires_current_version(tmp_path):
+    _, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="устаревшее наблюдение", request_id="retire")
+    reviewed = service.review(entry["entry_id"], claim="Наблюдение опровергнуто", evidence_type="file",
+                              evidence_ref="Makefile", result="проверено по текущему файлу", validation="contradicted",
+                              expected_version=1)
+    with pytest.raises(SelfImprovementError, match="STATE_CONFLICT"):
+        service.retire(entry["entry_id"], reason="устарело", expected_version=1)
+    retired = service.retire(entry["entry_id"], reason="подтверждено новое поведение", expected_version=reviewed["version"])
+    assert retired["status"] == "retired"
+    assert retired["validation"] == "contradicted"
+    assert retired["evidence"]
+    assert retired["maintenance"]["retirement_reason"] == "подтверждено новое поведение"
+    assert service.search("устаревшее") == []
+    assert service.get_entry(entry["entry_id"])["status"] == "retired"
+
+
 def test_recover_reconciles_interrupted_apply_and_revert_without_writing_target(tmp_path):
     _, target, service = setup_service(tmp_path)
     entry = verified_entry(service, request_id="recover")

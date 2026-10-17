@@ -54,6 +54,11 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--scope", default="workspace")
     review.add_argument("--expected-version", required=True, type=int)
 
+    retire = sub.add_parser("retire", help="архивировать запись без удаления истории")
+    retire.add_argument("--entry", required=True)
+    retire.add_argument("--reason", required=True)
+    retire.add_argument("--expected-version", required=True, type=int)
+
     propose = sub.add_parser("propose", help="создать draft для разрешённого guidance Markdown")
     propose.add_argument("--entry", required=True)
     propose.add_argument("--target", required=True)
@@ -115,6 +120,9 @@ def run(root: Path, args) -> int:
             result = service.review(args.entry, claim=args.claim, evidence_type=args.evidence_type,
                                     evidence_ref=args.evidence_ref, result=args.result,
                                     validation=args.validation, scope=args.scope,
+                                    expected_version=args.expected_version)
+        elif args.action == "retire":
+            result = service.retire(args.entry, reason=args.reason,
                                     expected_version=args.expected_version)
         elif args.action == "propose":
             result = service.propose(entry_id=args.entry, relative_path=args.target,
