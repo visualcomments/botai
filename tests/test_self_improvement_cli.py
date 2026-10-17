@@ -26,6 +26,13 @@ def test_self_improve_help_is_command_specific(capsys):
     assert "--si-action" not in output
 
 
+def test_promotion_is_rejected_from_non_tty(capsys):
+    from self_improve import main
+
+    assert main(["promote", "--proposal", "deadbeefdeadbeef", "--rationale", "review"]) == 2
+    assert "интерактивном терминале" in capsys.readouterr().err
+
+
 def test_workspace_help_lists_self_improve_subcommand(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["cli.py", "--help"])
     try:

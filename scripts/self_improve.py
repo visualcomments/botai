@@ -137,6 +137,13 @@ def run(root: Path, args) -> int:
         elif args.action == "triage":
             result = service.triage(area=args.area, limit=args.limit)
         elif args.action == "promote":
+            if not sys.stdin.isatty():
+                raise SelfImprovementError("Promotion возможно только в интерактивном терминале человека")
+            proposal = service.get_proposal(args.proposal)
+            _render(proposal, False)
+            print("Promotion фиксирует человеческое решение, но не внедряет guidance в runtime.")
+            if input(f"Введите promote {args.proposal}: ").strip() != f"promote {args.proposal}":
+                raise SelfImprovementError("Promotion не подтверждено")
             result = service.promote(args.proposal, rationale=args.rationale)
         elif args.action == "promotions":
             result = service.promotion_records()
