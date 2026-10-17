@@ -63,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--scope", default="workspace")
     review.add_argument("--expected-version", required=True, type=int)
 
+    evidence = sub.add_parser("import-evidence", help="импортировать локальный redacted report как evidence")
+    evidence.add_argument("--entry", required=True)
+    evidence.add_argument("--report", required=True)
+    evidence.add_argument("--expected-version", required=True, type=int)
+
     retire = sub.add_parser("retire", help="архивировать запись без удаления истории")
     retire.add_argument("--entry", required=True)
     retire.add_argument("--reason", required=True)
@@ -140,6 +145,8 @@ def run(root: Path, args) -> int:
                                     evidence_ref=args.evidence_ref, result=args.result,
                                     validation=args.validation, scope=args.scope,
                                     expected_version=args.expected_version)
+        elif args.action == "import-evidence":
+            result = service.import_evidence(args.entry, args.report, expected_version=args.expected_version)
         elif args.action == "retire":
             result = service.retire(args.entry, reason=args.reason,
                                     expected_version=args.expected_version)

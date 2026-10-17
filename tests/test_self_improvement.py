@@ -160,6 +160,23 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_import_evidence_requires_valid_report_hash_and_current_version(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="evidence", request_id="evidence")
+    report_path = root / "reports" / "self-improvement.json"
+    service.export_to_file("reports/self-improvement.json", consent=True)
+    imported = service.import_evidence(entry["entry_id"], "reports/self-improvement.json", expected_version=1)
+    assert imported["version"] == 2
+    assert imported["evidence"][-1]["type"] == "report"
+    with pytest.raises(SelfImprovementError, match="STATE_CONFLICT"):
+        service.import_evidence(entry["entry_id"], "reports/self-improvement.json", expected_version=1)
+    payload = __import__("json").loads(report_path.read_text(encoding="utf-8"))
+    payload["entries"][0]["summary"] = "tampered"
+    report_path.write_text(__import__("json").dumps(payload), encoding="utf-8")
+    with pytest.raises(SelfImprovementError, match="EVIDENCE_INVALID"):
+        service.import_evidence(entry["entry_id"], "reports/self-improvement.json", expected_version=2)
+
+
 def test_export_preview_requires_explicit_consent_for_local_file(tmp_path):
     root, _, service = setup_service(tmp_path)
     service.capture(kind="error", area="cli", summary="preview", request_id="export-preview")

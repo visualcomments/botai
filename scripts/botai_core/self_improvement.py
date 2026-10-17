@@ -318,6 +318,50 @@ class SelfImprovement:
             _atomic_json(self._record_path(self.entries_dir, entry_id), entry)
             return entry
 
+    def import_evidence(self, entry_id: str, report_path: str, *, expected_version: int) -> dict:
+        """Attach a locally generated report after validating its provenance and hash."""
+        self._ensure_enabled()
+        if not isinstance(expected_version, int):
+            raise SelfImprovementError("expected_version обязателен для импорта evidence")
+        if not isinstance(report_path, str) or not report_path or "\\" in report_path:
+            raise SelfImprovementError("Путь отчёта должен быть каноническим POSIX-путём")
+        candidate = PurePosixPath(report_path)
+        if candidate.is_absolute() or any(part in {"", ".", ".."} for part in candidate.parts) or candidate.as_posix() != report_path:
+            raise SelfImprovementError("Путь отчёта должен быть каноническим относительным путём")
+        path = paths.ensure_within(self.root, self.root / report_path)
+        if not path.is_file() or path.is_symlink():
+            raise SelfImprovementError("Файл отчёта не существует или является ссылкой")
+        report = _load_json(path)
+        if not isinstance(report, dict) or report.get("schema_version") != 1 or report.get("report_type") != "self_improvement":
+            raise SelfImprovementError("EVIDENCE_INVALID: неизвестная схема отчёта")
+        stored_hash = report.get("report_sha256")
+        unsigned = {key: value for key, value in report.items() if key != "report_sha256"}
+        if not isinstance(stored_hash, str) or not secrets.compare_digest(stored_hash, _digest(_canonical_json(unsigned))):
+            raise SelfImprovementError("EVIDENCE_INVALID: hash отчёта не совпадает")
+        provenance = report.get("provenance")
+        if not isinstance(provenance, dict) or provenance.get("source") != "local_self_improvement" or provenance.get("contains_student_data") is not False or provenance.get("contains_transcript") is not False or provenance.get("network_transferred") is not False:
+            raise SelfImprovementError("EVIDENCE_INVALID: provenance отчёта не подтверждает локальное происхождение")
+        if not isinstance(report.get("entries"), list):
+            raise SelfImprovementError("EVIDENCE_INVALID: отсутствует список записей")
+        entry = self.get_entry(entry_id)
+        if entry["version"] != expected_version:
+            raise SelfImprovementError("STATE_CONFLICT: запись изменена; перечитайте её")
+        matching = next((item for item in report["entries"] if isinstance(item, dict) and item.get("entry_id") == entry_id), None)
+        if matching is None or matching.get("version") != entry["version"]:
+            raise SelfImprovementError("EVIDENCE_CONFLICT: отчёт не содержит текущую версию записи")
+        with self._lock:
+            entry = self.get_entry(entry_id)
+            if entry["version"] != expected_version:
+                raise SelfImprovementError("STATE_CONFLICT: запись изменена; перечитайте её")
+            evidence = {"type": "report", "ref": report_path, "result": "локальный redacted report с проверенным hash/provenance", "checked_at": _now(), "report_sha256": stored_hash}
+            entry["evidence"].append(evidence)
+            entry["maintenance"]["last_evidence_at"] = evidence["checked_at"]
+            entry["version"] += 1
+            entry["updated_at"] = _now()
+            _validate_entry(entry, entry_id)
+            _atomic_json(self._record_path(self.entries_dir, entry_id), entry)
+            return entry
+
     def retire(self, entry_id: str, *, reason: str, expected_version: int) -> dict:
         """Retire a record while preserving its evidence and complete history."""
         self._ensure_enabled()
