@@ -10,6 +10,11 @@
 
 ```bash
 python3 scripts/cli.py self-improve status
+python3 scripts/cli.py self-improve backup-preview --json
+python3 scripts/cli.py self-improve backup --path backups/self-improvement --consent --json
+python3 scripts/cli.py self-improve restore-preview --path backups/self-improvement --json
+# После проверки manifest:
+python3 scripts/cli.py self-improve restore --path backups/self-improvement --consent --json
 python3 scripts/cli.py self-improve audit
 python3 scripts/cli.py self-improve export --json
 python3 scripts/cli.py self-improve export-preview --json

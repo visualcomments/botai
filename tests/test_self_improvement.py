@@ -160,6 +160,26 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_backup_restore_uses_manifest_and_requires_consent(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="backup", request_id="backup")
+    preview = service.backup_preview()
+    assert preview["consent_required"] is True
+    with pytest.raises(SelfImprovementError, match="BACKUP_CONSENT_REQUIRED"):
+        service.backup_to("backup")
+    saved = service.backup_to("backup", consent=True)
+    assert saved["files"] >= 1
+    restored = service.backup_restore_preview("backup")
+    assert restored["manifest_sha256"] == saved["manifest_sha256"]
+    path = service.entries_dir / f"{entry['entry_id']}.json"
+    path.unlink()
+    with pytest.raises(SelfImprovementError, match="RESTORE_CONSENT_REQUIRED"):
+        service.backup_restore("backup")
+    service.backup_restore("backup", consent=True)
+    assert path.is_file()
+    assert service.get_entry(entry["entry_id"])["summary"] == "backup"
+
+
 def test_import_evidence_requires_valid_report_hash_and_current_version(tmp_path):
     root, _, service = setup_service(tmp_path)
     entry = service.capture(kind="error", area="cli", summary="evidence", request_id="evidence")

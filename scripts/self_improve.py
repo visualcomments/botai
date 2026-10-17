@@ -25,6 +25,15 @@ def build_parser() -> argparse.ArgumentParser:
     triage = sub.add_parser("triage", help="показать записи, требующие человеческой проверки")
     triage.add_argument("--area")
     triage.add_argument("--limit", type=int, default=50)
+    sub.add_parser("backup-preview", help="показать размер и fingerprint локального backup")
+    backup = sub.add_parser("backup", help="сохранить локальный backup с consent")
+    backup.add_argument("--path", required=True)
+    backup.add_argument("--consent", action="store_true")
+    restore_preview = sub.add_parser("restore-preview", help="проверить manifest локального backup")
+    restore_preview.add_argument("--path", required=True)
+    restore = sub.add_parser("restore", help="восстановить backup с consent")
+    restore.add_argument("--path", required=True)
+    restore.add_argument("--consent", action="store_true")
     sub.add_parser("export", help="подготовить redacted report для ручной передачи")
     preview = sub.add_parser("export-preview", help="показать fingerprint и размер локального export")
     export_file = sub.add_parser("export-file", help="сохранить export в явно указанный локальный файл")
@@ -118,6 +127,14 @@ def run(root: Path, args) -> int:
             result = service.recover()
         elif args.action == "triage":
             result = service.triage(area=args.area, limit=args.limit)
+        elif args.action == "backup-preview":
+            result = service.backup_preview()
+        elif args.action == "backup":
+            result = service.backup_to(args.path, consent=args.consent)
+        elif args.action == "restore-preview":
+            result = service.backup_restore_preview(args.path)
+        elif args.action == "restore":
+            result = service.backup_restore(args.path, consent=args.consent)
         elif args.action == "export":
             result = service.export_report()
         elif args.action == "export-preview":

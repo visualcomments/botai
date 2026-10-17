@@ -692,6 +692,71 @@ class SelfImprovement:
             digest.update(data)
         return digest.hexdigest()
 
+    def backup_preview(self) -> dict:
+        files = []
+        for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
+            for path in sorted(directory.glob("*.json")):
+                data = path.read_bytes()
+                files.append({"path": path.relative_to(self.root).as_posix(), "sha256": _digest(data), "byte_size": len(data)})
+        manifest = {"schema_version": 1, "backup_type": "self_improvement_state", "files": files}
+        return {"manifest_sha256": _digest(_canonical_json(manifest)), "files": len(files),
+                "byte_size": sum(item["byte_size"] for item in files), "consent_required": True,
+                "destination": "explicit local directory required"}
+
+    def backup_to(self, destination: str, *, consent: bool = False) -> dict:
+        if not consent:
+            raise SelfImprovementError("BACKUP_CONSENT_REQUIRED: сначала покажите preview и подтвердите путь")
+        destination_path = Path(destination).expanduser()
+        if not destination_path.is_absolute():
+            destination_path = self.root / destination_path
+        destination_path = paths.ensure_within(self.root, destination_path)
+        if destination_path.exists() and not destination_path.is_dir():
+            raise SelfImprovementError("Путь backup должен быть каталогом")
+        destination_path.mkdir(parents=True, exist_ok=True)
+        files = []
+        for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
+            for path in sorted(directory.glob("*.json")):
+                relative = path.relative_to(self.state_dir)
+                target = paths.ensure_within(destination_path, destination_path / relative)
+                data = path.read_bytes()
+                _atomic_bytes(target, data)
+                files.append({"path": relative.as_posix(), "sha256": _digest(data), "byte_size": len(data)})
+        manifest = {"schema_version": 1, "backup_type": "self_improvement_state", "files": files}
+        _atomic_json(destination_path / "manifest.json", {**manifest, "manifest_sha256": _digest(_canonical_json(manifest))})
+        return {"path": destination_path.relative_to(self.root).as_posix(), "manifest_sha256": _digest(_canonical_json(manifest)), "files": len(files), "consent": True}
+
+    def backup_restore_preview(self, source: str) -> dict:
+        source_path = Path(source).expanduser()
+        if not source_path.is_absolute():
+            source_path = self.root / source_path
+        source_path = paths.ensure_within(self.root, source_path)
+        manifest = _load_json(paths.ensure_within(source_path, source_path / "manifest.json"))
+        if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or manifest.get("backup_type") != "self_improvement_state":
+            raise SelfImprovementError("BACKUP_INVALID: неизвестный manifest")
+        unsigned = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+        if manifest.get("manifest_sha256") != _digest(_canonical_json(unsigned)):
+            raise SelfImprovementError("BACKUP_INVALID: manifest hash не совпадает")
+        for item in manifest["files"]:
+            path = paths.ensure_within(source_path, source_path / item["path"])
+            if not path.is_file() or _digest(path.read_bytes()) != item["sha256"]:
+                raise SelfImprovementError("BACKUP_INVALID: файл backup повреждён")
+        return {"source": source_path.relative_to(self.root).as_posix(), "files": len(manifest["files"]), "manifest_sha256": manifest["manifest_sha256"], "consent_required": True}
+
+    def backup_restore(self, source: str, *, consent: bool = False) -> dict:
+        if not consent:
+            raise SelfImprovementError("RESTORE_CONSENT_REQUIRED: сначала покажите preview и подтвердите путь")
+        preview = self.backup_restore_preview(source)
+        source_path = Path(source).expanduser()
+        if not source_path.is_absolute():
+            source_path = self.root / source_path
+        source_path = paths.ensure_within(self.root, source_path)
+        manifest = _load_json(source_path / "manifest.json")
+        for item in manifest["files"]:
+            source_file = paths.ensure_within(source_path, source_path / item["path"])
+            target = paths.ensure_within(self.state_dir, self.state_dir / item["path"])
+            _atomic_bytes(target, source_file.read_bytes())
+        return {"source": preview["source"], "files": preview["files"], "manifest_sha256": preview["manifest_sha256"], "consent": True}
+
     def export_preview(self) -> dict:
         report = self.export_report()
         encoded = _canonical_json(report)

@@ -371,6 +371,7 @@ MCP-интеграция — после CLI и тестов, отдельный 
 - [x] Добавить локальный redacted report export с provenance, hash и явными флагами отсутствия student/transcript/network данных.
 - [x] Добавить `export-preview` и явный consent перед сохранением отчёта в указанный локальный файл.
 - [x] Добавить локальный `import-evidence` с проверкой report hash, provenance и expected version.
+- [x] Добавить локальные backup/restore с manifest hash и отдельным preview/consent; backup не включает student/course state.
 - [ ] Добавить отдельный preview/consent перед внешней передачей export и доверенный import; не включать ученические/оценочные сведения.
 - [x] Добавить read-only maintenance triage: pending требует review, unresolved — повторной проверки источника, contradicted — retire или replacement.
 - [x] Добавить явный `retire` с optimistic version check, сохранением evidence и причиной архивации.
