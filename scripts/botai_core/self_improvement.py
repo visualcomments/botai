@@ -204,6 +204,23 @@ class SelfImprovement:
             _atomic_json(idem_path, entry)
             return entry
 
+    def audit(self) -> dict:
+        """Validate local JSON state without changing it."""
+        checked = 0
+        valid = 0
+        issues = []
+        for file in sorted(self.entries_dir.glob("*.json")):
+            if file.name.startswith("request-"):
+                continue
+            checked += 1
+            try:
+                _validate_entry(_load_json(file), file.stem)
+            except SelfImprovementError as exc:
+                issues.append({"file": file.name, "error": str(exc)})
+            else:
+                valid += 1
+        return {"checked": checked, "valid": valid, "issues": issues, "ok": not issues}
+
     def entries(self) -> list[dict]:
         records = []
         for file in self.entries_dir.glob("*.json"):
@@ -641,6 +658,9 @@ class SelfImprovement:
         self._ensure_enabled(allow_disabled=True)
         if not isinstance(learner_id, str) or not learner_id.strip() or len(learner_id) > 80:
             raise SelfImprovementError("Недопустимый learner_id для миграции")
+        audit = self.audit()
+        if not audit["ok"]:
+            raise SelfImprovementError("MIGRATION_INVALID: исправьте повреждённые записи перед миграцией")
         entries = self.entries()
         source_hash = self._source_manifest_hash()
         with Store.open(self.root, learner_id) as store:

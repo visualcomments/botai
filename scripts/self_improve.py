@@ -20,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("help", help="показать справку")
     sub.add_parser("status", help="состояние локального журнала")
+    sub.add_parser("audit", help="проверить локальные записи без изменения состояния")
     sub.add_parser("recover", help="синхронизировать журнал после прерванной операции")
     triage = sub.add_parser("triage", help="показать записи, требующие человеческой проверки")
     triage.add_argument("--area")
@@ -101,6 +102,8 @@ def run(root: Path, args) -> int:
             return 0
         if args.action == "status":
             result = service.status()
+        elif args.action == "audit":
+            result = service.audit()
         elif args.action == "recover":
             result = service.recover()
         elif args.action == "triage":

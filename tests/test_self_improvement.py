@@ -160,6 +160,22 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_audit_reports_corrupt_record_without_mutating_it(tmp_path):
+    _, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="проверка повреждения", request_id="audit")
+    path = service.entries_dir / f"{entry['entry_id']}.json"
+    corrupt = '{"schema_version":1,"entry_id":"broken"}'
+    path.write_text(corrupt, encoding="utf-8")
+    result = service.audit()
+    assert result["ok"] is False
+    assert result["checked"] == 1
+    assert result["valid"] == 0
+    assert result["issues"][0]["file"] == path.name
+    assert path.read_text(encoding="utf-8") == corrupt
+    with pytest.raises(SelfImprovementError, match="MIGRATION_INVALID"):
+        service.migrate_to_store()
+
+
 def test_migrate_to_workspace_store_is_idempotent_and_preserves_json_source(tmp_path):
     root, _, service = setup_service(tmp_path)
     entry = service.capture(kind="error", area="cli", summary="мигрируемая запись", request_id="migrate")
