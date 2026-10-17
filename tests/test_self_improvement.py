@@ -139,6 +139,52 @@ def test_crlf_is_preserved_and_path_symlink_is_rejected(tmp_path):
     assert target.read_bytes() == b"# CLI\r\n\r\nUse old command.\r\n"
 
 
+def test_recover_reconciles_interrupted_apply_and_revert_without_writing_target(tmp_path):
+    _, target, service = setup_service(tmp_path)
+    entry = verified_entry(service, request_id="recover")
+    proposal = service.propose(entry_id=entry["entry_id"], relative_path="docs/self-improvement-guidance/cli.md",
+                               old_text="Use old command.", new_text="Use new command.", rationale="recovery")
+    service.verify(proposal["proposal_id"])
+    approval_id, challenge = service.approve(proposal["proposal_id"])
+    application = service.apply(proposal["proposal_id"], approval_id, challenge)
+    application_path = service.applications_dir / f"{application['application_id']}.json"
+    saved = service.get_proposal(proposal["proposal_id"])
+
+    application["status"] = "prepared"
+    application.pop("applied_at", None)
+    application_path.write_text(__import__("json").dumps(application), encoding="utf-8")
+    assert service.recover() == [{"application_id": application["application_id"], "status": "applied"}]
+    assert b"Use new command." in target.read_bytes()
+
+    application["status"] = "reverting"
+    application_path.write_text(__import__("json").dumps(application), encoding="utf-8")
+    assert service.recover() == [{"application_id": application["application_id"], "status": "applied"}]
+    target.write_bytes(__import__("base64").b64decode(application["old_bytes_b64"]))
+    application = __import__("json").loads(application_path.read_text(encoding="utf-8"))
+    application["status"] = "reverting"
+    application_path.write_text(__import__("json").dumps(application), encoding="utf-8")
+    assert service.recover() == [{"application_id": application["application_id"], "status": "reverted"}]
+    assert target.read_bytes() == b"# CLI\n\nUse old command.\n"
+    assert service.get_proposal(proposal["proposal_id"])["status"] == "reverted"
+
+
+def test_recover_marks_unknown_target_as_conflict_and_preserves_it(tmp_path):
+    _, target, service = setup_service(tmp_path)
+    entry = verified_entry(service, request_id="recover-conflict")
+    proposal = service.propose(entry_id=entry["entry_id"], relative_path="docs/self-improvement-guidance/cli.md",
+                               old_text="Use old command.", new_text="Use new command.", rationale="conflict")
+    service.verify(proposal["proposal_id"])
+    approval_id, challenge = service.approve(proposal["proposal_id"])
+    application = service.apply(proposal["proposal_id"], approval_id, challenge)
+    application_path = service.applications_dir / f"{application['application_id']}.json"
+    application["status"] = "prepared"
+    application_path.write_text(__import__("json").dumps(application), encoding="utf-8")
+    target.write_bytes(b"# CLI\n\nHuman edit.\n")
+    assert service.recover() == [{"application_id": application["application_id"], "status": "conflict"}]
+    assert target.read_bytes() == b"# CLI\n\nHuman edit.\n"
+    assert service.get_proposal(proposal["proposal_id"])["status"] == "applied"
+
+
 def test_disable_gate_and_corrupt_schema_fail_closed(tmp_path):
     _, _, service = setup_service(tmp_path)
     service.disable()

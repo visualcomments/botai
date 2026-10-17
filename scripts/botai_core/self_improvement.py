@@ -468,6 +468,63 @@ class SelfImprovement:
             _atomic_json(self._record_path(self.proposals_dir, proposal_id), proposal)
             return application
 
+    def recover(self) -> list[dict]:
+        """Reconcile interrupted application metadata without changing workspace files.
+
+        A prepared application is considered applied only when the target hash is the
+        recorded candidate hash. If the target is still the recorded old hash, the
+        operation is marked failed. Any other content is left as a conflict for a
+        human to inspect; recovery never overwrites a target file.
+        """
+        self._ensure_enabled(allow_disabled=True)
+        recovered = []
+        with self._lock:
+            for application_path in sorted(self.applications_dir.glob("*.json")):
+                application = _load_json(application_path)
+                if not isinstance(application, dict) or application.get("status") not in {"prepared", "reverting"}:
+                    continue
+                application_id = application.get("application_id")
+                proposal_id = application.get("proposal_id")
+                path = application.get("path")
+                if not all(isinstance(value, str) for value in (application_id, proposal_id, path)):
+                    raise SelfImprovementError("Схема применения повреждена")
+                target, _ = self._target(path)
+                current_hash = _digest(target.read_bytes())
+                if application["status"] == "prepared":
+                    if current_hash == application.get("new_sha256"):
+                        application["status"] = "applied"
+                        application["applied_at"] = _now()
+                        outcome = "applied"
+                    elif current_hash == application.get("old_sha256"):
+                        application["status"] = "failed"
+                        application["failure"] = "interrupted_before_target_replace"
+                        outcome = "failed"
+                    else:
+                        application["status"] = "conflict"
+                        application["failure"] = "target_hash_matches_neither_recorded_state"
+                        outcome = "conflict"
+                else:
+                    if current_hash == application.get("old_sha256"):
+                        application["status"] = "reverted"
+                        application["reverted_at"] = _now()
+                        outcome = "reverted"
+                    elif current_hash == application.get("new_sha256"):
+                        application["status"] = "applied"
+                        application.pop("reverted_at", None)
+                        outcome = "applied"
+                    else:
+                        application["status"] = "conflict"
+                        application["failure"] = "target_hash_matches_neither_recorded_state"
+                        outcome = "conflict"
+                _atomic_json(application_path, application)
+                if outcome in {"applied", "reverted"}:
+                    proposal = self.get_proposal(proposal_id)
+                    proposal["status"] = outcome
+                    proposal["updated_at"] = _now()
+                    _atomic_json(self._record_path(self.proposals_dir, proposal_id), proposal)
+                recovered.append({"application_id": application_id, "status": outcome})
+        return recovered
+
     def revert(self, application_id: str) -> dict:
         self._ensure_enabled()
         with self._lock:
@@ -477,6 +534,9 @@ class SelfImprovement:
                 raise SelfImprovementError("Применение не найдено")
             if application.get("status") != "applied" or application.get("reverted_at"):
                 raise SelfImprovementError("REVERT_INVALID: применение уже отменено или не завершено")
+            if application.get("failure"):
+                raise SelfImprovementError("REVERT_INVALID: применение требует восстановления или конфликта")
+
             target, _ = self._target(application["path"])
             current = target.read_bytes()
             if _digest(current) != application["new_sha256"]:

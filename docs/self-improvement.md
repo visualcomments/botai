@@ -10,6 +10,7 @@
 
 ```bash
 python3 scripts/cli.py self-improve status
+python3 scripts/cli.py self-improve recover
 python3 scripts/cli.py self-improve capture \
   --kind error --area cli \
   --summary "Команда не сообщала понятную причину ошибки" \
