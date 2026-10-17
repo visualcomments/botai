@@ -665,10 +665,14 @@ class SelfImprovement:
         source_hash = self._source_manifest_hash()
         with Store.open(self.root, learner_id) as store:
             existing = store.migration(1)
-            if existing is not None:
+            if existing is not None and existing["report"].get("status") == "completed":
                 if existing["source_hash"] != source_hash:
                     raise SelfImprovementError("MIGRATION_CONFLICT: источник изменился после миграции")
                 return existing["report"]
+            try:
+                store.begin_migration(1, source_hash=source_hash)
+            except StoreError as exc:
+                raise SelfImprovementError(f"MIGRATION_CONFLICT: {exc}") from exc
             if recovery:
                 for entry in entries:
                     stored, version = store.get("self_improvement_entry", entry["entry_id"])
@@ -693,8 +697,8 @@ class SelfImprovement:
             report = {"schema_version": 1, "source_hash": source_hash,
                       "entries": len(entries), "imported": imported, "replayed": replayed,
                       "source_preserved": True}
-            store.record_migration(1, source_hash=source_hash, report=report)
-            return report
+            completed = store.record_migration(1, source_hash=source_hash, report=report)
+            return completed["report"]
 
     def status(self) -> dict:
         entries = self.entries()

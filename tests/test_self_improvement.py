@@ -184,6 +184,7 @@ def test_migrate_to_workspace_store_is_idempotent_and_preserves_json_source(tmp_
     assert first["entries"] == 1
     assert first["imported"] == 1
     assert first["source_preserved"] is True
+    assert first["status"] == "completed"
     with Store.open(root, "self-improvement") as store:
         assert store.count("entities") == 1
         assert store.count("events") == 1
@@ -191,6 +192,19 @@ def test_migrate_to_workspace_store_is_idempotent_and_preserves_json_source(tmp_
     assert (service.entries_dir / f"{entry['entry_id']}.json").read_bytes() == source
     second = service.migrate_to_store()
     assert second == first
+
+
+def test_migration_recovery_completes_pending_marker_after_interruption(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    service.capture(kind="error", area="cli", summary="ожидающая миграция", request_id="migrate-pending")
+    source_hash = service._source_manifest_hash()
+    with Store.open(root, "self-improvement") as store:
+        store.begin_migration(1, source_hash=source_hash)
+    result = service.migrate_to_store(recovery=True)
+    assert result["status"] == "completed"
+    assert result["entries"] == 1
+    with Store.open(root, "self-improvement") as store:
+        assert store.migration(1)["report"]["status"] == "completed"
 
 
 def test_migration_recovery_accepts_partial_import_and_rejects_conflicting_entity(tmp_path):

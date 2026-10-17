@@ -535,15 +535,28 @@ class Store:
         result["report"] = json.loads(result.pop("report_json"))
         return result
 
-    def record_migration(self, version, *, source_hash, report):
+    def begin_migration(self, version, *, source_hash):
         existing = self.migration(version)
         if existing is not None:
             if existing["source_hash"] != source_hash:
                 raise StoreError("MIGRATION_CONFLICT", "версия миграции уже применена к другому источнику")
             return existing
+        report = {"schema_version": 1, "status": "pending", "source_hash": source_hash}
         self._conn.execute(
             "INSERT INTO migrations(version, applied_at, source_hash, report_json) VALUES (?,?,?,?)",
             (version, now_iso(), source_hash, _json(report)),
+        )
+        return self.migration(version)
+
+    def record_migration(self, version, *, source_hash, report):
+        existing = self.migration(version)
+        if existing is None:
+            raise StoreError("MIGRATION_MARKER_MISSING", "нельзя завершить незапланированную миграцию")
+        if existing["source_hash"] != source_hash:
+            raise StoreError("MIGRATION_CONFLICT", "версия миграции уже применена к другому источнику")
+        self._conn.execute(
+            "UPDATE migrations SET applied_at=?, source_hash=?, report_json=? WHERE version=?",
+            (now_iso(), source_hash, _json(dict(report, status="completed")), version),
         )
         return self.migration(version)
 

@@ -14,7 +14,7 @@ python3 scripts/cli.py self-improve audit
 python3 scripts/cli.py self-improve recover
 python3 scripts/cli.py self-improve triage --limit 20
 python3 scripts/cli.py self-improve migrate --learner-id self-improvement
-# После прерывания: сравнить уже импортированные записи с JSON
+# После прерывания: проверить pending marker и завершить миграцию
 python3 scripts/cli.py self-improve migrate --learner-id self-improvement --recovery
 python3 scripts/cli.py self-improve capture \
   --kind error --area cli \
