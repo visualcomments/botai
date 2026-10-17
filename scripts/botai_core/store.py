@@ -560,6 +560,92 @@ class Store:
         )
         return self.migration(version)
 
+    def import_self_improvement_entries(self, entries, *, source_hash, recovery=False):
+        """Import self-improvement entities and migration marker atomically."""
+        if not isinstance(entries, list):
+            raise StoreError("MIGRATION_INVALID", "список записей миграции повреждён")
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            marker = self._conn.execute(
+                "SELECT source_hash, report_json FROM migrations WHERE version=1"
+            ).fetchone()
+            if marker is not None:
+                report = json.loads(marker["report_json"])
+                if marker["source_hash"] != source_hash:
+                    raise StoreError("MIGRATION_CONFLICT", "источник миграции изменился")
+                if report.get("status") == "completed":
+                    self._conn.execute("COMMIT")
+                    return report
+            else:
+                self._conn.execute(
+                    "INSERT INTO migrations(version, applied_at, source_hash, report_json) VALUES (?,?,?,?)",
+                    (1, now_iso(), source_hash, _json({"schema_version": 1, "status": "pending", "source_hash": source_hash})),
+                )
+            imported = 0
+            replayed = 0
+            for entry in entries:
+                entity_id = entry["entry_id"]
+                request_id = "self-improvement-migrate-v1-" + entity_id
+                command = {"kind": "self_improvement_entry", "entity_id": entity_id,
+                           "course_id": WORKSPACE_COURSE_ID, "learner_id": self.learner_id,
+                           "events": ["self_improvement.entry_imported"],
+                           "expected_version": None, "body": entry,
+                           "payloads": [{"entry_id": entity_id, "source_hash": source_hash}]}
+                digest = command_hash(command)
+                previous = self._conn.execute(
+                    "SELECT command_hash FROM requests WHERE request_id=?", (request_id,)
+                ).fetchone()
+                if previous is not None:
+                    if previous["command_hash"] != digest:
+                        raise StoreError("MIGRATION_CONFLICT", "request_id уже содержит другую запись")
+                    stored = self._conn.execute(
+                        "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND entity_id=?",
+                        (self.learner_id, WORKSPACE_COURSE_ID, "self_improvement_entry", entity_id),
+                    ).fetchone()
+                    if stored is None or json.loads(stored["body_json"]) != entry:
+                        raise StoreError("MIGRATION_CONFLICT", "импортированная запись отличается от JSON")
+                    replayed += 1
+                    continue
+                stamp = now_iso()
+                envelope = {"schema_version": SCHEMA_VERSION, "event_id": new_id(),
+                            "request_id": request_id, "course_id": WORKSPACE_COURSE_ID,
+                            "learner_id": self.learner_id, "session_id": None,
+                            "occurred_at": stamp, "type": "self_improvement.entry_imported",
+                            "actor": "core", "provenance": "core_computed",
+                            "payload": {"entry_id": entity_id, "source_hash": source_hash}}
+                self._conn.execute(
+                    "INSERT INTO events(event_id, request_id, learner_id, course_id, entity_kind, entity_id, event_type, occurred_at, payload_json) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (envelope["event_id"], request_id, self.learner_id, WORKSPACE_COURSE_ID,
+                     "self_improvement_entry", entity_id, envelope["type"], stamp, _json(envelope)),
+                )
+                self._conn.execute(
+                    "INSERT INTO entities(learner_id, course_id, kind, entity_id, version, body_json, updated_at) VALUES (?,?,?,?,?,?,?)",
+                    (self.learner_id, WORKSPACE_COURSE_ID, "self_improvement_entry", entity_id, 1, _json(entry), stamp),
+                )
+                self._conn.execute(
+                    "INSERT INTO requests(request_id, command_hash, result_json, created_at) VALUES (?,?,?,?)",
+                    (request_id, digest, _json({"ok": True, "request_id": request_id}), stamp),
+                )
+                imported += 1
+            report = {"schema_version": 1, "status": "completed", "source_hash": source_hash,
+                      "entries": len(entries), "imported": imported, "replayed": replayed,
+                      "source_preserved": True}
+            self._conn.execute(
+                "UPDATE migrations SET applied_at=?, report_json=? WHERE version=1",
+                (now_iso(), _json(report)),
+            )
+            self._conn.execute("COMMIT")
+            return report
+        except StoreError:
+            self._conn.execute("ROLLBACK")
+            raise
+        except (sqlite3.Error, ValueError, KeyError) as exc:
+            self._conn.execute("ROLLBACK")
+            raise StoreError("MIGRATION_WRITE_FAILED", "миграция не выполнена: %s" % exc) from exc
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+
     def count(self, table):
         allowed = {"entities", "events", "requests", "artifacts", "artifact_refs", "migrations"}
         if table not in allowed:

@@ -221,6 +221,25 @@ def test_migrate_to_workspace_store_is_idempotent_and_preserves_json_source(tmp_
     assert second == first
 
 
+def test_migration_batch_rolls_back_entities_when_marker_update_fails(tmp_path, monkeypatch):
+    root, _, service = setup_service(tmp_path)
+    service.capture(kind="error", area="cli", summary="атомарная миграция", request_id="migrate-atomic")
+    original = Store.import_self_improvement_entries
+
+    def fail_after_batch(self, entries, *, source_hash, recovery=False):
+        raise __import__("botai_core.store", fromlist=["StoreError"]).StoreError("MIGRATION_WRITE_FAILED", "forced")
+
+    monkeypatch.setattr(Store, "import_self_improvement_entries", fail_after_batch)
+    with pytest.raises(SelfImprovementError, match="MIGRATION_CONFLICT"):
+        service.migrate_to_store()
+    with Store.open(root, "self-improvement") as store:
+        assert store.count("entities") == 0
+        assert store.count("events") == 0
+        assert store.migration(1) is None
+    monkeypatch.setattr(Store, "import_self_improvement_entries", original)
+    assert service.migrate_to_store()["status"] == "completed"
+
+
 def test_migration_recovery_completes_pending_marker_after_interruption(tmp_path):
     root, _, service = setup_service(tmp_path)
     service.capture(kind="error", area="cli", summary="ожидающая миграция", request_id="migrate-pending")

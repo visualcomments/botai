@@ -710,41 +710,18 @@ class SelfImprovement:
         entries = self.entries()
         source_hash = self._source_manifest_hash()
         with Store.open(self.root, learner_id) as store:
-            existing = store.migration(1)
-            if existing is not None and existing["report"].get("status") == "completed":
-                if existing["source_hash"] != source_hash:
-                    raise SelfImprovementError("MIGRATION_CONFLICT: источник изменился после миграции")
-                return existing["report"]
-            try:
-                store.begin_migration(1, source_hash=source_hash)
-            except StoreError as exc:
-                raise SelfImprovementError(f"MIGRATION_CONFLICT: {exc}") from exc
             if recovery:
                 for entry in entries:
                     stored, version = store.get("self_improvement_entry", entry["entry_id"])
                     if stored is not None and stored != entry:
                         raise SelfImprovementError("MIGRATION_CONFLICT: импортированная запись отличается от JSON")
-            imported = 0
-            replayed = 0
-            for entry in entries:
-                request_id = "self-improvement-migrate-v1-" + entry["entry_id"]
-                result, was_replayed = store.apply(
-                    kind="self_improvement_entry", entity_id=entry["entry_id"],
-                    events=["self_improvement.entry_imported"], new_body=entry,
-                    event_payloads=[{"entry_id": entry["entry_id"], "source_hash": source_hash}],
-                    request_id=request_id,
-                )
-                if was_replayed:
-                    replayed += 1
-                else:
-                    imported += 1
+            try:
+                report = store.import_self_improvement_entries(entries, source_hash=source_hash, recovery=recovery)
+            except StoreError as exc:
+                raise SelfImprovementError(f"MIGRATION_CONFLICT: {exc}") from exc
             if self._source_manifest_hash() != source_hash:
                 raise SelfImprovementError("MIGRATION_CONFLICT: JSON-источник изменился во время миграции")
-            report = {"schema_version": 1, "source_hash": source_hash,
-                      "entries": len(entries), "imported": imported, "replayed": replayed,
-                      "source_preserved": True}
-            completed = store.record_migration(1, source_hash=source_hash, report=report)
-            return completed["report"]
+            return report
 
     def status(self) -> dict:
         entries = self.entries()

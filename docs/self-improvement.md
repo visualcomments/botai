@@ -20,7 +20,8 @@ python3 scripts/cli.py self-improve triage --limit 20
 python3 scripts/cli.py self-improve migrate --learner-id self-improvement
 # После прерывания: проверить pending marker и завершить миграцию
 python3 scripts/cli.py self-improve migrate --learner-id self-improvement --recovery
-python3 scripts/cli.py self-improve capture \
+
+Миграция записывает сущности, события, idempotency records и marker одной SQLite-транзакцией; при сбое частичные записи откатываются.python3 scripts/cli.py self-improve capture \
   --kind error --area cli \
   --summary "Команда не сообщала понятную причину ошибки" \
   --source-type file --source-ref tests/test_self_improvement.py
