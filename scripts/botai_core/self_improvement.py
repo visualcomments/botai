@@ -712,10 +712,17 @@ class SelfImprovement:
 
     def promotion_records(self) -> list[dict]:
         records = []
+        required = {"schema_version", "promotion_id", "proposal_id", "proposal_fingerprint", "path", "rationale", "status", "runtime_injected", "created_at", "record_sha256"}
         for path in sorted(self.state_dir.glob("promotion-*.json")):
             record = _load_json(path)
-            if not isinstance(record, dict) or record.get("runtime_injected") is not False:
+            if not isinstance(record, dict) or not required.issubset(record) or record.get("schema_version") != 1 or record.get("runtime_injected") is not False or record.get("status") != "promoted":
                 raise SelfImprovementError("Схема promotion повреждена")
+            unsigned = {key: value for key, value in record.items() if key != "record_sha256"}
+            if not secrets.compare_digest(str(record["record_sha256"]), _digest(_canonical_json(unsigned))):
+                raise SelfImprovementError("PROMOTION_INVALID: hash promotion record не совпадает")
+            proposal = self.get_proposal(record["proposal_id"])
+            if not secrets.compare_digest(str(proposal["fingerprint"]), str(record["proposal_fingerprint"])) or proposal["path"] != record["path"]:
+                raise SelfImprovementError("PROMOTION_INVALID: proposal fingerprint или путь изменён")
             records.append(record)
         return records
 

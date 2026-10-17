@@ -382,6 +382,20 @@ MCP-интеграция — после CLI и тестов, отдельный 
 - [ ] Реализовать отдельную неинжектируемую guidance-базу с полными source links и review outcomes.
 - [ ] Рассмотреть SQLite store только отдельным migration PR; JSON локальная схема остаётся авторитетной до завершения миграционного review.
 
+## 14. Обслуживание, отключение и удаление данных (продолжение)
+
+- [x] `disable`/`enable` с сохранением журнала; `purge` с consent, tombstone и безопасным consensus rollback.
+- [x] `audit`, `export-preview`/`export`, `backup-preview`/`backup`, `restore-preview`/`restore`, `promote` с TTY-confirmation и fingerprint/hash validation.
+- [x] `recover`, `triage`, `retire`, `import-evidence` для локальных записей.
+- [x] `migrate` с atomic SQLite batch, recovery и source hash.
+- [ ] Full course/student export и external trusted import (будущая работа).
+- [ ] Full forensic integrity verification и artifact provenance.
+- [ ] Full platform isolation (worktree, dirfd/no-follow, proof-of-path containment).
+- [ ] Full semantic review для guidance с policy-bound форматом.
+- [ ] Full MCP host threat model и read/search санкционирование.
+- [ ] Full cross-platform CI и behavioral maintenance evals.
+- [ ] Full rollback при сбое и consensus recovery.
+
 **Текущий результат:** triage и retire требуют действия человека, сохраняют историю и не меняют guidance автоматически. Promotion, экспорт и миграция хранилища остаются будущей работой.
 
 **Приёмка:** истины и применимость разделены, экспорт не захватывает учебный прогресс, недоступные источники остаются unresolved.

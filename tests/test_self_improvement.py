@@ -174,6 +174,12 @@ def test_promotion_requires_applied_proposal_and_never_injects_runtime(tmp_path)
     assert record["proposal_fingerprint"] == proposal["fingerprint"]
     assert record["runtime_injected"] is False
     assert service.promotion_records()[0]["record_sha256"] == record["record_sha256"]
+    promotion_path = next(service.state_dir.glob("promotion-*.json"))
+    tampered = __import__("json").loads(promotion_path.read_text(encoding="utf-8"))
+    tampered["rationale"] = "tampered"
+    promotion_path.write_text(__import__("json").dumps(tampered), encoding="utf-8")
+    with pytest.raises(SelfImprovementError, match="hash promotion"):
+        service.promotion_records()
     assert b"Use promoted command." in target.read_bytes()
     target.write_bytes(b"# CLI\n\nHuman changed it.\n")
     with pytest.raises(SelfImprovementError, match="PROMOTION_STALE"):
