@@ -25,6 +25,11 @@ def build_parser() -> argparse.ArgumentParser:
     triage = sub.add_parser("triage", help="показать записи, требующие человеческой проверки")
     triage.add_argument("--area")
     triage.add_argument("--limit", type=int, default=50)
+    purge_preview = sub.add_parser("purge-preview", help="показать объём удаления локального состояния")
+    purge_preview.add_argument("--include-backups", action="store_true")
+    purge = sub.add_parser("purge", help="удалить локальное состояние с tombstone")
+    purge.add_argument("--include-backups", action="store_true")
+    purge.add_argument("--consent", action="store_true")
     sub.add_parser("backup-preview", help="показать размер и fingerprint локального backup")
     backup = sub.add_parser("backup", help="сохранить локальный backup с consent")
     backup.add_argument("--path", required=True)
@@ -127,6 +132,10 @@ def run(root: Path, args) -> int:
             result = service.recover()
         elif args.action == "triage":
             result = service.triage(area=args.area, limit=args.limit)
+        elif args.action == "purge-preview":
+            result = service.purge_preview(include_backups=args.include_backups)
+        elif args.action == "purge":
+            result = service.purge(include_backups=args.include_backups, consent=args.consent)
         elif args.action == "backup-preview":
             result = service.backup_preview()
         elif args.action == "backup":

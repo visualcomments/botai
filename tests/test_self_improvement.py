@@ -160,6 +160,23 @@ def test_triage_is_read_only_and_separates_pending_unresolved_and_contradicted(t
     assert service.get_entry(pending["entry_id"]) == before_pending
 
 
+def test_purge_requires_consent_and_keeps_tombstone_without_content(tmp_path):
+    root, _, service = setup_service(tmp_path)
+    entry = service.capture(kind="error", area="cli", summary="удалить", request_id="purge")
+    preview = service.purge_preview()
+    assert preview["consent_required"] is True
+    with pytest.raises(SelfImprovementError, match="PURGE_CONSENT_REQUIRED"):
+        service.purge()
+    result = service.purge(consent=True)
+    assert result["removed"] >= 1
+    assert list(service.entries_dir.glob("*.json")) == []
+    tombstones = list(service.state_dir.glob("purge-*.json"))
+    assert len(tombstones) == 1
+    tombstone = __import__("json").loads(tombstones[0].read_text(encoding="utf-8"))
+    assert entry["summary"] not in str(tombstone)
+    assert tombstone["tombstone_sha256"] == result["tombstone_sha256"]
+
+
 def test_backup_restore_uses_manifest_and_requires_consent(tmp_path):
     root, _, service = setup_service(tmp_path)
     entry = service.capture(kind="error", area="cli", summary="backup", request_id="backup")

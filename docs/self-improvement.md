@@ -10,6 +10,9 @@
 
 ```bash
 python3 scripts/cli.py self-improve status
+python3 scripts/cli.py self-improve purge-preview --json
+# Для удаления после проверки preview:
+python3 scripts/cli.py self-improve purge --consent --json
 python3 scripts/cli.py self-improve backup-preview --json
 python3 scripts/cli.py self-improve backup --path backups/self-improvement --consent --json
 python3 scripts/cli.py self-improve restore-preview --path backups/self-improvement --json

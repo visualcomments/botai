@@ -692,6 +692,37 @@ class SelfImprovement:
             digest.update(data)
         return digest.hexdigest()
 
+    def purge_preview(self, *, include_backups: bool = False) -> dict:
+        targets = []
+        for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
+            targets.extend(path for path in directory.glob("*.json") if path.is_file())
+        if include_backups:
+            targets.extend(path for path in self.state_dir.glob("*.backup-*") if path.is_file())
+        return {"files": len(targets), "bytes": sum(path.stat().st_size for path in targets),
+                "include_backups": include_backups, "consent_required": True,
+                "tombstone_only": True}
+
+    def purge(self, *, include_backups: bool = False, consent: bool = False) -> dict:
+        if not consent:
+            raise SelfImprovementError("PURGE_CONSENT_REQUIRED: сначала покажите preview и подтвердите удаление")
+        preview = self.purge_preview(include_backups=include_backups)
+        tombstone = {"schema_version": 1, "type": "self_improvement_purge", "created_at": _now(),
+                     "files": preview["files"], "bytes": preview["bytes"],
+                     "include_backups": include_backups}
+        tombstone["tombstone_sha256"] = _digest(_canonical_json(tombstone))
+        _atomic_json(self._record_path(self.state_dir, "purge-" + secrets.token_hex(8)), tombstone)
+        removed = 0
+        for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
+            for path in directory.glob("*.json"):
+                path.unlink()
+                removed += 1
+        if include_backups:
+            for path in self.state_dir.glob("*.backup-*"):
+                if path.is_file():
+                    path.unlink()
+                    removed += 1
+        return {"removed": removed, "tombstone_sha256": tombstone["tombstone_sha256"], "consent": True}
+
     def backup_preview(self) -> dict:
         files = []
         for directory in (self.entries_dir, self.proposals_dir, self.approvals_dir, self.applications_dir):
