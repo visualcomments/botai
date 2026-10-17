@@ -175,6 +175,9 @@ def test_promotion_requires_applied_proposal_and_never_injects_runtime(tmp_path)
     assert record["runtime_injected"] is False
     assert service.promotion_records()[0]["record_sha256"] == record["record_sha256"]
     assert b"Use promoted command." in target.read_bytes()
+    target.write_bytes(b"# CLI\n\nHuman changed it.\n")
+    with pytest.raises(SelfImprovementError, match="PROMOTION_STALE"):
+        service.promote(proposal["proposal_id"], rationale="stale")
 
 
 def test_purge_requires_consent_and_keeps_tombstone_without_content(tmp_path):
