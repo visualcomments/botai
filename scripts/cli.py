@@ -874,6 +874,38 @@ def cmd_session_improvement_overlay(root, session, learner, action, overlay_id, 
     return 0
 
 
+def cmd_session_improvement_summary(root, session, learner):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        print(json.dumps(store.session_summary(session), ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_session_improvement_save(root, session, learner, fingerprint):
+    if not session or not fingerprint:
+        print("нужны --session <id> и --candidate <fingerprint>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        try:
+            result, replayed = store.save_session_candidate(session, fingerprint, request_id="candidate-save-" + fingerprint)
+        except Exception as exc:
+            print("сохранение кандидата отклонено: %s" % exc)
+            return 2
+        print(json.dumps({"candidate": result, "replayed": replayed}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_session_improvement_discard(root, session, learner):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        print(json.dumps(store.discard_session(session), ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_session_improvement_recover(root, session, learner):
     if not session:
         print("нужен --session <id>")
@@ -3654,6 +3686,7 @@ def main():
                                          "session-start", "session-next", "session-goal",
                                          "session-improvement-start", "session-improvement-status",
                                          "session-improvement-stop", "session-improvement-observe", "session-improvement-recover",
+                                         "session-improvement-summary", "session-improvement-save", "session-improvement-discard",
                                          "session-overlay-preview", "session-overlay-apply", "session-overlay-undo",
                                         "session-attempt", "session-check", "session-pause",
                                         "consent-set", "consent-withdraw",
@@ -3740,6 +3773,7 @@ def main():
     ap.add_argument("--overlay-area", choices=["presentation", "workflow_hint"])
     ap.add_argument("--overlay-before")
     ap.add_argument("--overlay-after")
+    ap.add_argument("--candidate", help="session-improvement: candidate fingerprint")
     ap.add_argument("--objective", help="objective id (session-goal/session-attempt)")
     ap.add_argument("--objectives", action="append", default=[],
                     metavar="OBJECTIVE_ID", help="session-start: objective for this sitting")
@@ -3962,6 +3996,12 @@ def main():
         sys.exit(cmd_session_improvement_stop(root, args.session, args.learner))
     elif cmd == "session-improvement-recover":
         sys.exit(cmd_session_improvement_recover(root, args.session, args.learner))
+    elif cmd == "session-improvement-summary":
+        sys.exit(cmd_session_improvement_summary(root, args.session, args.learner))
+    elif cmd == "session-improvement-save":
+        sys.exit(cmd_session_improvement_save(root, args.session, args.learner, args.candidate))
+    elif cmd == "session-improvement-discard":
+        sys.exit(cmd_session_improvement_discard(root, args.session, args.learner))
     elif cmd == "session-improvement-observe":
         sys.exit(cmd_session_improvement_observe(root, args.session, args.learner,
                                                  args.observation_kind, args.observation_area,

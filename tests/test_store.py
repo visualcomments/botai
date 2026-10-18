@@ -89,6 +89,28 @@ def objective_body(stage, evidence=None):
 
 
 # ---------------------------------------------------------------------------
+def test_session_summary_creates_fingerprints_and_defaults_discard(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_consent("summary-session", scope="session_observation")
+        st.record_session_observation("summary-session", observation_id="obs-1", kind="tool_error", area="cli", summary="ошибка 1")
+        st.record_session_observation("summary-session", observation_id="obs-2", kind="workflow_friction", area="docs", summary="неудобство 2")
+        st.set_session_improvement_consent("summary-session", scope="session_observation,session_overlay")
+        st.create_session_overlay("summary-session", overlay_id="overlay-1", area="presentation", before="a", after="b")
+        summary = st.session_summary("summary-session")
+        assert summary["observation_count"] == 2
+        assert summary["overlay_count"] == 1
+        assert len(summary["candidates"]) == 2
+        assert all("fingerprint" in candidate for candidate in summary["candidates"])
+        assert summary["default_action"] == "discard"
+        assert summary["persistent_opt_in_required"] is True
+        saved, replayed = st.save_session_candidate("summary-session", summary["candidates"][0]["fingerprint"])
+        assert saved["persistent_opt_in"] is True
+        assert saved["saved_at"]
+        discarded = st.discard_session("summary-session")
+        assert discarded["discarded"] is True
+        assert discarded["persistent_state_changed"] is False
+
+
 def test_session_observation_budget_and_overlay_recovery_are_fail_closed(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
         st.set_session_improvement_consent("budget", scope="session_observation")

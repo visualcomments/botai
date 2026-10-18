@@ -376,6 +376,44 @@ class Store:
         )
         return body, replayed
 
+    def session_observations(self, session_id):
+        rows = self._conn.execute(
+            "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND json_extract(body_json, '$.session_id')=? ORDER BY updated_at",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_observation", session_id),
+        ).fetchall()
+        return [json.loads(row["body_json"]) for row in rows]
+
+    def session_summary(self, session_id):
+        observations = self.session_observations(session_id)
+        overlays = [json.loads(row["body_json"]) for row in self._conn.execute(
+            "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND json_extract(body_json, '$.session_id')=?",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_overlay", session_id))]
+        candidates = []
+        for item in observations:
+            candidate = {"session_id": session_id, "kind": item["kind"], "area": item["area"],
+                         "summary": item["summary"], "source_ref": item["source_ref"],
+                         "persistent_opt_in": False}
+            candidate["fingerprint"] = __import__("hashlib").sha256(json.dumps(candidate, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            candidates.append(candidate)
+        return {"session_id": session_id, "observation_count": len(observations),
+                "overlay_count": len(overlays), "overlays": [{"overlay_id": item["overlay_id"], "state": item["state"]} for item in overlays],
+                "candidates": candidates, "default_action": "discard", "persistent_opt_in_required": True}
+
+    def save_session_candidate(self, session_id, fingerprint, *, request_id=None):
+        summary = self.session_summary(session_id)
+        candidate = next((item for item in summary["candidates"] if item["fingerprint"] == fingerprint), None)
+        if candidate is None:
+            raise StoreError("CANDIDATE_NOT_FOUND", "кандидат с таким fingerprint не найден")
+        candidate["persistent_opt_in"] = True
+        candidate["saved_at"] = now_iso()
+        result, replayed = self.apply(kind="session_improvement_candidate", entity_id=fingerprint,
+                                      events=["session_improvement.candidate_saved"], new_body=candidate,
+                                      event_payloads=[{"session_id": session_id, "fingerprint": fingerprint}], request_id=request_id)
+        return candidate, replayed
+
+    def discard_session(self, session_id):
+        return {"session_id": session_id, "discarded": True, "persistent_state_changed": False}
+
     def recover_session_overlays(self, session_id):
         rows = self._conn.execute(
             "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=?",
