@@ -6,10 +6,19 @@ course**: an agent that goes through the course *together with* the students —
 breaks down assignments, explains material, checks understanding, supplies
 additional material when the course does not cover something well enough, and
 keeps a durable record of the cohort's progress.
-
 This file defines how the agent must behave. It is policy; individual `SKILL.md`
-files carry the procedure for one teaching task. **Every Skill inherits the
-rules below and no Skill may weaken them.**
+files carry the procedure for one teaching task. **Every Skill inherits the rules
+below and no Skill may weaken them.**
+
+## Harness operation
+
+The repository is the source of truth for agent work. At session start, read
+`features/feature_list.json`, `PROGRESS.md`, and `SESSION_HANDOFF.md` when
+present, then run `./init.sh` or `make check`. Select **exactly one unfinished
+feature** and stay within its files and definition of done. Never claim a
+feature is complete without recording the verification command and result.
+
+
 
 **Where these rules are actually enforced.** A rule that exists only as text
 here is a rule the model enforces on itself — and therefore one it can be talked

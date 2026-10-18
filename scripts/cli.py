@@ -202,6 +202,218 @@ def cmd_active(root, dry):
     print("no active course (run: python scripts/cli.py course-set --course <slug>)")
 
 
+def _read_json_file(path, default):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
+def _atomic_write_json(path, document):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+                         encoding="utf-8", newline="\n")
+    temporary.replace(path)
+
+
+def cmd_session_budget(root, course, learner, as_json):
+    """Show session step budget status for the active or specified session."""
+    service, learner_id = _open_session(root, course, learner)
+    if service is None:
+        return 2
+    try:
+        from botai_core import tutoring as core_tutoring
+        sessions = service.store.list_entities("session", course_id=course)
+        session = next((item for item in reversed(sessions)
+                        if item.get("state") not in ("COMPLETED", "CANCELLED")), None)
+        if session is None:
+            print("нет активной сессии")
+            return 0
+        steps_taken = session.get("steps_taken", 0)
+        budget = core_tutoring.step_budget_directive(steps_taken)
+        state = core_tutoring.step_budget_state(steps_taken)
+        document = {
+            "schema_version": 1,
+            "session_id": session.get("session_id"),
+            "steps_taken": steps_taken,
+            "budget_limit": core_tutoring.SESSION_STEP_BUDGET,
+            "warn_at": core_tutoring.SESSION_STEP_WARN_AT,
+            "state": state,
+            "directive": budget,
+        }
+        if as_json:
+            print(json.dumps(document, ensure_ascii=False, indent=2))
+            return 0
+        print("== бюджет шагов сессии ==")
+        print("сессия: %s" % document["session_id"])
+        print("шагов: %d / %d" % (steps_taken, core_tutoring.SESSION_STEP_BUDGET))
+        print("состояние: %s" % state)
+        if budget:
+            print("следующее действие: %s" % budget["next_action"])
+            print("причина: %s" % budget["reason_ru"])
+        else:
+            print("в пределах бюджета")
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        print("отказ (%s): %s" % (getattr(exc, "code", type(exc).__name__), exc))
+        return 2
+    finally:
+        service.close()
+
+
+def cmd_context_status(root, budget, include_resources, as_json):
+    """Show progressive-disclosure context usage without reading transcripts."""
+    try:
+        from botai_core import context as core_context
+        document = core_context.build_context_status(
+            root, budget=budget, include_resources=include_resources
+        )
+    except Exception as exc:  # noqa: BLE001
+        print("отказ (%s): %s" % (getattr(exc, "code", type(exc).__name__), exc))
+        return 2
+    if as_json:
+        print(json.dumps(document, ensure_ascii=False, indent=2))
+        return 0
+    print("== бюджет контекста ==")
+    print("использовано: %d / %d символов" % (
+        document["used_characters"], document["budget_characters"]))
+    print("состояние: %s" % ("в пределах бюджета" if document["within_budget"] else "нужна компрессия"))
+    for tier, item in document["tiers"].items():
+        print("  %-13s %6d / %-6d" % (tier, item["characters"], item["cap_characters"]))
+    print("рекомендация: %s" % document["recommendation_ru"])
+    for reason in document["reasons"]:
+        print("  причина: %s" % reason)
+    return 0
+
+
+def cmd_harness_status(root):
+    """Show the machine-readable harness state without changing it."""
+    feature_file = P.ensure_within(root, root / "features" / "feature_list.json")
+    document = _read_json_file(feature_file, {"schema_version": 1, "features": []})
+    features = document.get("features", []) if isinstance(document, dict) else []
+    active = [item for item in features if isinstance(item, dict) and item.get("status") == "active"]
+    planned = [item for item in features if isinstance(item, dict) and item.get("status") == "planned"]
+    print("== harness status ==")
+    print("features: %d" % len(features))
+    print("active: %d" % len(active))
+    for item in active:
+        print("  active: %s - %s" % (item.get("id", "?"), item.get("name", "?")))
+    if planned:
+        print("next: %s - %s" % (planned[0].get("id", "?"), planned[0].get("name", "?")))
+    print("feature_file: %s" % feature_file)
+    return 0
+
+
+def _state_view_document(root, course, learner):
+    """Build a read-only, evidence-oriented view of the learning store."""
+    from botai_core import course as core_course, session as core_session
+
+    learner_id = learner or default_learner_id(root)
+    accepted = core_course.load_accepted(root, course)
+    service = core_session.SessionService.open(root, learner_id, course, create=True)
+    try:
+        states = service.objective_states()
+        sessions = service.store.list_entities("session", course_id=course)
+        attempts = service.store.list_entities("attempt", course_id=course)
+        checks = service.store.list_entities("check", course_id=course)
+        active_sessions = [s for s in sessions if s.get("state") not in ("COMPLETED", "CANCELLED")]
+        return {
+            "schema_version": 1,
+            "course": {
+                "course_id": accepted.course_id,
+                "revision": dict(accepted.revision),
+                "contract_hash": accepted.contract_hash,
+            },
+            "learner_id": learner_id,
+            "sessions": {
+                "total": len(sessions),
+                "active": len(active_sessions),
+                "latest": sessions[-1] if sessions else None,
+            },
+            "objectives": [
+                {
+                    "objective_id": objective["objective_id"],
+                    "title": objective["title"],
+                    "stage": (states.get(objective["objective_id"]) or {}).get("stage", "new"),
+                    "evidence_ids": list((states.get(objective["objective_id"]) or {}).get("evidence_ids") or []),
+                    "review_due_at": (states.get(objective["objective_id"]) or {}).get("review_due_at"),
+                }
+                for objective in accepted.track["objectives"]
+            ],
+            "evidence": {"attempts": len(attempts), "checks": len(checks)},
+        }
+    finally:
+        service.close()
+
+
+def cmd_state_view(root, course, learner, as_json):
+    if not course:
+        print("нужен --course <slug>")
+        return 2
+    try:
+        document = _state_view_document(root, course, learner)
+    except Exception as exc:  # stable CLI failure, core retains its error code
+        print("отказ (%s): %s" % (getattr(exc, "code", type(exc).__name__), exc))
+        return 2
+    if as_json:
+        print(json.dumps(document, ensure_ascii=False, indent=2))
+        return 0
+    print("== состояние обучения ==")
+    print("курс: %s" % document["course"]["course_id"])
+    print("ученик: %s" % document["learner_id"])
+    print("занятий: %d (активных: %d)" % (document["sessions"]["total"], document["sessions"]["active"]))
+    print("попыток: %d; проверок: %d" % (document["evidence"]["attempts"], document["evidence"]["checks"]))
+    print("цели:")
+    for objective in document["objectives"]:
+        print("  %-24s %-14s evidence=%d" % (
+            objective["objective_id"], objective["stage"], len(objective["evidence_ids"])))
+    return 0
+
+
+def cmd_session_bootstrap(root, course=None):
+    """Prepare a restartable session context; never invokes a model or writes state."""
+    print("== session bootstrap ==")
+    cmd_doctor(root, False)
+    feature_file = root / "features" / "feature_list.json"
+    document = _read_json_file(feature_file, {})
+    active = next((item for item in document.get("features", [])
+                   if item.get("status") == "active"), None)
+    print("active feature: %s" % (active.get("id") if active else "none"))
+    progress = root / "PROGRESS.md"
+    handoff = root / ".botai" / "handoff.json"
+    print("progress: %s" % ("present" if progress.is_file() else "missing"))
+    print("handoff: %s" % ("present" if handoff.is_file() else "none"))
+    if course:
+        course_dir = safe_course_dir(root, course)
+        print("course: %s (%s)" % (course, "present" if course_dir.is_dir() else "missing"))
+    print("next: read AGENTS.md, feature_list.json, PROGRESS.md, then select one feature")
+    return 0
+
+
+def cmd_session_handoff(root, feature=None, next_step=None, reason=None, course=None):
+    """Persist a small, non-learning handoff atomically under .botai."""
+    feature_file = root / "features" / "feature_list.json"
+    document = _read_json_file(feature_file, {})
+    active = next((item for item in document.get("features", [])
+                   if item.get("status") == "active"), None)
+    handoff = {
+        "schema_version": 1,
+        "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "active_feature": feature or (active or {}).get("id"),
+        "course": course,
+        "next_step": next_step or "Запустить session-bootstrap и продолжить активную функцию",
+        "blocker": reason,
+        "verification": {"command": "make check", "status": "pending"},
+    }
+    path = P.ensure_within(root, root / ".botai" / "handoff.json")
+    _atomic_write_json(path, handoff)
+    print("handoff written: %s" % path)
+    print("active feature: %s" % (handoff["active_feature"] or "none"))
+    print("next step: %s" % handoff["next_step"])
+    return 0
+
+
 def cmd_doctor(root, dry):
     print("platform   : %s" % sys.platform)
     print("root       : %s" % root)
@@ -3176,6 +3388,87 @@ def cmd_cohort_group(root, cohort, strategy, group_size, as_json):
     return 0
 
 
+def cmd_blockers_report(root, course, learner, as_json):
+    """Report evidence-backed learning blockers without assigning a grade."""
+    core_course = _core_module("course")
+    core_store = _core_module("store")
+    if core_course is None or core_store is None:
+        return 2
+    if not course:
+        print("usage: cli.py blockers --course <slug> [--learner <id>] [--json]")
+        return 2
+    learner_id = learner or default_learner_id(root)
+    try:
+        accepted = core_course.load_accepted(root, course)
+        store = core_store.Store.open(root, learner_id, create=False)
+    except Exception as exc:  # noqa: BLE001
+        print("  ошибка (%s): %s" % (getattr(exc, "code", type(exc).__name__), exc))
+        return 3
+    try:
+        states = {
+            item["objective_id"]: item
+            for item in store.list_entities("objective_state", course_id=course)
+        }
+        checks = store.list_entities("check", course_id=course)
+        attempts = store.list_entities("attempt", course_id=course)
+        failed_by_objective = {}
+        for check in checks:
+            if check.get("verdict") != "pass":
+                key = check.get("objective_id")
+                failed_by_objective[key] = failed_by_objective.get(key, 0) + 1
+        titles = {item["objective_id"]: item.get("title", item["objective_id"])
+                  for item in accepted.track.get("objectives", [])}
+        blockers = []
+        for objective_id, state in states.items():
+            reasons = []
+            if state.get("stage") == "blocked":
+                reasons.append("цель помечена как заблокированная")
+            if state.get("consecutive_stuck_sessions", 0) >= 3:
+                reasons.append("три и более занятия подряд без выхода из затруднения")
+            failed = failed_by_objective.get(objective_id, 0)
+            if failed > 2:
+                reasons.append("неудачных проверок: %d" % failed)
+            if reasons:
+                blockers.append({
+                    "objective_id": objective_id,
+                    "title": titles.get(objective_id, objective_id),
+                    "reasons_ru": reasons,
+                    "stage": state.get("stage", "new"),
+                    "failed_checks": failed,
+                    "evidence_ids": list(state.get("evidence_ids") or []),
+                })
+        blockers.sort(key=lambda item: (-len(item["reasons_ru"]), item["objective_id"]))
+        document = {
+            "schema_version": 1,
+            "course_id": course,
+            "learner_id": learner_id,
+            "blockers": blockers,
+            "denominator": {
+                "objectives": len(accepted.track.get("objectives", [])),
+                "states": len(states),
+                "attempts": len(attempts),
+                "checks": len(checks),
+            },
+            "denominator_ru": (
+                "отчёт просмотрел %d целей, %d состояний, %d попыток и %d проверок; "
+                "это сигналы для разбора, а не официальная оценка"
+                % (len(accepted.track.get("objectives", [])), len(states), len(attempts), len(checks))
+            ),
+        }
+        if as_json:
+            print(json.dumps(document, ensure_ascii=False, indent=2))
+        else:
+            print("== блокировки обучения ==")
+            print("курс: %s; ученик: %s" % (course, learner_id))
+            print("найдено: %d" % len(blockers))
+            for item in blockers:
+                print("  %s — %s" % (item["title"], "; ".join(item["reasons_ru"])))
+            print("  %s" % document["denominator_ru"])
+        return 0
+    finally:
+        store.close()
+
+
 def cmd_analytics_report(root, course, learner, report_format, as_json):
     """One learner's analytics document, rendered as json / markdown / html."""
     core_analytics = _core_module("analytics")
@@ -3721,14 +4014,17 @@ def main():
                                         "catalog-check",
                                         "skills-audit", "skill-check",
                                         "state-migrate",
-                                        "doctor", "clean",
+                                         "doctor", "clean", "harness-status", "state-view", "context-status", "session-budget",
+                                         "session-bootstrap", "session-handoff",
+
                                         "profile-show",
                                         "profile-reset",
                                         "review-due",
                                         "cohort-create",
                                         "cohort-report",
                                         "cohort-group",
-                                        "analytics-report",
+                                         "analytics-report", "blockers",
+
                                         "detect-risk",
                                         "experiment-run",
                                         "tutorial-start",
@@ -3740,6 +4036,8 @@ def main():
     ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
     ap.add_argument("--course", help="course slug for progress/review/course-set/corpus/course-update")
+    ap.add_argument("--feature", help="harness-status/session-handoff: feature id")
+    ap.add_argument("--next-step", help="session-handoff: next concrete action")
     ap.add_argument("--url", help="git URL of the course repository (course-add)")
     ap.add_argument("--ref", help="branch/tag/commit (update/course-add/course-update)")
     ap.add_argument("--source", help="upstream harness repository (update)")
@@ -3871,7 +4169,12 @@ def main():
     ap.add_argument("--wait", action="store_true",
                     help="env-apply: wait for completion (default in this CLI)")
     ap.add_argument("--json", action="store_true",
-                    help="progress/corpus-status/source-search/quote-verify/env-status: emit JSON")
+                     help="progress/state-view/context-status/corpus-status/source-search/quote-verify/env-status: emit JSON")
+    ap.add_argument("--budget", type=int, default=12000,
+                    help="context-status: character budget")
+    ap.add_argument("--include-resources", action="store_true",
+                    help="context-status: include on-demand resource tier")
+
     # Adaptive-pedagogy flags. `--check` is already taken above (update /
     # course-update: report only, and mutually exclusive with --dry-run), so
     # `security-audit` selects its sections with `--audit-check`. Two meanings
@@ -4038,6 +4341,19 @@ def main():
         sys.exit(cmd_session_improvement_overlay(root, args.session, args.learner, action,
                                                  args.overlay_id, args.overlay_area,
                                                  args.overlay_before, args.overlay_after))
+    elif cmd == "harness-status":
+        sys.exit(cmd_harness_status(root))
+    elif cmd == "state-view":
+        sys.exit(cmd_state_view(root, args.course, args.learner, args.json))
+    elif cmd == "context-status":
+        sys.exit(cmd_context_status(root, args.budget, args.include_resources, args.json))
+    elif cmd == "session-budget":
+        sys.exit(cmd_session_budget(root, args.course, args.learner, args.json))
+    elif cmd == "session-bootstrap":
+        sys.exit(cmd_session_bootstrap(root, args.course))
+    elif cmd == "session-handoff":
+        sys.exit(cmd_session_handoff(root, args.feature, args.next_step,
+                                     args.reason, args.course))
     elif cmd == "session-start":
         sys.exit(cmd_session_start(root, args.course, args.learner, args.objectives,
                                    args.minutes, args.modes or ["tutoring"],
@@ -4192,6 +4508,8 @@ def main():
                 root, args.course, args.learner, args.format, args.json
             )
         )
+    elif cmd == "blockers":
+        sys.exit(cmd_blockers_report(root, args.course, args.learner, args.json))
     elif cmd == "detect-risk":
         if not args.cohort:
             sys.exit(

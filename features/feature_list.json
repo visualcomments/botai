@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "features": [
+    {
+      "id": "p0.baseline-verification",
+      "name": "Воспроизводимый baseline",
+      "description": "Чистая копия проекта запускает doctor, компиляцию и единый check без скрытых ручных шагов.",
+      "dependencies": [],
+      "status": "completed",
+      "verification": ["make check", "./init.sh"],
+      "evidence": "make check passed; init.sh clean"
+    },
+    {
+      "id": "p0.harness-state",
+      "name": "Машиночитаемое состояние harness",
+      "description": "Репозиторий хранит активную функцию, прогресс сессии и handoff в явных файлах.",
+      "dependencies": ["p0.baseline-verification"],
+      "status": "completed",
+      "verification": ["python3 scripts/cli.py harness-status"],
+      "evidence": "harness-status command implemented and working"
+    },
+    {
+      "id": "p0.session-lifecycle",
+      "name": "Жизненный цикл сессии",
+      "description": "Bootstrap проверяет окружение и состояние, а handoff оставляет воспроизводимый следующий шаг.",
+      "dependencies": ["p0.harness-state"],
+      "status": "completed",
+      "verification": ["python3 scripts/cli.py session-bootstrap", "python3 scripts/cli.py session-handoff"],
+      "evidence": "session-bootstrap and session-handoff implemented"
+    },
+    {
+      "id": "p0.scenario-evals",
+      "name": "Педагогические сценарные проверки",
+      "description": "Критические правила помощи проверяются воспроизводимыми сценариями, а не только текстом политики.",
+      "dependencies": ["p0.session-lifecycle"],
+      "status": "completed",
+      "verification": ["python3 scripts/evals/run.py"],
+      "evidence": "3 scenarios passed"
+    },
+    {
+      "id": "p1.state-viewer",
+      "name": "Машиночитаемый просмотр состояния обучения",
+      "description": "Команда показывает курс, сессию, цели, стадии освоения и проверки без вызова модели.",
+      "dependencies": ["p0.scenario-evals"],
+      "status": "completed",
+      "verification": ["python3 scripts/cli.py state-view --course <slug> --learner <id> --json"],
+      "evidence": "isolated accepted-course workspace produced JSON state view without model calls"
+    },
+    {
+      "id": "p1.transfer-check",
+      "name": "Проверяемый transfer-check в учебном цикле",
+      "description": "Команда session-check c kind=transfer требует демонстрации переноса на новое задание, а не только recall.",
+      "dependencies": ["p0.scenario-evals"],
+      "status": "completed",
+      "verification": ["python3 scripts/cli.py session-check --check-kind transfer ...", "python3 scripts/evals/run.py cli-transfer-flow"],
+      "evidence": "CLI flow passed: two distinct attempts produced demonstrated with two evidence IDs"
+    },
+    {
+      "id": "p1.contract-tests",
+      "name": "Contract-тесты для policy-path",
+      "description": "Тесты проверяют, что request_help/goal_change/resolve_assessment ведут себя как в документации.",
+      "dependencies": ["p1.transfer-check"],
+      "status": "completed",
+      "verification": ["python3 scripts/evals/run.py"],
+      "evidence": "7 policy, tutoring, CLI, and blocker scenarios passed"
+    },
+    {
+      "id": "p2.next-slice",
+      "name": "Отчёт о блокировках обучения",
+      "description": "Показывать evidence-backed блокировки и повторяющиеся затруднения без превращения сигнала в оценку.",
+      "dependencies": ["p1.contract-tests"],
+      "status": "completed",
+      "verification": ["python3 scripts/cli.py blockers --course <slug> --learner <id> --json", "python3 scripts/evals/run.py blockers-are-evidence-backed"],
+      "evidence": "7 offline scenarios and make check passed"
+    },
+    {
+      "id": "p3.context-budget",
+      "name": "Локальный реестр контекста и бюджет сессии",
+      "description": "Оффлайн-счётчик символов для прогрессивного раскрытия инструкций, ресурсов и метаданных.",
+      "dependencies": ["p2.next-slice"],
+      "status": "completed",
+      "verification": ["python3 scripts/cli.py context-status --budget 12000 --json", "python3 scripts/evals/run.py context-budget-is-deterministic"],
+      "evidence": "8 offline scenarios and make check passed"
+    },
+    {
+      "id": "p4.session-step-budget",
+      "name": "Принудительный лимит шагов сессии",
+      "description": "SESSION_STEP_BUDGET=24 с предупреждением на 18 и мягкой остановкой — чтобы длинные сессии не уходили в бесконечный цикл без подтверждения человека.",
+      "dependencies": ["p3.context-budget"],
+      "status": "completed",
+      "verification": ["python3 scripts/evals/run.py session-step-budget", "make check"],
+      "evidence": "9 offline scenarios and make check passed"
+    },
+    {
+      "id": "p4.design-document",
+      "name": "Дизайн-документ harness-improvements",
+      "description": "Архитектурное решение с обоснованием каждого среза, рисками, tradeoffs и следующими кандидатами.",
+      "dependencies": ["p4.session-step-budget"],
+      "status": "completed",
+      "verification": ["cat docs/harness-improvements.md"],
+      "evidence": "docs/harness-improvements.md создан"
+    },
+    {
+      "id": "p4.tests-investigation",
+      "name": "Расследование tests/ checkout",
+      "description": "Подтвердить наличие полного набора тестов в репозитории или задокументировать их отсутствие в локальном checkout.",
+      "dependencies": ["p4.session-step-budget"],
+      "status": "completed",
+      "verification": ["git ls-files tests/ | wc -l"],
+      "evidence": "35 test files tracked in git; tests/ directory present in checkout"
+    }
+  ]
+}

@@ -66,17 +66,18 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 # ============================================================================
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
-.PHONY: help doctor install test \
+.PHONY: help doctor install test check harness-audit eval \
         setup new-course \
         progress review courses course-set active \
         corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
         env-plan action-approve env-apply env-status operation-reconcile \
         contribute-start contribute-status contribute-draft contribute-rehearsal \
         persona-set achievements \
-        privacy-preview privacy-export privacy-delete teacher-import teacher-summary \
+        privacy-preview privacy-export privacy-delete teacher-import teacher-summary blockers \
         adapter-check adapter-install catalog-check \
         upgrade-plan upgrade-apply upgrade-check \
         course-inspect course-accept course-status policy-check \
+        harness-status state-view context-status session-budget session-bootstrap session-handoff \
         session-start session-next session-goal session-attempt session-check session-pause \
         consent-set consent-withdraw \
         update update-check update-dry-run \
@@ -85,10 +86,17 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
         lint \
         clean
 
+
+
 help:
 	@echo "botai - education co-learner harness"
 	@echo "===================================="
 	@echo "detected: $(OS)"
+	@echo ""
+	@echo "Harness verification:"
+	@echo "  make check                 Full verification pipeline (compile + tests + harness audit)"
+	@echo "  make harness-audit         Audit five harness subsystems (instructions, state, verification, scope, lifecycle)"
+	@echo "  make test                  Run the harness unit tests"
 	@echo ""
 	@echo "Workspace:"
 	@echo "  make install [DEST=dir]  Install botai into a NEW separate project (default: botai-project)"
@@ -99,7 +107,13 @@ help:
 	@echo "Multi-course workspace:"
 	@echo "  make courses                List course subprojects with progress tails"
 	@echo "  make course-set COURSE=slug Switch the active course (.botai/active)"
-	@echo "  make active                 Show the active course"
+	@echo "  make active                   Show the active course"
+	@echo "  make harness-status           Show active harness feature and next planned feature"
+	@echo "  make state-view COURSE=slug   Show evidence-backed learning state (STATE=1 for JSON)"
+	@echo "  make context-status [BUDGET=12000] [RESOURCES=1]  Show progressive-disclosure context usage"
+	@echo "  make session-budget COURSE=slug [LEARNER=id]  Show teaching step budget"
+	@echo "  make session-bootstrap        Verify environment and show restart context"
+	@echo "  make session-handoff [FEATURE=id] [NEXT_STEP=text]  Save a restartable handoff"
 	@echo ""
 	@echo "Working with a course:"
 	@echo "  make progress COURSE=slug  Summarize the progress record for a course"
@@ -134,6 +148,7 @@ help:
 	@echo "  make privacy-delete COURSE=slug          Plan a deletion, then confirm it"
 	@echo "  make teacher-import PACKET=file.json     Import into a teacher workspace"
 	@echo "  make teacher-summary COURSE=slug [QUEUE=1]  Aggregate with a stated denominator"
+	@echo "  make blockers COURSE=slug [LEARNER=id] [STATE=1]  Show evidence-backed blockers, not grades"
 	@echo ""
 	@echo "Host profile (managed only on evidence; otherwise compatibility):"
 	@echo "  make adapter-check HOST=opencode [CONFIG=file] [HOSTVER=1.18.18]  Inspect the final config"
@@ -206,6 +221,15 @@ new-course:
 progress:
 	@python3 scripts/cli.py progress --course "$(COURSE)"
 
+state-view:
+	@python3 scripts/cli.py state-view --course "$(COURSE)" $(if $(LEARNER),--learner "$(LEARNER)",) $(if $(STATE),--json,)
+
+context-status:
+	@python3 scripts/cli.py context-status --budget "$(or $(BUDGET),12000)" $(if $(RESOURCES),--include-resources,) $(if $(STATE),--json,)
+
+session-budget:
+	@python3 scripts/cli.py session-budget --course "$(COURSE)" $(if $(LEARNER),--learner "$(LEARNER)",) $(if $(STATE),--json,)
+
 review:
 	@python3 scripts/cli.py review --course "$(COURSE)"
 
@@ -220,6 +244,15 @@ course-set:
 
 active:
 	@python3 scripts/cli.py active
+
+harness-status:
+	@python3 scripts/cli.py harness-status
+
+session-bootstrap:
+	@python3 scripts/cli.py session-bootstrap $(if $(COURSE),--course "$(COURSE)",)
+
+session-handoff:
+	@python3 scripts/cli.py session-handoff $(if $(FEATURE),--feature "$(FEATURE)",) $(if $(NEXT_STEP),--next-step "$(NEXT_STEP)",) $(if $(REASON),--reason "$(REASON)",) $(if $(COURSE),--course "$(COURSE)",)
 
 # ============================================================================
 # Corpus acquisition
@@ -366,6 +399,9 @@ teacher-import:
 teacher-summary:
 	@python3 scripts/cli.py teacher-summary --course "$(COURSE)" $(if $(QUEUE),--queue,)
 
+blockers:
+	@python3 scripts/cli.py blockers --course "$(COURSE)" $(if $(LEARNER),--learner "$(LEARNER)",) $(if $(STATE),--json,)
+
 # ============================================================================
 # Хост и профиль.
 # ----------------------------------------------------------------------------
@@ -458,6 +494,25 @@ education-club:
 	@echo "  python3 -m pip install -r '$(EDUCATION_CLUB_CATALOG)/mcp/requirements.txt'"
 	@echo "  restart opencode (the education-club MCP is registered in opencode.json via {env:EDUCATION_CLUB_CATALOG})"
 	@echo "  then run /education-club to browse the catalog and start a course"
+
+# ============================================================================
+# Harness verification
+# ============================================================================
+# Единственная команда проверки, которую должен запускать агент перед тем,
+# как считать изменение завершённым. Она включает статическую проверку,
+# тесты и аудит пяти подсистем harness.
+check:
+	@python3 -m compileall -q scripts
+	@$(MAKE) test
+	@$(MAKE) harness-audit
+
+harness-audit:
+	@bash tools/audit-harness.sh .
+
+# Offline pedagogical contract scenarios. These exercise the same policy path
+# used by the tutoring roles and never call a model or network service.
+eval:
+	@python3 scripts/evals/run.py
 
 # ============================================================================
 # Hygiene

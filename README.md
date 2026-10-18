@@ -548,6 +548,8 @@ make new-course NAME=my-course   # создать курс из шаблона
 
 ```bash
 make progress COURSE=my-course   # сводка досье прогресса курса
+make state-view COURSE=my-course # состояние целей и evidence без вызова модели
+make eval                         # офлайн-проверки педагогических ограничений
 make review COURSE=my-course     # ревью работы студента
 ```
 
