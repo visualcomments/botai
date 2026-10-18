@@ -334,6 +334,32 @@ class Store:
         )
         return body, replayed
 
+    def record_session_observation(self, session_id, *, observation_id, kind, area, summary, source_ref="", request_id=None):
+        allowed = {"tool_error", "workflow_friction", "ui_or_cli_gap", "successful_correction", "session_preference"}
+        if kind not in allowed:
+            raise StoreError("OBSERVATION_KIND_INVALID", "недопустимый тип наблюдения")
+        values = (observation_id, kind, area, summary, source_ref)
+        if not all(isinstance(value, str) and value.strip() for value in values):
+            raise StoreError("OBSERVATION_SCHEMA_INVALID", "поля наблюдения должны быть непустыми строками")
+        if any(len(value) > limit for value, limit in zip(values, (80, 40, 80, 500, 240))):
+            raise StoreError("OBSERVATION_SIZE_LIMIT", "наблюдение превышает ограничение размера")
+        import re
+        if any(re.search(pattern, summary, re.IGNORECASE) for pattern in (r"student|learner|course|assignment|grade|transcript", r"ученик|курс|задани|оцен|диалог")):
+            raise StoreError("OBSERVATION_PRIVACY_REJECTED", "наблюдение похоже на учебные или transcript-данные")
+        if re.search(r"(token|secret|password|api[_-]?key|ghp_)[^\s=:]*\s*[=:]?\s*\S+", summary, re.IGNORECASE):
+            raise StoreError("OBSERVATION_SECRET_REJECTED", "наблюдение содержит потенциальный секрет")
+        if "\\" in source_ref or ".." in source_ref.split("/") or source_ref.startswith(("/", "//")):
+            raise StoreError("OBSERVATION_PATH_REJECTED", "ссылка источника должна быть относительной")
+        body = {"observation_id": observation_id, "session_id": session_id, "kind": kind,
+                "area": area, "summary": summary, "source_ref": source_ref,
+                "session_only": True, "persistent_opt_in": False, "created_at": now_iso()}
+        result, replayed = self.apply(
+            kind="session_improvement_observation", entity_id=observation_id,
+            events=["session_improvement.observation_recorded"], new_body=body,
+            event_payloads=[{"session_id": session_id, "kind": kind}], request_id=request_id,
+        )
+        return body, replayed
+
     def version_of(self, kind, entity_id, course_id=WORKSPACE_COURSE_ID):
         row = self._conn.execute(
             "SELECT version FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND entity_id=?",

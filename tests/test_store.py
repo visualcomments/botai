@@ -89,6 +89,22 @@ def objective_body(stage, evidence=None):
 
 
 # ---------------------------------------------------------------------------
+def test_session_improvement_observation_is_allowlisted_and_privacy_filtered(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_consent("session-observe", scope="session_observation")
+        body, replayed = st.record_session_observation(
+            "session-observe", observation_id="obs-1", kind="tool_error", area="cli",
+            summary="неясная ошибка команды", source_ref="scripts/cli.py")
+        assert body["session_only"] is True
+        assert body["persistent_opt_in"] is False
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("session-observe", observation_id="obs-2", kind="tool_error", area="cli", summary="token=abc123", source_ref="scripts/cli.py")
+        assert error.value.code == "OBSERVATION_SECRET_REJECTED"
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("session-observe", observation_id="obs-3", kind="tool_error", area="cli", summary="student data", source_ref="scripts/cli.py")
+        assert error.value.code == "OBSERVATION_PRIVACY_REJECTED"
+
+
 def test_session_improvement_consent_expiry_is_fail_closed(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
         st.set_session_improvement_consent("expired", scope="session_observation", expires_at="2000-01-01T00:00:00Z")

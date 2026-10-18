@@ -833,6 +833,27 @@ def cmd_session_improvement_start(root, session, learner, scope, dry):
         return 0
 
 
+def cmd_session_improvement_observe(root, session, learner, kind, area, summary, source_ref):
+    if not session or not kind or not area or not summary:
+        print("нужны --session, --observation-kind, --observation-area и --observation-summary")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        consent = store.session_improvement_consent(session)
+        if not consent or consent.get("state") != "enabled" or "session_observation" not in consent.get("scope", []):
+            print("наблюдение отклонено: интерактивное самоулучшение не включено")
+            return 2
+        import uuid
+        try:
+            body, replayed = store.record_session_observation(
+                session, observation_id=str(uuid.uuid4()), kind=kind, area=area,
+                summary=summary, source_ref=source_ref or "", request_id=None)
+        except Exception as exc:
+            print("наблюдение отклонено: %s" % exc)
+            return 2
+        print(json.dumps({"observation": body, "replayed": replayed}, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_session_improvement_status(root, session, learner):
     if not session:
         print("нужен --session <id>")
@@ -3603,7 +3624,7 @@ def main():
                                         "policy-check",
                                          "session-start", "session-next", "session-goal",
                                          "session-improvement-start", "session-improvement-status",
-                                         "session-improvement-stop",
+                                         "session-improvement-stop", "session-improvement-observe",
                                         "session-attempt", "session-check", "session-pause",
                                         "consent-set", "consent-withdraw",
                                         "corpus-status", "corpus-acquire",
@@ -3681,6 +3702,10 @@ def main():
     ap.add_argument("--improvement-scope", default="session_observation",
                     choices=["session_observation", "session_observation,session_overlay"],
                     help="session-improvement: scope of current-session consent")
+    ap.add_argument("--observation-kind", choices=["tool_error", "workflow_friction", "ui_or_cli_gap", "successful_correction", "session_preference"])
+    ap.add_argument("--observation-area")
+    ap.add_argument("--observation-summary")
+    ap.add_argument("--observation-source-ref", default="")
     ap.add_argument("--objective", help="objective id (session-goal/session-attempt)")
     ap.add_argument("--objectives", action="append", default=[],
                     metavar="OBJECTIVE_ID", help="session-start: objective for this sitting")
@@ -3901,6 +3926,10 @@ def main():
         sys.exit(cmd_session_improvement_status(root, args.session, args.learner))
     elif cmd == "session-improvement-stop":
         sys.exit(cmd_session_improvement_stop(root, args.session, args.learner))
+    elif cmd == "session-improvement-observe":
+        sys.exit(cmd_session_improvement_observe(root, args.session, args.learner,
+                                                 args.observation_kind, args.observation_area,
+                                                 args.observation_summary, args.observation_source_ref))
     elif cmd == "session-start":
         sys.exit(cmd_session_start(root, args.course, args.learner, args.objectives,
                                    args.minutes, args.modes or ["tutoring"],
