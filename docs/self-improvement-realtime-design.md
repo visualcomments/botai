@@ -260,9 +260,12 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 
 ### PR-RT-02: structured observation boundary
 
-- Добавить allowlist событий, schema validation, budgets, redaction и fail-closed filter.
-- Запретить transcript-like payload и student/course refs.
-- Покрыть secret, path, size, Unicode и repeated-event cases.
+- [x] Добавить allowlist событий, schema validation, redaction и fail-closed filter.
+- [x] Запретить transcript-like payload и student/course refs.
+- [x] Покрыть secret, path, size, Unicode и repeated-event cases базовыми regression-тестами.
+- [ ] Добавить отдельные budgets/rate limits и circuit breaker для realtime потока.
+
+**Текущий результат:** CLI и Store принимают только allowlisted structured observations после session opt-in; запрещённые записи отклоняются, persistent opt-in не выдаётся.
 
 **Приёмка:** ни один запрещённый вход не попадает в session journal.
 
