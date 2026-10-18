@@ -89,8 +89,54 @@ def objective_body(stage, evidence=None):
 
 
 # ---------------------------------------------------------------------------
+def test_feature_flag_is_default_off_and_kill_switch_blocks_consent(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        assert not st.is_session_improvement_enabled()
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.set_session_improvement_consent("flag-session", scope="session_observation")
+        assert error.value.code == "SESSION_IMPROVEMENT_DISABLED"
+        st.set_session_improvement_enabled(True)
+        st.set_session_improvement_consent("flag-session", scope="session_observation")
+        st.set_session_improvement_enabled(False)
+        assert st.is_session_improvement_enabled() is False
+
+
+def test_abuse_cases_are_fail_closed(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
+        # prompt injection: attempting to inject transcript-like payload
+        st.set_session_improvement_consent("abuse-session", scope="session_observation")
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("abuse-session", observation_id="abuse-1", kind="tool_error", area="cli",
+                                          summary="user said: I want to steal your data", source_ref="transcript")
+        assert error.value.code == "OBSERVATION_PRIVACY_REJECTED"
+        # consent confusion: trying to use session_overlay without scope
+        st.set_session_improvement_consent("overlay-abuse", scope="session_observation")
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.create_session_overlay("overlay-abuse", overlay_id="o1", area="presentation", before="a", after="b")
+        assert error.value.code == "OVERLAY_CONSENT_REQUIRED"
+        # loop amplification: rate limit and circuit breaker
+        st.set_session_improvement_consent("loop-session", scope="session_observation")
+        for i in range(20):
+            st.record_session_observation("loop-session", observation_id="loop-%d" % i, kind="tool_error", area="cli", summary="loop %d" % i)
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("loop-session", observation_id="loop-over", kind="tool_error", area="cli", summary="over")
+        assert error.value.code == "OBSERVATION_RATE_LIMIT"
+        # data leakage: student/course refs and secrets
+        st.set_session_improvement_consent("leak-session", scope="session_observation")
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("leak-session", observation_id="leak-1", kind="tool_error", area="cli",
+                                          summary="student answered wrong", source_ref="course.md")
+        assert error.value.code == "OBSERVATION_PRIVACY_REJECTED"
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("leak-session", observation_id="leak-2", kind="tool_error", area="cli",
+                                          summary="api_key=abc123", source_ref="config.json")
+        assert error.value.code == "OBSERVATION_SECRET_REJECTED"
+
+
 def test_session_summary_creates_fingerprints_and_defaults_discard(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
         st.set_session_improvement_consent("summary-session", scope="session_observation")
         st.record_session_observation("summary-session", observation_id="obs-1", kind="tool_error", area="cli", summary="ошибка 1")
         st.record_session_observation("summary-session", observation_id="obs-2", kind="workflow_friction", area="docs", summary="неудобство 2")
@@ -113,6 +159,7 @@ def test_session_summary_creates_fingerprints_and_defaults_discard(tmp_path):
 
 def test_session_observation_budget_and_overlay_recovery_are_fail_closed(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
         st.set_session_improvement_consent("budget", scope="session_observation")
         for index in range(20):
             st.record_session_observation("budget", observation_id="obs-%d" % index, kind="tool_error", area="cli", summary="ошибка %d" % index)
@@ -127,6 +174,7 @@ def test_session_observation_budget_and_overlay_recovery_are_fail_closed(tmp_pat
 
 def test_session_overlay_requires_scope_and_supports_undo(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
         st.set_session_improvement_consent("overlay-session", scope="session_observation")
         with __import__("pytest").raises(S.StoreError) as error:
             st.create_session_overlay("overlay-session", overlay_id="overlay-1", area="presentation", before="brief", after="detailed")
@@ -142,6 +190,7 @@ def test_session_overlay_requires_scope_and_supports_undo(tmp_path):
 
 def test_session_improvement_observation_is_allowlisted_and_privacy_filtered(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
         st.set_session_improvement_consent("session-observe", scope="session_observation")
         body, replayed = st.record_session_observation(
             "session-observe", observation_id="obs-1", kind="tool_error", area="cli",
@@ -158,12 +207,14 @@ def test_session_improvement_observation_is_allowlisted_and_privacy_filtered(tmp
 
 def test_session_improvement_consent_expiry_is_fail_closed(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
         st.set_session_improvement_consent("expired", scope="session_observation", expires_at="2000-01-01T00:00:00Z")
         assert st.session_improvement_consent("expired")["state"] == "expired"
 
 
 def test_session_improvement_consent_defaults_off_and_stops(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_enabled(True)
         assert st.session_improvement_consent("session-1") is None
         body, replayed = st.set_session_improvement_consent("session-1", scope="session_observation")
         assert body["state"] == "enabled"

@@ -294,11 +294,13 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 
 ### PR-RT-05: recovery, evaluation и rollout
 
-- Обработать crash recovery и stale session state.
-- Добавить abuse cases: prompt injection, consent confusion, loop amplification, data leakage.
-- Провести независимый security/privacy review.
-- Запустить feature flag с default off и kill switch.
-- Добавить cross-platform CI и behavioral evals.
+- [x] Обработать cleanup/recovery stale session state и просроченных overlay.
+- [x] Добавить abuse-case regression tests: prompt injection, consent confusion, loop amplification, data leakage.
+- [ ] Провести независимый security/privacy review.
+- [x] Добавить feature flag с default off и kill switch (`session-improvement-enable/disable`).
+- [ ] Добавить cross-platform CI и behavioral evals.
+
+**Текущий результат:** realtime self-improvement выключен по умолчанию; kill switch блокирует новый consent, structured observation ограничен, stale state очищается явно.
 
 **Приёмка:** можно доказать отсутствие скрытого capture, network transfer и protected-file mutation в default-off режиме.
 

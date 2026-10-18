@@ -309,6 +309,8 @@ class Store:
         return body
 
     def set_session_improvement_consent(self, session_id, *, scope, source="interactive_tty", request_id=None, expires_at=None):
+        if not self.is_session_improvement_enabled():
+            raise StoreError("SESSION_IMPROVEMENT_DISABLED", "интерактивное самоулучшение отключено глобально")
         if scope not in {"session_observation", "session_observation,session_overlay"}:
             raise StoreError("CONSENT_SCOPE_INVALID", "недопустимая область согласия")
         body = {"session_id": session_id, "state": "enabled", "scope": scope.split(","),
@@ -358,7 +360,7 @@ class Store:
         if any(len(value) > limit for value, limit in zip(values, (80, 40, 80, 500, 240))):
             raise StoreError("OBSERVATION_SIZE_LIMIT", "наблюдение превышает ограничение размера")
         import re
-        if any(re.search(pattern, summary, re.IGNORECASE) for pattern in (r"student|learner|course|assignment|grade|transcript", r"ученик|курс|задани|оцен|диалог")):
+        if any(re.search(pattern, summary, re.IGNORECASE) or re.search(pattern, source_ref, re.IGNORECASE) for pattern in (r"student|learner|course|assignment|grade|transcript", r"ученик|курс|задани|оцен|диалог")):
             raise StoreError("OBSERVATION_PRIVACY_REJECTED", "наблюдение похоже на учебные или transcript-данные")
         if re.search(r"(token|secret|password|api[_-]?key|ghp_)[^\s=:]*\s*[=:]?\s*\S+", summary, re.IGNORECASE):
             raise StoreError("OBSERVATION_SECRET_REJECTED", "наблюдение содержит потенциальный секрет")
@@ -413,6 +415,37 @@ class Store:
 
     def discard_session(self, session_id):
         return {"session_id": session_id, "discarded": True, "persistent_state_changed": False}
+
+    def list_active_sessions(self):
+        rows = self._conn.execute(
+            "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=?",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_consent"),
+        ).fetchall()
+        active = []
+        for row in rows:
+            consent = json.loads(row["body_json"])
+            if consent.get("state") == "enabled":
+                expires_at = consent.get("expires_at")
+                is_expired = False
+                if expires_at:
+                    try:
+                        if datetime.fromisoformat(expires_at.replace("Z", "+00:00")) <= datetime.now(timezone.utc):
+                            is_expired = True
+                    except (TypeError, ValueError):
+                        is_expired = True
+                if not is_expired:
+                    active.append(consent["session_id"])
+        return active
+
+    def cleanup_stale_session_state(self, session_id):
+        count = 0
+        for kind in ("session_improvement_observation", "session_improvement_overlay", "session_improvement_consent"):
+            result = self._conn.execute(
+                "DELETE FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND json_extract(body_json, '$.session_id')=?",
+                (self.learner_id, WORKSPACE_COURSE_ID, kind, session_id),
+            )
+            count += result.rowcount
+        return {"session_id": session_id, "removed": count}
 
     def recover_session_overlays(self, session_id):
         rows = self._conn.execute(
@@ -493,6 +526,18 @@ class Store:
                    expected_version=self.version_of("session_improvement_overlay", overlay_id),
                    event_payloads=[{"session_id": session_id}], request_id=request_id)
         return body
+
+    def is_session_improvement_enabled(self):
+        row = self._conn.execute(
+            "SELECT value FROM meta WHERE key='session_improvement_enabled'",
+        ).fetchone()
+        return row and row["value"] == "1"
+
+    def set_session_improvement_enabled(self, enabled, *, request_id=None):
+        self._conn.execute(
+            "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)",
+            ("session_improvement_enabled", "1" if enabled else "0"),
+        )
 
     def version_of(self, kind, entity_id, course_id=WORKSPACE_COURSE_ID):
         row = self._conn.execute(

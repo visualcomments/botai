@@ -906,12 +906,28 @@ def cmd_session_improvement_discard(root, session, learner):
     return 0
 
 
+def cmd_session_improvement_cleanup(root, session, learner):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        print(json.dumps(store.cleanup_stale_session_state(session), ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_session_improvement_recover(root, session, learner):
     if not session:
         print("нужен --session <id>")
         return 2
     with _session_improvement_store(root, learner) as store:
         print(json.dumps({"session_id": session, "recovered": store.recover_session_overlays(session)}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_session_improvement_feature(root, learner, enabled):
+    with _session_improvement_store(root, learner) as store:
+        store.set_session_improvement_enabled(enabled)
+        print(json.dumps({"enabled": bool(enabled), "default_off": True}, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -3685,7 +3701,8 @@ def main():
                                         "policy-check",
                                          "session-start", "session-next", "session-goal",
                                          "session-improvement-start", "session-improvement-status",
-                                         "session-improvement-stop", "session-improvement-observe", "session-improvement-recover",
+                                         "session-improvement-stop", "session-improvement-observe", "session-improvement-recover", "session-improvement-cleanup",
+                                         "session-improvement-enable", "session-improvement-disable",
                                          "session-improvement-summary", "session-improvement-save", "session-improvement-discard",
                                          "session-overlay-preview", "session-overlay-apply", "session-overlay-undo",
                                         "session-attempt", "session-check", "session-pause",
@@ -3996,6 +4013,12 @@ def main():
         sys.exit(cmd_session_improvement_stop(root, args.session, args.learner))
     elif cmd == "session-improvement-recover":
         sys.exit(cmd_session_improvement_recover(root, args.session, args.learner))
+    elif cmd == "session-improvement-cleanup":
+        sys.exit(cmd_session_improvement_cleanup(root, args.session, args.learner))
+    elif cmd == "session-improvement-enable":
+        sys.exit(cmd_session_improvement_feature(root, args.learner, True))
+    elif cmd == "session-improvement-disable":
+        sys.exit(cmd_session_improvement_feature(root, args.learner, False))
     elif cmd == "session-improvement-summary":
         sys.exit(cmd_session_improvement_summary(root, args.session, args.learner))
     elif cmd == "session-improvement-save":
