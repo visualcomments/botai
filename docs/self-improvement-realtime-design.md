@@ -263,7 +263,7 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 - [x] Добавить allowlist событий, schema validation, redaction и fail-closed filter.
 - [x] Запретить transcript-like payload и student/course refs.
 - [x] Покрыть secret, path, size, Unicode и repeated-event cases базовыми regression-тестами.
-- [ ] Добавить отдельные budgets/rate limits и circuit breaker для realtime потока.
+- [x] Добавить budgets/rate limits и circuit breaker для realtime потока.
 
 **Текущий результат:** CLI и Store принимают только allowlisted structured observations после session opt-in; запрещённые записи отклоняются, persistent opt-in не выдаётся.
 
@@ -274,10 +274,10 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 - [x] Реализовать временный overlay для заранее разрешённых presentation/workflow hints.
 - [x] Добавить preview, apply, undo и TTL.
 - [x] Запретить protected paths и policy changes на уровне кода через allowlist областей.
-- [ ] Добавить startup recovery для незавершённых overlay.
-- [ ] Добавить независимый тест, доказывающий отсутствие записи в protected/persistent files.
+- [x] Добавить startup recovery для незавершённых overlay.
+- [x] Добавить независимый тест, доказывающий отсутствие записи в protected/persistent files.
 
-**Текущий результат:** overlay хранится как session-only entity, требует отдельного scope consent, имеет `preview → applied → undone` и не выдаёт persistent opt-in.
+**Текущий результат:** overlay хранится как session-only entity, требует отдельного scope consent, имеет `preview → applied → undone`, ограничен TTL, восстанавливается после запуска и не выдаёт persistent opt-in. Наблюдения ограничены бюджетом 20 событий/минуту и 16 КБ/минуту с общим circuit breaker.
 
 **Приёмка:** overlay не меняет persistent files и полностью отменяется.
 

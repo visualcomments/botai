@@ -89,6 +89,20 @@ def objective_body(stage, evidence=None):
 
 
 # ---------------------------------------------------------------------------
+def test_session_observation_budget_and_overlay_recovery_are_fail_closed(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_consent("budget", scope="session_observation")
+        for index in range(20):
+            st.record_session_observation("budget", observation_id="obs-%d" % index, kind="tool_error", area="cli", summary="ошибка %d" % index)
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.record_session_observation("budget", observation_id="obs-over", kind="tool_error", area="cli", summary="переполнение")
+        assert error.value.code == "OBSERVATION_RATE_LIMIT"
+        st.set_session_improvement_consent("recover", scope="session_observation,session_overlay")
+        overlay = st.create_session_overlay("recover", overlay_id="recover-overlay", area="presentation", before="a", after="b", ttl_seconds=-1)
+        assert st.recover_session_overlays("recover") == ["recover-overlay"]
+        assert st.session_overlay("recover", "recover-overlay")["state"] == "undone"
+
+
 def test_session_overlay_requires_scope_and_supports_undo(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
         st.set_session_improvement_consent("overlay-session", scope="session_observation")

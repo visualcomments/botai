@@ -874,6 +874,15 @@ def cmd_session_improvement_overlay(root, session, learner, action, overlay_id, 
     return 0
 
 
+def cmd_session_improvement_recover(root, session, learner):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        print(json.dumps({"session_id": session, "recovered": store.recover_session_overlays(session)}, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_session_improvement_status(root, session, learner):
     if not session:
         print("нужен --session <id>")
@@ -3644,7 +3653,7 @@ def main():
                                         "policy-check",
                                          "session-start", "session-next", "session-goal",
                                          "session-improvement-start", "session-improvement-status",
-                                         "session-improvement-stop", "session-improvement-observe",
+                                         "session-improvement-stop", "session-improvement-observe", "session-improvement-recover",
                                          "session-overlay-preview", "session-overlay-apply", "session-overlay-undo",
                                         "session-attempt", "session-check", "session-pause",
                                         "consent-set", "consent-withdraw",
@@ -3951,6 +3960,8 @@ def main():
         sys.exit(cmd_session_improvement_status(root, args.session, args.learner))
     elif cmd == "session-improvement-stop":
         sys.exit(cmd_session_improvement_stop(root, args.session, args.learner))
+    elif cmd == "session-improvement-recover":
+        sys.exit(cmd_session_improvement_recover(root, args.session, args.learner))
     elif cmd == "session-improvement-observe":
         sys.exit(cmd_session_improvement_observe(root, args.session, args.learner,
                                                  args.observation_kind, args.observation_area,

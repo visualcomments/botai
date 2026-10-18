@@ -334,12 +334,26 @@ class Store:
         )
         return body, replayed
 
+    def session_observation_stats(self, session_id, *, window_seconds=60):
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=window_seconds)).isoformat().replace("+00:00", "Z")
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS count, COALESCE(SUM(LENGTH(body_json)), 0) AS bytes FROM entities "
+            "WHERE learner_id=? AND course_id=? AND kind=? AND json_extract(body_json, '$.session_id')=? AND updated_at>=?",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_observation", session_id, cutoff),
+        ).fetchone()
+        return {"count": int(row["count"]), "bytes": int(row["bytes"])}
+
     def record_session_observation(self, session_id, *, observation_id, kind, area, summary, source_ref="", request_id=None):
         allowed = {"tool_error", "workflow_friction", "ui_or_cli_gap", "successful_correction", "session_preference"}
         if kind not in allowed:
             raise StoreError("OBSERVATION_KIND_INVALID", "недопустимый тип наблюдения")
-        values = (observation_id, kind, area, summary, source_ref)
-        if not all(isinstance(value, str) and value.strip() for value in values):
+        stats = self.session_observation_stats(session_id)
+        if stats["count"] >= 20:
+            raise StoreError("OBSERVATION_RATE_LIMIT", "достигнут лимит наблюдений за минуту")
+        if stats["bytes"] >= 16_000:
+            raise StoreError("OBSERVATION_BUDGET_EXCEEDED", "достигнут бюджет наблюдений за минуту")
+        values = (observation_id, kind, area, summary)
+        if not all(isinstance(value, str) and value.strip() for value in values) or not isinstance(source_ref, str):
             raise StoreError("OBSERVATION_SCHEMA_INVALID", "поля наблюдения должны быть непустыми строками")
         if any(len(value) > limit for value, limit in zip(values, (80, 40, 80, 500, 240))):
             raise StoreError("OBSERVATION_SIZE_LIMIT", "наблюдение превышает ограничение размера")
@@ -350,6 +364,8 @@ class Store:
             raise StoreError("OBSERVATION_SECRET_REJECTED", "наблюдение содержит потенциальный секрет")
         if "\\" in source_ref or ".." in source_ref.split("/") or source_ref.startswith(("/", "//")):
             raise StoreError("OBSERVATION_PATH_REJECTED", "ссылка источника должна быть относительной")
+        if len(self.list_entities("session_improvement_observation")) >= 1000:
+            raise StoreError("OBSERVATION_CIRCUIT_OPEN", "достигнут общий лимит наблюдений")
         body = {"observation_id": observation_id, "session_id": session_id, "kind": kind,
                 "area": area, "summary": summary, "source_ref": source_ref,
                 "session_only": True, "persistent_opt_in": False, "created_at": now_iso()}
@@ -359,6 +375,30 @@ class Store:
             event_payloads=[{"session_id": session_id, "kind": kind}], request_id=request_id,
         )
         return body, replayed
+
+    def recover_session_overlays(self, session_id):
+        rows = self._conn.execute(
+            "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=?",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_overlay"),
+        ).fetchall()
+        recovered = []
+        now = datetime.now(timezone.utc)
+        for row in rows:
+            overlay = json.loads(row["body_json"])
+            if overlay.get("session_id") != session_id or overlay.get("state") not in {"preview", "applied"}:
+                continue
+            try:
+                expired = datetime.fromisoformat(overlay["expires_at"].replace("Z", "+00:00")) <= now
+            except (KeyError, TypeError, ValueError):
+                expired = True
+            if expired:
+                overlay["state"] = "undone"
+                self.apply(kind="session_improvement_overlay", entity_id=overlay["overlay_id"],
+                           events=["session_improvement.overlay_recovered"], new_body=overlay,
+                           expected_version=self.version_of("session_improvement_overlay", overlay["overlay_id"]),
+                           event_payloads=[{"session_id": session_id}], request_id="overlay-recover-" + overlay["overlay_id"])
+                recovered.append(overlay["overlay_id"])
+        return recovered
 
     def session_overlay(self, session_id, overlay_id):
         row = self._conn.execute(
