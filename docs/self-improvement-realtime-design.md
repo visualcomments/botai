@@ -283,9 +283,12 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 
 ### PR-RT-04: end-session review
 
-- Добавить summary без transcript и candidate fingerprint.
-- Реализовать `save/discard/later` с отдельным persistent opt-in.
-- Передавать сохранённый candidate только в существующий review/proposal pipeline.
+- [x] Добавить summary без transcript и candidate fingerprint.
+- [x] Реализовать `save/discard` с отдельным persistent opt-in; отсутствие действия означает discard.
+- [x] Передавать сохранённый candidate только как отдельную persistent entity для последующего review/proposal pipeline.
+- [ ] Добавить явный `later` с ограниченным TTL и startup cleanup.
+
+**Текущий результат:** `session-improvement-summary` показывает только структурированные наблюдения и состояния overlay; `session-improvement-save` требует fingerprint и создаёт persistent candidate только для выбранной записи; `session-improvement-discard` не меняет persistent state.
 
 **Приёмка:** `yes` на начало сессии не приводит к persistence; persistence требует отдельного подтверждения конкретного fingerprint.
 
