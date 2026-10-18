@@ -31,7 +31,7 @@ import json
 import os
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import paths, schemas
@@ -359,6 +359,62 @@ class Store:
             event_payloads=[{"session_id": session_id, "kind": kind}], request_id=request_id,
         )
         return body, replayed
+
+    def session_overlay(self, session_id, overlay_id):
+        row = self._conn.execute(
+            "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND entity_id=?",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_overlay", overlay_id),
+        ).fetchone()
+        return json.loads(row["body_json"]) if row else None
+
+    def create_session_overlay(self, session_id, *, overlay_id, area, before, after, ttl_seconds=3600, request_id=None):
+        consent = self.session_improvement_consent(session_id)
+        if not consent or consent.get("state") != "enabled" or "session_overlay" not in consent.get("scope", []):
+            raise StoreError("OVERLAY_CONSENT_REQUIRED", "для overlay требуется отдельное session consent")
+        if area not in {"presentation", "workflow_hint"}:
+            raise StoreError("OVERLAY_AREA_INVALID", "область overlay не разрешена")
+        if not all(isinstance(value, str) and value.strip() for value in (overlay_id, before, after)):
+            raise StoreError("OVERLAY_SCHEMA_INVALID", "поля overlay должны быть непустыми строками")
+        if len(before) > 500 or len(after) > 500:
+            raise StoreError("OVERLAY_SIZE_LIMIT", "overlay превышает ограничение размера")
+        body = {"overlay_id": overlay_id, "session_id": session_id, "area": area,
+                "before": before, "after": after, "state": "preview",
+                "session_only": True, "persistent_opt_in": False,
+                "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).replace(microsecond=0).isoformat().replace("+00:00", "Z")}
+        self.apply(kind="session_improvement_overlay", entity_id=overlay_id,
+                   events=["session_improvement.overlay_previewed"], new_body=body,
+                   event_payloads=[{"session_id": session_id, "area": area}], request_id=request_id)
+        return body
+
+    def apply_session_overlay(self, session_id, overlay_id, *, request_id=None):
+        overlay = self.session_overlay(session_id, overlay_id)
+        if not overlay or overlay.get("session_id") != session_id:
+            raise StoreError("OVERLAY_NOT_FOUND", "overlay не найден")
+        if overlay.get("state") != "preview":
+            raise StoreError("OVERLAY_STATE_INVALID", "overlay уже применён или отменён")
+        if datetime.fromisoformat(overlay["expires_at"].replace("Z", "+00:00")) <= datetime.now(timezone.utc):
+            raise StoreError("OVERLAY_EXPIRED", "срок overlay истёк")
+        body = dict(overlay)
+        body["state"] = "applied"
+        self.apply(kind="session_improvement_overlay", entity_id=overlay_id,
+                   events=["session_improvement.overlay_applied"], new_body=body,
+                   expected_version=self.version_of("session_improvement_overlay", overlay_id),
+                   event_payloads=[{"session_id": session_id}], request_id=request_id)
+        return body
+
+    def undo_session_overlay(self, session_id, overlay_id, *, request_id=None):
+        overlay = self.session_overlay(session_id, overlay_id)
+        if not overlay or overlay.get("session_id") != session_id:
+            raise StoreError("OVERLAY_NOT_FOUND", "overlay не найден")
+        if overlay.get("state") not in {"preview", "applied"}:
+            raise StoreError("OVERLAY_STATE_INVALID", "overlay уже отменён")
+        body = dict(overlay)
+        body["state"] = "undone"
+        self.apply(kind="session_improvement_overlay", entity_id=overlay_id,
+                   events=["session_improvement.overlay_undone"], new_body=body,
+                   expected_version=self.version_of("session_improvement_overlay", overlay_id),
+                   event_payloads=[{"session_id": session_id}], request_id=request_id)
+        return body
 
     def version_of(self, kind, entity_id, course_id=WORKSPACE_COURSE_ID):
         row = self._conn.execute(

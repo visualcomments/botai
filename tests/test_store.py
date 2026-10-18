@@ -89,6 +89,21 @@ def objective_body(stage, evidence=None):
 
 
 # ---------------------------------------------------------------------------
+def test_session_overlay_requires_scope_and_supports_undo(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_consent("overlay-session", scope="session_observation")
+        with __import__("pytest").raises(S.StoreError) as error:
+            st.create_session_overlay("overlay-session", overlay_id="overlay-1", area="presentation", before="brief", after="detailed")
+        assert error.value.code == "OVERLAY_CONSENT_REQUIRED"
+        st.set_session_improvement_consent("overlay-session-2", scope="session_observation,session_overlay")
+        preview = st.create_session_overlay("overlay-session-2", overlay_id="overlay-2", area="presentation", before="brief", after="detailed")
+        assert preview["state"] == "preview"
+        applied = st.apply_session_overlay("overlay-session-2", "overlay-2")
+        assert applied["state"] == "applied"
+        undone = st.undo_session_overlay("overlay-session-2", "overlay-2")
+        assert undone["state"] == "undone"
+
+
 def test_session_improvement_observation_is_allowlisted_and_privacy_filtered(tmp_path):
     with S.Store.open(tmp_path, LEARNER) as st:
         st.set_session_improvement_consent("session-observe", scope="session_observation")

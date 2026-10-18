@@ -854,6 +854,26 @@ def cmd_session_improvement_observe(root, session, learner, kind, area, summary,
     return 0
 
 
+def cmd_session_improvement_overlay(root, session, learner, action, overlay_id, area, before, after):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        import uuid
+        try:
+            if action == "preview":
+                result = store.create_session_overlay(session, overlay_id=overlay_id or str(uuid.uuid4()), area=area, before=before, after=after, request_id="overlay-preview-" + (overlay_id or "new"))
+            elif action == "apply":
+                result = store.apply_session_overlay(session, overlay_id, request_id="overlay-apply-" + overlay_id)
+            else:
+                result = store.undo_session_overlay(session, overlay_id, request_id="overlay-undo-" + overlay_id)
+        except Exception as exc:
+            print("overlay отклонён: %s" % exc)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_session_improvement_status(root, session, learner):
     if not session:
         print("нужен --session <id>")
@@ -3625,6 +3645,7 @@ def main():
                                          "session-start", "session-next", "session-goal",
                                          "session-improvement-start", "session-improvement-status",
                                          "session-improvement-stop", "session-improvement-observe",
+                                         "session-overlay-preview", "session-overlay-apply", "session-overlay-undo",
                                         "session-attempt", "session-check", "session-pause",
                                         "consent-set", "consent-withdraw",
                                         "corpus-status", "corpus-acquire",
@@ -3706,6 +3727,10 @@ def main():
     ap.add_argument("--observation-area")
     ap.add_argument("--observation-summary")
     ap.add_argument("--observation-source-ref", default="")
+    ap.add_argument("--overlay-id")
+    ap.add_argument("--overlay-area", choices=["presentation", "workflow_hint"])
+    ap.add_argument("--overlay-before")
+    ap.add_argument("--overlay-after")
     ap.add_argument("--objective", help="objective id (session-goal/session-attempt)")
     ap.add_argument("--objectives", action="append", default=[],
                     metavar="OBJECTIVE_ID", help="session-start: objective for this sitting")
@@ -3930,6 +3955,15 @@ def main():
         sys.exit(cmd_session_improvement_observe(root, args.session, args.learner,
                                                  args.observation_kind, args.observation_area,
                                                  args.observation_summary, args.observation_source_ref))
+    elif cmd in {"session-overlay-preview", "session-overlay-apply", "session-overlay-undo"}:
+        action = {"session-overlay-preview": "preview", "session-overlay-apply": "apply", "session-overlay-undo": "undo"}[cmd]
+        if action == "preview" and not (args.overlay_area and args.overlay_before and args.overlay_after):
+            sys.exit("session-overlay-preview требует --overlay-area, --overlay-before и --overlay-after")
+        if action != "preview" and not args.overlay_id:
+            sys.exit("session-overlay-%s требует --overlay-id" % action)
+        sys.exit(cmd_session_improvement_overlay(root, args.session, args.learner, action,
+                                                 args.overlay_id, args.overlay_area,
+                                                 args.overlay_before, args.overlay_after))
     elif cmd == "session-start":
         sys.exit(cmd_session_start(root, args.course, args.learner, args.objectives,
                                    args.minutes, args.modes or ["tutoring"],

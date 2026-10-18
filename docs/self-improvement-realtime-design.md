@@ -271,9 +271,13 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 
 ### PR-RT-03: session overlay
 
-- Реализовать временный overlay для заранее разрешённых presentation/workflow hints.
-- Добавить preview, apply, undo, TTL и startup recovery.
-- Запретить protected paths и policy changes на уровне кода.
+- [x] Реализовать временный overlay для заранее разрешённых presentation/workflow hints.
+- [x] Добавить preview, apply, undo и TTL.
+- [x] Запретить protected paths и policy changes на уровне кода через allowlist областей.
+- [ ] Добавить startup recovery для незавершённых overlay.
+- [ ] Добавить независимый тест, доказывающий отсутствие записи в protected/persistent files.
+
+**Текущий результат:** overlay хранится как session-only entity, требует отдельного scope consent, имеет `preview → applied → undone` и не выдаёт persistent opt-in.
 
 **Приёмка:** overlay не меняет persistent files и полностью отменяется.
 
