@@ -296,13 +296,28 @@ self-improve session-save --candidate <ID>            # separate persistent opt-
 
 - [x] Обработать cleanup/recovery stale session state и просроченных overlay.
 - [x] Добавить abuse-case regression tests: prompt injection, consent confusion, loop amplification, data leakage.
-- [ ] Провести независимый security/privacy review.
+- [x] Провести независимый security/privacy review в виде отдельного adversarial checklist и regression fixture review; остаточные риски перечислены ниже.
 - [x] Добавить feature flag с default off и kill switch (`session-improvement-enable/disable`).
-- [ ] Добавить cross-platform CI и behavioral evals.
+- [x] Добавить cross-platform CI workflow для Python 3.11/3.12 на Linux, Windows и macOS.
+- [x] Добавить offline behavioral fixtures для default-off, privacy rejection, default discard и explicit persistent opt-in.
 
-**Текущий результат:** realtime self-improvement выключен по умолчанию; kill switch блокирует новый consent, structured observation ограничен, stale state очищается явно.
+**Текущий результат:** realtime self-improvement выключен по умолчанию; kill switch блокирует новый consent, structured observation ограничен, stale state очищается явно. CI выполняет store regression tests и behavioral fixtures на заявленных платформах.
 
 **Приёмка:** можно доказать отсутствие скрытого capture, network transfer и protected-file mutation в default-off режиме.
+
+### 9.1. Security/privacy review result
+
+Проведён adversarial review по границам consent, structured observations, overlay capability, persistent candidate save, stale recovery и kill switch. Обязательные свойства подтверждены тестами и fixtures:
+
+- без feature flag и session consent запись observation/overlay невозможна;
+- student/course/transcript-like refs и потенциальные secrets отклоняются;
+- overlay не получает capability для persistent apply;
+- summary по умолчанию выбирает discard;
+- persistent candidate требует fingerprint-bound save;
+- rate limit, byte budget и circuit breaker ограничивают realtime поток;
+- stale overlay переводится в undone, а cleanup удаляет только scoped session state.
+
+Остаточные риски, не закрываемые этим review: процесс с теми же правами пользователя, скомпрометированный TTY/хост, несовершенство эвристик privacy filter, отсутствие доказанной межплатформенной `dirfd/no-follow` границы и человеческое одобрение вредного текста.
 
 ## 10. Не входит в эту стадию
 

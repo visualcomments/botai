@@ -1,0 +1,43 @@
+name: Realtime self-improvement regression
+
+on:
+  push:
+    paths:
+      - "scripts/botai_core/store.py"
+      - "scripts/cli.py"
+      - "tests/test_store.py"
+      - "tests/fixtures/realtime/**"
+      - "docs/self-improvement-realtime-design.md"
+      - ".github/workflows/realtime-self-improvement.yml"
+  pull_request:
+    paths:
+      - "scripts/botai_core/store.py"
+      - "scripts/cli.py"
+      - "tests/test_store.py"
+      - "tests/fixtures/realtime/**"
+      - "docs/self-improvement-realtime-design.md"
+      - ".github/workflows/realtime-self-improvement.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  realtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install core dependencies
+        run: python -m pip install -r requirements-core.lock
+      - name: Run realtime store regression tests
+        run: python -m pytest -q tests/test_store.py
+      - name: Run realtime behavioral fixtures
+        run: python tests/fixtures/realtime/run_fixtures.py
