@@ -32,6 +32,7 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # The workspace CLI prints Russian diagnostics. A Windows console defaults to a
@@ -794,6 +795,62 @@ def _open_session(root, course, learner=None, *, create=True):
         print("  отказ (%s): %s" % (code, e))
         return None, None
     return service, learner_id
+
+
+def _session_improvement_store(root, learner):
+    from botai_core import store as core_store
+    return core_store.Store.open(root, learner or default_learner_id(root))
+
+
+def cmd_session_improvement_start(root, session, learner, scope, dry):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    if dry:
+        print("== интерактивное самоулучшение (предпросмотр) ==")
+        print("  состояние: будет предложено пользователю; ничего не записано")
+        return 0
+    with _session_improvement_store(root, learner) as store:
+        current = store.session_improvement_consent(session)
+        if current and current.get("state") == "enabled":
+            print("самоулучшение уже включено для этой сессии")
+            return 0
+        print("Хотите включить интерактивное улучшение этой сессии?")
+        print("Будут сохраняться только короткие технические наблюдения; полный диалог и учебные данные не записываются.")
+        answer = input("Введите yes, no или details: ").strip().lower()
+        if answer == "details":
+            print("Область: session_observation; согласие действует до остановки/окончания сессии; сохранение на будущее отдельно.")
+            answer = input("Введите yes или no: ").strip().lower()
+        if answer != "yes":
+            print("интерактивное самоулучшение не включено")
+            return 0
+        expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        body, _ = store.set_session_improvement_consent(session, scope=scope,
+                                                        expires_at=expires_at,
+                                                        request_id="session-improvement-start-" + session)
+        print("интерактивное самоулучшение включено для текущей сессии")
+        print("область: %s" % ",".join(body["scope"]))
+        return 0
+
+
+def cmd_session_improvement_status(root, session, learner):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        body = store.session_improvement_consent(session)
+        print(json.dumps(body or {"session_id": session, "state": "disabled", "scope": []}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_session_improvement_stop(root, session, learner):
+    if not session:
+        print("нужен --session <id>")
+        return 2
+    with _session_improvement_store(root, learner) as store:
+        body, _ = store.stop_session_improvement(session, request_id="session-improvement-stop-" + session)
+        print(json.dumps(body or {"session_id": session, "state": "disabled"}, ensure_ascii=False, indent=2))
+    return 0
 
 
 def cmd_session_start(root, course, learner, objectives, minutes, modes, dry):
@@ -3544,7 +3601,9 @@ def main():
                                         "update", "course-add", "course-update",
                                         "course-inspect", "course-accept", "course-status",
                                         "policy-check",
-                                        "session-start", "session-next", "session-goal",
+                                         "session-start", "session-next", "session-goal",
+                                         "session-improvement-start", "session-improvement-status",
+                                         "session-improvement-stop",
                                         "session-attempt", "session-check", "session-pause",
                                         "consent-set", "consent-withdraw",
                                         "corpus-status", "corpus-acquire",
@@ -3619,6 +3678,9 @@ def main():
     ap.add_argument("--contribution-remote",
                     help="course-accept: the student's fork, when there is one")
     ap.add_argument("--session", help="session id for the session-* commands")
+    ap.add_argument("--improvement-scope", default="session_observation",
+                    choices=["session_observation", "session_observation,session_overlay"],
+                    help="session-improvement: scope of current-session consent")
     ap.add_argument("--objective", help="objective id (session-goal/session-attempt)")
     ap.add_argument("--objectives", action="append", default=[],
                     metavar="OBJECTIVE_ID", help="session-start: objective for this sitting")
@@ -3832,6 +3894,13 @@ def main():
     elif cmd == "policy-check":
         sys.exit(cmd_policy_check(root, args.course, args.assignment, args.level,
                                   args.preference))
+    elif cmd == "session-improvement-start":
+        sys.exit(cmd_session_improvement_start(root, args.session, args.learner,
+                                               args.improvement_scope, args.dry_run))
+    elif cmd == "session-improvement-status":
+        sys.exit(cmd_session_improvement_status(root, args.session, args.learner))
+    elif cmd == "session-improvement-stop":
+        sys.exit(cmd_session_improvement_stop(root, args.session, args.learner))
     elif cmd == "session-start":
         sys.exit(cmd_session_start(root, args.course, args.learner, args.objectives,
                                    args.minutes, args.modes or ["tutoring"],

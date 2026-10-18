@@ -89,6 +89,26 @@ def objective_body(stage, evidence=None):
 
 
 # ---------------------------------------------------------------------------
+def test_session_improvement_consent_expiry_is_fail_closed(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        st.set_session_improvement_consent("expired", scope="session_observation", expires_at="2000-01-01T00:00:00Z")
+        assert st.session_improvement_consent("expired")["state"] == "expired"
+
+
+def test_session_improvement_consent_defaults_off_and_stops(tmp_path):
+    with S.Store.open(tmp_path, LEARNER) as st:
+        assert st.session_improvement_consent("session-1") is None
+        body, replayed = st.set_session_improvement_consent("session-1", scope="session_observation")
+        assert body["state"] == "enabled"
+        assert body["persistent_opt_in"] is False
+        assert not replayed
+        assert st.session_improvement_consent("session-1")["scope"] == ["session_observation"]
+        stopped, replayed = st.stop_session_improvement("session-1")
+        assert stopped["state"] == "disabled"
+        assert not replayed
+        assert st.session_improvement_consent("session-1")["state"] == "disabled"
+
+
 def test_write_is_atomic_and_keeps_events_with_state():
     with tempfile.TemporaryDirectory() as tmp:
         with S.Store.open(tmp, LEARNER) as st:

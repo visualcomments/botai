@@ -291,6 +291,49 @@ class Store:
             rows.append(record)
         return rows
 
+    def session_improvement_consent(self, session_id):
+        row = self._conn.execute(
+            "SELECT body_json FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND entity_id=?",
+            (self.learner_id, WORKSPACE_COURSE_ID, "session_improvement_consent", session_id),
+        ).fetchone()
+        if not row:
+            return None
+        body = json.loads(row["body_json"])
+        expires_at = body.get("expires_at")
+        if body.get("state") == "enabled" and expires_at:
+            try:
+                if datetime.fromisoformat(expires_at.replace("Z", "+00:00")) <= datetime.now(timezone.utc):
+                    body["state"] = "expired"
+            except (TypeError, ValueError):
+                body["state"] = "disabled"
+        return body
+
+    def set_session_improvement_consent(self, session_id, *, scope, source="interactive_tty", request_id=None, expires_at=None):
+        if scope not in {"session_observation", "session_observation,session_overlay"}:
+            raise StoreError("CONSENT_SCOPE_INVALID", "недопустимая область согласия")
+        body = {"session_id": session_id, "state": "enabled", "scope": scope.split(","),
+                "source": source, "persistent_opt_in": False, "expires_at": expires_at}
+        result, replayed = self.apply(
+            kind="session_improvement_consent", entity_id=session_id,
+            events=["session_improvement.consent_enabled"], new_body=body,
+            event_payloads=[{"scope": body["scope"], "source": source}], request_id=request_id,
+        )
+        return body, replayed
+
+    def stop_session_improvement(self, session_id, *, request_id=None):
+        current = self.session_improvement_consent(session_id)
+        if current is None:
+            return None, False
+        body = dict(current)
+        body["state"] = "disabled"
+        result, replayed = self.apply(
+            kind="session_improvement_consent", entity_id=session_id,
+            events=["session_improvement.consent_disabled"], new_body=body,
+            expected_version=self.version_of("session_improvement_consent", session_id),
+            event_payloads=[{}], request_id=request_id,
+        )
+        return body, replayed
+
     def version_of(self, kind, entity_id, course_id=WORKSPACE_COURSE_ID):
         row = self._conn.execute(
             "SELECT version FROM entities WHERE learner_id=? AND course_id=? AND kind=? AND entity_id=?",
