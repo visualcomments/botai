@@ -36,8 +36,8 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: requirements-core.lock
-      - name: Install core dependencies
-        run: python -m pip install -r requirements-core.lock
+      - name: Install core dependencies and test runner
+        run: python -m pip install -r requirements-core.lock pytest
       - name: Run realtime store regression tests
         run: python -m pytest -q tests/test_store.py
       - name: Run realtime behavioral fixtures
