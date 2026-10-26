@@ -67,25 +67,25 @@ HAS_MARKDOWNLINT := $(shell command -v markdownlint-cli2 >/dev/null 2>&1 && echo
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
 .PHONY: help doctor install test check harness-audit eval \
-        setup new-course \
-        progress review courses course-set active \
-        corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
-        env-plan action-approve env-apply env-status operation-reconcile \
-        contribute-start contribute-status contribute-draft contribute-rehearsal \
-        persona-set achievements \
-        privacy-preview privacy-export privacy-delete teacher-import teacher-summary blockers \
-        adapter-check adapter-install catalog-check \
-        upgrade-plan upgrade-apply upgrade-check \
-        course-inspect course-accept course-status policy-check \
-        course-deploy-choice course-deploy-status course-oca
-        harness-status state-view context-status session-budget session-bootstrap session-handoff \
-        session-start session-next session-goal session-attempt session-check session-pause \
-        consent-set consent-withdraw \
-        update update-check update-dry-run \
-        course-add course-update course-update-check course-update-commit detect-courses \
-        education-club \
-        lint \
-        clean
+	setup new-course \
+	progress review courses course-set active \
+	corpus corpus-status corpus-acquire source-search quote-verify state-migrate \
+	env-plan action-approve env-apply env-status operation-reconcile \
+	contribute-start contribute-status contribute-draft contribute-rehearsal \
+	persona-set achievements \
+	privacy-preview privacy-export privacy-delete teacher-import teacher-summary blockers \
+	adapter-check adapter-install catalog-check \
+	upgrade-plan upgrade-apply upgrade-check \
+	course-inspect course-accept course-status policy-check \
+	course-deploy-choice course-deploy-status course-oca
+	harness-status state-view context-status session-budget session-bootstrap session-handoff \
+	session-start session-next session-goal session-attempt session-check session-pause \
+	consent-set consent-withdraw \
+	update update-check update-dry-run \
+	course-add course-update course-update-check course-update-commit detect-courses \
+	education-club \
+	lint \
+	clean
 
 
 
@@ -289,7 +289,7 @@ state-migrate:
 # the contract, so editing the file afterwards does not change the policy --
 # otherwise whoever commits last could reclassify graded work as practice.
 # ============================================================================
-course-deploy-choice:\n\t@python3 scripts/cli.py course-deploy-choice --course "$(COURSE)" --choice "$(CHOICE)" $(if $(ALLOW_WEB),--allow-web-research,) $(if $(ALLOW_COPY),--allow-local-copy,) $(if $(ALLOW_DERIVATIVES),--allow-derivatives,)\n\ncourse-deploy-status:\n\t@python3 scripts/cli.py course-deploy-status --course "$(COURSE)" $(if $(STATE),--json,)\n\ncourse-oca:\n\t@python3 scripts/cli.py course-oca --course "$(COURSE)" $(if $(OFFLINE),--offline,) $(if $(STATE),--json,)\n\ncourse-deploy-choice:
+course-deploy-choice:
 	@python3 scripts/cli.py course-deploy-choice --course "$(COURSE)" --choice "$(CHOICE)" $(if $(ALLOW_WEB),--allow-web-research,) $(if $(ALLOW_COPY),--allow-local-copy,) $(if $(ALLOW_DERIVATIVES),--allow-derivatives,)
 
 course-deploy-status:
