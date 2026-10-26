@@ -666,6 +666,85 @@ def cmd_state_migrate(root, course, dry, learner_id, confirm_split, apply=False)
     return 0
 
 
+def cmd_course_deploy_choice(root, course, choice, args):
+    """Record the user's explicit pre-deployment choice."""
+    loaded = _load_core()
+    if loaded is None:
+        return 2
+    from botai_core import deployment
+    if not course:
+        print("usage: cli.py course-deploy-choice --course <slug> --choice as-is|prepare|copilot")
+        return 2
+    try:
+        payload = deployment.choose(
+            root, course, choice,
+            allow_web=args.allow_web_research,
+            allow_local_copy=args.allow_local_copy,
+            allow_derivatives=args.allow_derivatives,
+            language=args.lang or "ru",
+            learner_level=args.learner_level or "unknown",
+            time_budget=args.time_budget,
+            dry=args.dry_run,
+        )
+    except (ValueError, P.PathError) as exc:
+        print("  выбор отклонён: %s" % exc)
+        return 2
+    print("== подготовка курса: %s ==" % course)
+    print("  режим       : %s" % payload["choice"])
+    print("  поиск в сети: %s" % ("разрешён" if payload["permissions"]["allow_web_research"] else "запрещён"))
+    print("  дополнения  : %s" % ("разрешены к предложению" if payload["permissions"]["allow_derivative_supplements"] else "не разрешены"))
+    print("  OCA         : будет выполнен отдельным шагом, если команда установлена")
+    print("  человеческое принятие: обязательно")
+    print("  %s" % ("ничего не записано (--dry-run)" if args.dry_run else "выбор сохранён в .botai/deployments/%s/choice.json" % course))
+    return 0
+
+
+def cmd_course_deploy_status(root, course, as_json):
+    from botai_core import deployment
+    if not course:
+        print("usage: cli.py course-deploy-status --course <slug>")
+        return 2
+    try:
+        payload = deployment.status(root, course)
+    except (ValueError, P.PathError) as exc:
+        print("  статус недоступен: %s" % exc)
+        return 2
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print("== статус подготовки: %s ==" % course)
+        print("  режим       : %s" % (payload.get("choice") or "не выбран"))
+        print("  статус      : %s" % payload.get("status"))
+        if payload.get("status") == "stale-source":
+            print("  ВНИМАНИЕ: исходные материалы изменились; выбор нужно подтвердить заново.")
+    return 0
+
+
+def cmd_course_oca(root, course, offline, as_json):
+    from botai_core import deployment
+    if not course:
+        print("usage: cli.py course-oca --course <slug> [--offline]")
+        return 2
+    try:
+        payload = deployment.run_oca(root, course, offline=offline)
+    except P.PathError as exc:
+        print("  путь курса отклонён: %s" % exc)
+        return 2
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print("== базовая проверка OCA: %s ==" % course)
+        print("  статус: %s" % payload.get("status"))
+        if payload.get("reason"):
+            print("  причина: %s" % payload["reason"])
+        if payload.get("status") == "completed":
+            report = payload.get("report") or {}
+            print("  OCA завершён. Его отчёт является входом для субагентов, не решением о выпуске.")
+            if isinstance(report, dict) and report.get("overall") is not None:
+                print("  overall: %s" % report["overall"])
+    return 0 if payload.get("status") in {"completed", "unavailable"} else 1
+
+
 def _load_core():
     """Import the v2 core, or explain what is missing and return None."""
     try:
@@ -4032,6 +4111,7 @@ def main():
                                         "voice-status",
                                         "set-language",
                                         "offline-status",
+                                        "course-deploy-choice", "course-deploy-status", "course-oca",
                                         ])
     ap.add_argument("--name", help="course slug for new-course / course-add")
     ap.add_argument("--title", help="course title for new-course")
@@ -4128,7 +4208,19 @@ def main():
     ap.add_argument("--limit", type=int, default=5, help="source-search: max hits (1-8)")
     ap.add_argument("--citation", help="quote-verify: JSON file with the citation")
     ap.add_argument("--offline", action="store_true",
-                    help="corpus-acquire: use only what is already local")
+                    help="corpus-acquire/course-oca: use only what is already local")
+    ap.add_argument("--choice", choices=["as-is", "prepare", "copilot"],
+                    help="course-deploy-choice: how to prepare the course")
+    ap.add_argument("--allow-web-research", action="store_true",
+                    help="course-deploy-choice: allow network research")
+    ap.add_argument("--allow-local-copy", action="store_true",
+                    help="course-deploy-choice: allow local copies of sources")
+    ap.add_argument("--allow-derivatives", action="store_true",
+                    help="course-deploy-choice: allow derivative supplement proposals")
+    ap.add_argument("--learner-level", default="unknown",
+                    help="course-deploy-choice: learner level")
+    ap.add_argument("--time-budget", choices=["short", "standard", "deep"], default="standard",
+                    help="course-deploy-choice: preparation budget")
     ap.add_argument("--spec", help="env-plan: environment spec JSON file")
     ap.add_argument("--operation", help="operation id (env-apply/action-approve/env-status)")
     ap.add_argument("--deny", action="store_true",
@@ -4537,6 +4629,14 @@ def main():
         sys.exit(cmd_set_language(root, args.lang, args.course, args.learner))
     elif cmd == "offline-status":
         sys.exit(cmd_offline_status(root, args.course, args.json))
+    elif cmd == "course-deploy-choice":
+        if not args.choice:
+            sys.exit("course-deploy-choice требует --choice as-is|prepare|copilot")
+        sys.exit(cmd_course_deploy_choice(root, args.course, args.choice, args))
+    elif cmd == "course-deploy-status":
+        sys.exit(cmd_course_deploy_status(root, args.course, args.json))
+    elif cmd == "course-oca":
+        sys.exit(cmd_course_oca(root, args.course, args.offline, args.json))
     elif cmd == "doctor":
         cmd_doctor(root, args.dry_run)
     elif cmd == "clean":
