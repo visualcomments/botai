@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://botai.local/schemas/v2/deployment_choice.schema.json",
+  "title": "botai course deployment choice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "course", "choice", "selected_at", "course_snapshot", "permissions", "learner", "time_budget", "status"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "course": {"$ref": "common.schema.json#/$defs/slug"},
+    "choice": {"type": "string", "enum": ["as-is", "prepare", "copilot"]},
+    "selected_at": {"type": "string", "minLength": 1},
+    "course_snapshot": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "permissions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allow_web_research", "allow_local_copy_of_sources", "allow_derivative_supplements", "require_human_approval"],
+      "properties": {
+        "allow_web_research": {"type": "boolean"},
+        "allow_local_copy_of_sources": {"type": "boolean"},
+        "allow_derivative_supplements": {"type": "boolean"},
+        "require_human_approval": {"type": "boolean", "const": true}
+      }
+    },
+    "learner": {
+      "type": "object", "additionalProperties": false,
+      "required": ["language", "level"],
+      "properties": {"language": {"type": "string", "minLength": 2}, "level": {"type": "string", "minLength": 1}}
+    },
+    "time_budget": {"type": "string", "enum": ["short", "standard", "deep"]},
+    "status": {"type": "string", "enum": ["selected", "awaiting-preparation"]},
+    "note_ru": {"type": "string"}
+  }
+}

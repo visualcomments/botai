@@ -68,6 +68,7 @@ CONTRACTS = {
     "plan": "plan.schema.json#/$defs/plan",
     "approval": "plan.schema.json#/$defs/approval",
     "operation": "plan.schema.json#/$defs/operation",
+    "deployment_choice": "deployment_choice.schema.json",
     # Entities are stored individually, so they are validated individually:
     # a rule that only applied to the containing document would not run at the
     # moment of the write.
