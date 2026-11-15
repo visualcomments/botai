@@ -1,0 +1,3823 @@
+{
+  "schema": "scientific-evidence-review.v1",
+  "kind": "expert_review",
+  "run_id": "run-20261114154851",
+  "review_id": "rv-1-s2-0-s187705092031-e71b53c8",
+  "created_at": "2026-11-14T16:35:18.073Z",
+  "expert": "Акрамов Никита",
+  "score": 3,
+  "comments": "Да, модель правильно определяет значения переменных, правильно ссылается на местоположения переменных в файле. Указывает точную цитату где находится правильное описание переменной. Немного ошибается в указании страницы. Но есть очень существенные проблемы:\n1. Определяет обычную картинку как график (в данном примере кейс не очень простой, так как на картинке есть линии, напоминающие оси, но все же, дальше есть очевидные графики)\n2. Соотносит значения с переменными не к тем графикам. \nИз-за того, что модель неправильно определила картинку как график, все проверки провалились. Она постоянно ссылалась на картинку как на график.\nТак как основная проверка, а именно выявление графиков и картинок, правильное распределение осей и значений с графиков, провалилась, то я не могу поставить оценку выше 3.",
+  "expert_approved": true,
+  "document": {
+    "document_id": "doc-e71b53c8bc925eb1",
+    "filename": "1-s2.0-S1877050920312096-main.pdf",
+    "sha256": "e71b53c8bc925eb1c68d8c8eea7a43d84748320d07cea626e9ea491695039a94",
+    "size_bytes": 615824,
+    "chars": 40233,
+    "pages": 7,
+    "license": "unknown"
+  },
+  "method": "None+vision:gemini-3.7-flash",
+  "model": "gemini-3.7-flash",
+  "repo": "chaotic-good-project/scientific-extraction-review",
+  "experiments": [
+    {
+      "experiment_id": "exp-1",
+      "profile": "experiment",
+      "title": "Design and simulation of a multi-band microstrip patch antenna for 5G and space applications",
+      "research_question": "How to achieve multiple operating frequencies each dedicated to a specific purpose using a multi-band microstrip patch antenna?",
+      "hypothesis": "null",
+      "design": "case study",
+      "sample_size": null,
+      "population": "simulation model of a multi-band microstrip patch antenna",
+      "methods": "simulation using Ansys High-Frequency Structure Simulator (HFSS) v 15.0",
+      "intervention": "multi-band microstrip patch antenna design with FR4 epoxy substrate and inset feed line",
+      "control": null,
+      "conclusion": "The proposed antenna successfully achieves operation at multi-band frequencies with favorable return loss, VSWR, and gain, making it suitable for 5G and space applications.",
+      "results": [
+        {
+          "record_id": "rec-bd051810",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.3 para 3",
+          "field": "vswr",
+          "value": "1.7483",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 1,
+          "status": "candidate",
+          "evidence_quote": "The VSWR of 1.7483, 1.2709 and 1.3881 are obtained for the profound frequencies as shown in Fig 4.",
+          "reviewer_note": ""
+        },
+        {
+          "record_id": "rec-25d119bf",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.3 para 3",
+          "field": "vswr",
+          "value": "1.2709",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 1,
+          "status": "candidate",
+          "evidence_quote": "The VSWR of 1.7483, 1.2709 and 1.3881 are obtained for the profound frequencies as shown in Fig 4.",
+          "reviewer_note": ""
+        },
+        {
+          "record_id": "rec-d8868831",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.3 para 3",
+          "field": "vswr",
+          "value": "1.3881",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 1,
+          "status": "candidate",
+          "evidence_quote": "The VSWR of 1.7483, 1.2709 and 1.3881 are obtained for the profound frequencies as shown in Fig 4.",
+          "reviewer_note": ""
+        },
+        {
+          "record_id": "rec-c70d8249",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.3 para 3",
+          "field": "gain",
+          "value": "4.435",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 1,
+          "status": "candidate",
+          "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+          "reviewer_note": ""
+        },
+        {
+          "record_id": "rec-67aa1133",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.3 para 3",
+          "field": "gain",
+          "value": "3.6602",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 1,
+          "status": "candidate",
+          "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+          "reviewer_note": ""
+        },
+        {
+          "record_id": "rec-0b5b2915",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.3 para 3",
+          "field": "gain",
+          "value": "5.6402",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 1,
+          "status": "candidate",
+          "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+          "reviewer_note": ""
+        }
+      ],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "exp-1",
+      "profile": "experiment",
+      "title": "Simulation of a multi-band microstrip patch antenna in Ansys HFSS",
+      "research_question": "What return loss, VSWR, and gain does the proposed FR4 microstrip patch antenna achieve at target frequencies for radiolocation, satellite/space communication, radio astronomy, and 5G mobile communication?",
+      "hypothesis": null,
+      "design": "electromagnetic simulation study",
+      "sample_size": null,
+      "population": "Designed microstrip patch antenna on FR4 epoxy substrate (relative permittivity 4.4, dielectric loss tangent 0.02, thickness 0.6 mm) with microstrip inset line feed",
+      "methods": "Designed antenna geometry and scrutinized performance using Ansys HFSS v.15.0 software across target frequencies (23.9 GHz, 35.5 GHz, and 70.9 GHz)",
+      "intervention": "Microstrip patch antenna design with substrate thickness 0.6 mm, FR4 epoxy substrate (relative permittivity 4.4, dielectric loss tangent 0.02), patch dimensions 2.59 mm x 3.65 mm, feed line 1.705 mm x 0.334 mm, and inset dimensions Linset 0.334 mm and Winset 0.6 mm",
+      "control": null,
+      "conclusion": "The microstrip patch antenna operates at 23.9 GHz (space applications such as radio astronomy and satellites), 35.5 GHz (radiolocation), and 70.9 GHz (5G mobile communications), with justified return loss and positive gain making it suitable for these applications, while fabrication and real-environment verification are left for future work.",
+      "results": [
+        {
+          "record_id": "rec-db787eb5",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 3",
+          "field": "substrate_thickness",
+          "value": "0.6",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.95,
+          "status": "candidate",
+          "evidence_quote": "The antenna is designed by using the following dimensions of 6.1949mm X 7.2514mm having a thickness of 0.6mm at the substrate.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-216bdf64",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 3",
+          "field": "relative_permittivity",
+          "value": "4.4",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.95,
+          "status": "candidate",
+          "evidence_quote": "The substrate is composed of FR4 epoxy with a relative permittivity of 4.4 and dielectric loss tangent of 0.02.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-c30b8830",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 3",
+          "field": "dielectric_loss_tangent",
+          "value": "0.02",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.95,
+          "status": "candidate",
+          "evidence_quote": "The substrate is composed of FR4 epoxy with a relative permittivity of 4.4 and dielectric loss tangent of 0.02.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-570c6040",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Lg', column 'Dimension in mm'",
+          "field": "ground_length",
+          "value": "6.1949",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Lg 6.1949 Wg 7.2514",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-42304c8a",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Wg', column 'Dimension in mm'",
+          "field": "ground_width",
+          "value": "7.2514",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Lg 6.1949 Wg 7.2514",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-038ba3b3",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Ls', column 'Dimension in mm'",
+          "field": "substrate_length",
+          "value": "6.1949",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Ls 6.1949 Ws 7.2514",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-0495932c",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Ws', column 'Dimension in mm'",
+          "field": "substrate_width",
+          "value": "7.2514",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Ls 6.1949 Ws 7.2514",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-86df5959",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Lp', column 'Dimension in mm'",
+          "field": "patch_length",
+          "value": "2.59",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Lp 2.59 Wp 3.65",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-96a80c38",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Wp', column 'Dimension in mm'",
+          "field": "patch_width",
+          "value": "3.65",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Lp 2.59 Wp 3.65",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-5278849c",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Lf', column 'Dimension in mm'",
+          "field": "feed_line_length",
+          "value": "1.705",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "L f 1.705 W f 0.334",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-c3ef206e",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Wf', column 'Dimension in mm'",
+          "field": "feed_line_width",
+          "value": "0.334",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "L f 1.705 W f 0.334",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-07570063",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Linset', column 'Dimension in mm'",
+          "field": "inset_length",
+          "value": "0.334",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Linset 0.334 Winset 0.6",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-d6c46b43",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "Table 1 row 'Winset', column 'Dimension in mm'",
+          "field": "inset_width",
+          "value": "0.6",
+          "unit": "mm",
+          "value_type": "number",
+          "confidence": 0.5,
+          "status": "candidate",
+          "evidence_quote": "Linset 0.334 Winset 0.6",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text"
+        },
+        {
+          "record_id": "rec-97a8bb20",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 4",
+          "field": "return_loss",
+          "value": "-19.9737",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.85,
+          "status": "candidate",
+          "evidence_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in ﬁg x.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-b745dda4",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 4",
+          "field": "return_loss",
+          "value": "-22.7307",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.85,
+          "status": "candidate",
+          "evidence_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in ﬁg x.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-b45d6d07",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 4",
+          "field": "return_loss",
+          "value": "-21.9667",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.85,
+          "status": "candidate",
+          "evidence_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in ﬁg x.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-174a02ab",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 4",
+          "field": "gain",
+          "value": "4.435",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.85,
+          "status": "candidate",
+          "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-e187dc13",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 4",
+          "field": "gain",
+          "value": "3.6602",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.85,
+          "status": "candidate",
+          "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-b3746135",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "text",
+          "locator": "p.1 para 4",
+          "field": "gain",
+          "value": "5.6402",
+          "unit": null,
+          "value_type": "number",
+          "confidence": 0.85,
+          "status": "candidate",
+          "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+          "reviewer_note": "страница от модели 1, по цитате 3 — принята 3"
+        },
+        {
+          "record_id": "rec-e1cd9b12",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 5",
+          "field": "radiation_pattern_sweep_angle",
+          "value": null,
+          "unit": "3600 angle",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 5. Radiation pattern sweep in 3600 angle",
+          "reviewer_note": "значение не заявлено/неоднозначно: подтвердите null или впишите значение"
+        }
+      ],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-2",
+      "profile": "experiment",
+      "title": "Рисунок 2 (стр. 4)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [
+        {
+          "record_id": "rec-8863de02",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-19.9737",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-19.9737",
+            "text_match": "confirm",
+            "text_value": "-19.9737",
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-c6158a89",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-22.7302",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-22.7302",
+            "text_match": "confirm",
+            "text_value": "-22.7307",
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-b1001bff",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-21.9667",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-21.9667",
+            "text_match": "confirm",
+            "text_value": "-21.9667",
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-f46b06bc",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-10.8237",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-10.8237",
+            "text_match": "absent",
+            "text_value": null,
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-9aa05d71",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-10.8520",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-10.8520",
+            "text_match": "absent",
+            "text_value": null,
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-1c5ca6a5",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-10.7365",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-10.7365",
+            "text_match": "absent",
+            "text_value": null,
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-33610d94",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-10.8664",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-10.8664",
+            "text_match": "absent",
+            "text_value": null,
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-4a4ed5cc",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-10.6263",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-10.6263",
+            "text_match": "absent",
+            "text_value": null,
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-9215a616",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "не определено",
+          "value": "-10.7179",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.3,
+          "status": "candidate",
+          "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "страница от модели 4, по цитате 3 — принята 3",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-10.7179",
+            "text_match": "absent",
+            "text_value": null,
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        }
+      ],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-4",
+      "profile": "experiment",
+      "title": "Рисунок 4 (стр. 5)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-4",
+      "profile": "experiment",
+      "title": "Рисунок 4 (стр. 5)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-4",
+      "profile": "experiment",
+      "title": "Рисунок 4 (стр. 5)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-4",
+      "profile": "experiment",
+      "title": "Рисунок 4 (стр. 5)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [
+        {
+          "record_id": "rec-148d5aef",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 4",
+          "field": "не определено",
+          "value": "3.6602",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.8,
+          "status": "candidate",
+          "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Angle (degrees)",
+              "y": "dB(GainTotal)"
+            },
+            "series": [
+              "Setup2: LastAdaptive Freq='23.9GHz' Phi='0deg'"
+            ],
+            "read_value": "3.66",
+            "text_match": "confirm",
+            "text_value": "3.6602",
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-102e195c",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 4",
+          "field": "не определено",
+          "value": "4.435",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.8,
+          "status": "candidate",
+          "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Angle (degrees)",
+              "y": "dB(GainTotal)"
+            },
+            "series": [
+              "Setup3: LastAdaptive Freq='35.5GHz' Phi='0deg'"
+            ],
+            "read_value": "4.44",
+            "text_match": "confirm",
+            "text_value": "4.435",
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-8fc9237f",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 4",
+          "field": "не определено",
+          "value": "5.6402",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.8,
+          "status": "candidate",
+          "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Angle (degrees)",
+              "y": "dB(GainTotal)"
+            },
+            "series": [
+              "Setup4: LastAdaptive Freq='70.9GHz' Phi='0deg'"
+            ],
+            "read_value": "5.64",
+            "text_match": "confirm",
+            "text_value": "5.6402",
+            "text_quote": null,
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        }
+      ],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-4",
+      "profile": "experiment",
+      "title": "Рисунок 4 (стр. 5)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [
+        {
+          "record_id": "rec-ddf13e7e",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 4",
+          "field": "gain",
+          "value": "4.4358e+00",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.4,
+          "status": "candidate",
+          "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; text_quote не найден дословно — text_match понижен до absent",
+          "figure": {
+            "chart_type": "contour",
+            "axes": {
+              "x": "Phi",
+              "y": "Theta"
+            },
+            "series": [
+              "(a)"
+            ],
+            "read_value": "4.4358",
+            "text_match": "absent",
+            "text_value": "4.435",
+            "text_quote": "gain",
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-c34c648d",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 4",
+          "field": "gain",
+          "value": "3.6602e+00",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.4,
+          "status": "candidate",
+          "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; text_quote не найден дословно — text_match понижен до absent",
+          "figure": {
+            "chart_type": "contour",
+            "axes": {
+              "x": "Phi",
+              "y": "Theta"
+            },
+            "series": [
+              "(b)"
+            ],
+            "read_value": "3.6602",
+            "text_match": "absent",
+            "text_value": "3.6602",
+            "text_quote": "gain",
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-c1f56a08",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 5,
+          "modality": "figure",
+          "locator": "Figure 4",
+          "field": "gain",
+          "value": "5.6402e+00",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.4,
+          "status": "candidate",
+          "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; text_quote не найден дословно — text_match понижен до absent",
+          "figure": {
+            "chart_type": "contour",
+            "axes": {
+              "x": "Phi",
+              "y": "Theta"
+            },
+            "series": [
+              "(c)"
+            ],
+            "read_value": "5.6402",
+            "text_match": "absent",
+            "text_value": "5.6402",
+            "text_quote": "gain",
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        }
+      ],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-4",
+      "profile": "experiment",
+      "title": "Рисунок 4 (стр. 6)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [],
+      "evidence_quotes": []
+    },
+    {
+      "experiment_id": "fig-2",
+      "profile": "experiment",
+      "title": "Рисунок 2 (стр. 4)",
+      "research_question": null,
+      "hypothesis": null,
+      "design": null,
+      "sample_size": null,
+      "population": null,
+      "methods": null,
+      "intervention": null,
+      "control": null,
+      "conclusion": null,
+      "results": [
+        {
+          "record_id": "rec-1f4ac092",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "return_loss",
+          "value": "-19.9737",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.4,
+          "status": "candidate",
+          "evidence_quote": "(a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; страница от модели 4, по цитате 3 — принята 3; text_quote не найден дословно — text_match понижен до absent",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-19.9737",
+            "text_match": "absent",
+            "text_value": "-19.9737",
+            "text_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in fig x.",
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-548be595",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "return_loss",
+          "value": "-22.7307",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.4,
+          "status": "candidate",
+          "evidence_quote": "(a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; страница от модели 4, по цитате 3 — принята 3; text_quote не найден дословно — text_match понижен до absent",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-22.7307",
+            "text_match": "absent",
+            "text_value": "-22.7307",
+            "text_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in fig x.",
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        },
+        {
+          "record_id": "rec-c1bb07bf",
+          "document_id": "doc-e71b53c8bc925eb1",
+          "page": 3,
+          "modality": "figure",
+          "locator": "Figure 2",
+          "field": "return_loss",
+          "value": "-21.9667",
+          "unit": "dB",
+          "value_type": "number",
+          "confidence": 0.4,
+          "status": "candidate",
+          "evidence_quote": "(a) The top view of designed antenna; (b) Side view of the designed antenna.",
+          "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; страница от модели 4, по цитате 3 — принята 3; text_quote не найден дословно — text_match понижен до absent",
+          "figure": {
+            "chart_type": "line",
+            "axes": {
+              "x": "Freq [GHz]",
+              "y": "dB(S(1,1))"
+            },
+            "series": [
+              "dB(S(1,1))"
+            ],
+            "read_value": "-21.9667",
+            "text_match": "absent",
+            "text_value": "-21.9667",
+            "text_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in fig x.",
+            "description_check": "consistent",
+            "description_conflict": null
+          }
+        }
+      ],
+      "evidence_quotes": []
+    }
+  ],
+  "records": [
+    {
+      "record_id": "rec-bd051810",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "vswr",
+      "value": "1.7483",
+      "unit": null,
+      "value_type": "number",
+      "confidence": 1,
+      "status": "approved",
+      "evidence_quote": "The VSWR of 1.7483, 1.2709 and 1.3881 are obtained for the profound frequencies as shown in Fig 4.",
+      "reviewer_note": "",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-25d119bf",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "vswr",
+      "value": "1.2709",
+      "unit": null,
+      "value_type": "number",
+      "confidence": 1,
+      "status": "approved",
+      "evidence_quote": "The VSWR of 1.7483, 1.2709 and 1.3881 are obtained for the profound frequencies as shown in Fig 4.",
+      "reviewer_note": "",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-d8868831",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "vswr",
+      "value": "1.3881",
+      "unit": null,
+      "value_type": "number",
+      "confidence": 1,
+      "status": "approved",
+      "evidence_quote": "The VSWR of 1.7483, 1.2709 and 1.3881 are obtained for the profound frequencies as shown in Fig 4.",
+      "reviewer_note": "",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-c70d8249",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "gain",
+      "value": "4.435",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 1,
+      "status": "approved",
+      "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+      "reviewer_note": "",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-67aa1133",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "gain",
+      "value": "3.6602",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 1,
+      "status": "approved",
+      "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+      "reviewer_note": "",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-0b5b2915",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "gain",
+      "value": "5.6402",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 1,
+      "status": "approved",
+      "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+      "reviewer_note": "",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-db787eb5",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "text",
+      "locator": "p.3 para 3",
+      "field": "substrate_thickness",
+      "value": "0.6",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.95,
+      "status": "approved",
+      "evidence_quote": "The antenna is designed by using the following dimensions of 6.1949mm X 7.2514mm having a thickness of 0.6mm at the substrate.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.3 para 3"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-216bdf64",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "text",
+      "locator": "p.3 para 3",
+      "field": "relative_permittivity",
+      "value": "4.4",
+      "unit": null,
+      "value_type": "number",
+      "confidence": 0.95,
+      "status": "approved",
+      "evidence_quote": "The substrate is composed of FR4 epoxy with a relative permittivity of 4.4 and dielectric loss tangent of 0.02.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.3 para 3"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-c30b8830",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "text",
+      "locator": "p.3 para 3",
+      "field": "dielectric_loss_tangent",
+      "value": "0.02",
+      "unit": null,
+      "value_type": "number",
+      "confidence": 0.95,
+      "status": "approved",
+      "evidence_quote": "The substrate is composed of FR4 epoxy with a relative permittivity of 4.4 and dielectric loss tangent of 0.02.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.3 para 3"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-570c6040",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Lg', column 'Dimension in mm'",
+      "field": "ground_length",
+      "value": "6.1949",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Lg 6.1949 Wg 7.2514",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-42304c8a",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Wg', column 'Dimension in mm'",
+      "field": "ground_width",
+      "value": "7.2514",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Lg 6.1949 Wg 7.2514",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-038ba3b3",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Ls', column 'Dimension in mm'",
+      "field": "substrate_length",
+      "value": "6.1949",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Ls 6.1949 Ws 7.2514",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-0495932c",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Ws', column 'Dimension in mm'",
+      "field": "substrate_width",
+      "value": "7.2514",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Ls 6.1949 Ws 7.2514",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-86df5959",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Lp', column 'Dimension in mm'",
+      "field": "patch_length",
+      "value": "2.59",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Lp 2.59 Wp 3.65",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-96a80c38",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Wp', column 'Dimension in mm'",
+      "field": "patch_width",
+      "value": "3.65",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Lp 2.59 Wp 3.65",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-5278849c",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Lf', column 'Dimension in mm'",
+      "field": "feed_line_length",
+      "value": "1.705",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "L f 1.705 W f 0.334",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-c3ef206e",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Wf', column 'Dimension in mm'",
+      "field": "feed_line_width",
+      "value": "0.334",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "L f 1.705 W f 0.334",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-07570063",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Linset', column 'Dimension in mm'",
+      "field": "inset_length",
+      "value": "0.334",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Linset 0.334 Winset 0.6",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-d6c46b43",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "Table 1 row 'Winset', column 'Dimension in mm'",
+      "field": "inset_width",
+      "value": "0.6",
+      "unit": "mm",
+      "value_type": "number",
+      "confidence": 0.5,
+      "status": "approved",
+      "evidence_quote": "Linset 0.334 Winset 0.6",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3; modality=table, но в найденном фрагменте нет табличных разделителей — снижено до text",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-97a8bb20",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "return_loss",
+      "value": "dB",
+      "unit": null,
+      "value_type": "number",
+      "confidence": 0.85,
+      "status": "approved",
+      "evidence_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in ﬁg x.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "fixed",
+          "fix": "dB"
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": null,
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-b745dda4",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "return_loss",
+      "value": "-22.7307",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.85,
+      "status": "approved",
+      "evidence_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in ﬁg x.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "fixed",
+          "fix": "dB"
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-b45d6d07",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "return_loss",
+      "value": "-21.9667",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.85,
+      "status": "approved",
+      "evidence_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in ﬁg x.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "fixed",
+          "fix": "dB"
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-174a02ab",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "gain",
+      "value": "4.435",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.85,
+      "status": "approved",
+      "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "fixed",
+          "fix": "dB"
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-e187dc13",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "gain",
+      "value": "3.6602",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.85,
+      "status": "approved",
+      "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "fixed",
+          "fix": "dB"
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-b3746135",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "text",
+      "locator": "p.4 para 1",
+      "field": "gain",
+      "value": "5.6402",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.85,
+      "status": "approved",
+      "evidence_quote": "The radiation pattern for the obtained frequencies is resolute and has a favourable gain of 4.435, 3.6602 and 5.6402 for frequencies 23.9GHz, 35.5GHz and 70.9GHz as observed in Fig 6(a)(b)(c) respectively.",
+      "reviewer_note": "страница от модели 1, по цитате 3 — принята 3",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "fixed",
+          "fix": "dB"
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "p.4 para 1"
+        },
+        "confidence": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-e1cd9b12",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "Figure 5",
+      "field": null,
+      "value": null,
+      "unit": null,
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 5. Radiation pattern sweep in 3600 angle",
+      "reviewer_note": "значение не заявлено/неоднозначно: подтвердите null или впишите значение",
+      "experiment_id": "exp-1",
+      "field_reviews": {
+        "field": {
+          "verdict": "null",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "null",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "null",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "absent",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-8863de02",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-19.9737",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком.",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-19.9737",
+        "text_match": "confirm",
+        "text_value": "-19.9737",
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-c6158a89",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-22.7302",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-22.7302",
+        "text_match": "confirm",
+        "text_value": "-22.7307",
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-b1001bff",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-21.9667",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-21.9667",
+        "text_match": "confirm",
+        "text_value": "-21.9667",
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-f46b06bc",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-10.8237",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-10.8237",
+        "text_match": "absent",
+        "text_value": null,
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-9aa05d71",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-10.8520",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-10.8520",
+        "text_match": "absent",
+        "text_value": null,
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-1c5ca6a5",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-10.7365",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-10.7365",
+        "text_match": "absent",
+        "text_value": null,
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-33610d94",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-10.8664",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-10.8664",
+        "text_match": "absent",
+        "text_value": null,
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-4a4ed5cc",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-10.6263",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-10.6263",
+        "text_match": "absent",
+        "text_value": null,
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-9215a616",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 3,
+      "modality": "figure",
+      "locator": "Figure 2",
+      "field": "не определено",
+      "value": "-10.7179",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.3,
+      "status": "rejected",
+      "evidence_quote": "Fig. 2. (a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "страница от модели 4, по цитате 3 — принята 3 | Не является графиком",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-10.7179",
+        "text_match": "absent",
+        "text_value": null,
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "correct",
+          "fix": ""
+        }
+      }
+    },
+    {
+      "record_id": "rec-148d5aef",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "6",
+      "field": "gain",
+      "value": "3.6602",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.8,
+      "status": "rejected",
+      "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её | не к тому графику относится значение",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Angle (degrees)",
+          "y": "dB(GainTotal)"
+        },
+        "series": [
+          "Setup2: LastAdaptive Freq='23.9GHz' Phi='0deg'"
+        ],
+        "read_value": "3.66",
+        "text_match": "confirm",
+        "text_value": "3.6602",
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-4",
+      "field_reviews": {
+        "field": {
+          "verdict": "fixed",
+          "fix": "gain"
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "6"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "не тот график"
+        }
+      }
+    },
+    {
+      "record_id": "rec-102e195c",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "6",
+      "field": "gain",
+      "value": "4.435",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.8,
+      "status": "rejected",
+      "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её | Не к тому графику относится значение",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Angle (degrees)",
+          "y": "dB(GainTotal)"
+        },
+        "series": [
+          "Setup3: LastAdaptive Freq='35.5GHz' Phi='0deg'"
+        ],
+        "read_value": "4.44",
+        "text_match": "confirm",
+        "text_value": "4.435",
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-4",
+      "field_reviews": {
+        "field": {
+          "verdict": "fixed",
+          "fix": "gain"
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "6"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "не тот график"
+        }
+      }
+    },
+    {
+      "record_id": "rec-8fc9237f",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "6",
+      "field": "gain",
+      "value": "5.6402",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.8,
+      "status": "rejected",
+      "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её | Не к тому графику относится значение",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Angle (degrees)",
+          "y": "dB(GainTotal)"
+        },
+        "series": [
+          "Setup4: LastAdaptive Freq='70.9GHz' Phi='0deg'"
+        ],
+        "read_value": "5.64",
+        "text_match": "confirm",
+        "text_value": "5.6402",
+        "text_quote": null,
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-4",
+      "field_reviews": {
+        "field": {
+          "verdict": "fixed",
+          "fix": "gain"
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "6"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "не тот график"
+        }
+      }
+    },
+    {
+      "record_id": "rec-ddf13e7e",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "6",
+      "field": "gain",
+      "value": "4.4358e+00",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.4,
+      "status": "rejected",
+      "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; text_quote не найден дословно — text_match понижен до absent | Не тот график",
+      "figure": {
+        "chart_type": "contour",
+        "axes": {
+          "x": "Phi",
+          "y": "Theta"
+        },
+        "series": [
+          "(a)"
+        ],
+        "read_value": "4.4358",
+        "text_match": "absent",
+        "text_value": "4.435",
+        "text_quote": "gain",
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-4",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "6"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "Не тот график"
+        }
+      }
+    },
+    {
+      "record_id": "rec-c34c648d",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "6",
+      "field": "gain",
+      "value": "3.6602e+00",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.4,
+      "status": "rejected",
+      "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; text_quote не найден дословно — text_match понижен до absent | Не тот график",
+      "figure": {
+        "chart_type": "contour",
+        "axes": {
+          "x": "Phi",
+          "y": "Theta"
+        },
+        "series": [
+          "(b)"
+        ],
+        "read_value": "3.6602",
+        "text_match": "absent",
+        "text_value": "3.6602",
+        "text_quote": "gain",
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-4",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "6"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "Не тот график"
+        }
+      }
+    },
+    {
+      "record_id": "rec-c1f56a08",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 5,
+      "modality": "figure",
+      "locator": "6",
+      "field": "gain",
+      "value": "5.6402e+00",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.4,
+      "status": "rejected",
+      "evidence_quote": "VSWR of the antenna must practically be between the values of 1 and 2.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; text_quote не найден дословно — text_match понижен до absent | Не тот график",
+      "figure": {
+        "chart_type": "contour",
+        "axes": {
+          "x": "Phi",
+          "y": "Theta"
+        },
+        "series": [
+          "(c)"
+        ],
+        "read_value": "5.6402",
+        "text_match": "absent",
+        "text_value": "5.6402",
+        "text_quote": "gain",
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-4",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "6"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "Не тот график"
+        }
+      }
+    },
+    {
+      "record_id": "rec-1f4ac092",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "figure",
+      "locator": "3",
+      "field": "return_loss",
+      "value": "-19.9737",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.4,
+      "status": "rejected",
+      "evidence_quote": "(a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; страница от модели 4, по цитате 3 — принята 3; text_quote не найден дословно — text_match понижен до absent | вообще не график, а картинка",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-19.9737",
+        "text_match": "absent",
+        "text_value": "-19.9737",
+        "text_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in fig x.",
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "3"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "вообще не график, а картинка"
+        }
+      }
+    },
+    {
+      "record_id": "rec-548be595",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "figure",
+      "locator": "3",
+      "field": "return_loss",
+      "value": "-22.7307",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.4,
+      "status": "rejected",
+      "evidence_quote": "(a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; страница от модели 4, по цитате 3 — принята 3; text_quote не найден дословно — text_match понижен до absent | вообще не график, а картинка",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-22.7307",
+        "text_match": "absent",
+        "text_value": "-22.7307",
+        "text_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in fig x.",
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "3"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "вообще не график, а картинка"
+        }
+      }
+    },
+    {
+      "record_id": "rec-c1bb07bf",
+      "document_id": "doc-e71b53c8bc925eb1",
+      "page": 4,
+      "modality": "figure",
+      "locator": "3",
+      "field": "return_loss",
+      "value": "-21.9667",
+      "unit": "dB",
+      "value_type": "number",
+      "confidence": 0.4,
+      "status": "rejected",
+      "evidence_quote": "(a) The top view of designed antenna; (b) Side view of the designed antenna.",
+      "reviewer_note": "цитата модели не найдена дословно — заменена дословной подписью рисунка со страницы; проверьте её; страница от модели 4, по цитате 3 — принята 3; text_quote не найден дословно — text_match понижен до absent | вообще не график, а картинка",
+      "figure": {
+        "chart_type": "line",
+        "axes": {
+          "x": "Freq [GHz]",
+          "y": "dB(S(1,1))"
+        },
+        "series": [
+          "dB(S(1,1))"
+        ],
+        "read_value": "-21.9667",
+        "text_match": "absent",
+        "text_value": "-21.9667",
+        "text_quote": "The return loss obtained for the frequencies of 23.9GHz, 35.5GHz and 70.9GHz are -19.9737,-22.7307 and -21.9667 respectively as shown in fig x.",
+        "description_check": "consistent",
+        "description_conflict": null
+      },
+      "experiment_id": "fig-2",
+      "field_reviews": {
+        "field": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "unit": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "value_type": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "page": {
+          "verdict": "fixed",
+          "fix": "4"
+        },
+        "modality": {
+          "verdict": "correct",
+          "fix": ""
+        },
+        "locator": {
+          "verdict": "fixed",
+          "fix": "3"
+        },
+        "confidence": {
+          "verdict": "absent",
+          "fix": ""
+        },
+        "evidence_quote": {
+          "verdict": "fixed",
+          "fix": "вообще не график, а картинка"
+        }
+      }
+    }
+  ],
+  "approved_count": 25,
+  "issues": [
+    "Отброшено записей без дословной цитаты: 4",
+    "«return_loss»: цитата не найдена дословно в тексте — запись отклонена (нет свидетельства)",
+    "«return_loss»: цитата не найдена дословно в тексте — запись отклонена (нет свидетельства)",
+    "«return_loss»: цитата не найдена дословно в тексте — запись отклонена (нет свидетельства)",
+    "«substrate_height»: цитата не найдена дословно в тексте — запись отклонена (нет свидетельства)",
+    "model_mode: vision",
+    "active_model: gemini-3.7-flash",
+    "стр. 1: кандидат-картинка отброшен vision-классификацией (vision: не график)",
+    "стр. 1: кандидат-картинка отброшен vision-классификацией (vision: не график)",
+    "стр. 2: кандидат-картинка отброшен vision-классификацией (vision: не график)",
+    "стр. 3: кандидат-картинка отброшен vision-классификацией (vision: не график)",
+    "стр. 1: кандидат-картинка отброшен vision-классификацией (vision: не график)",
+    "стр. 3: кандидат-картинка отброшен vision-классификацией (vision: не график)",
+    "эксперимент 2: нет записей с подтверждённой цитатой — впишите значения вручную",
+    "эксперимент 3: нет записей с подтверждённой цитатой — впишите значения вручную",
+    "эксперимент 4: нет записей с подтверждённой цитатой — впишите значения вручную",
+    "эксперимент 7: нет записей с подтверждённой цитатой — впишите значения вручную"
+  ],
+  "unchecked_fields": 1
+}
